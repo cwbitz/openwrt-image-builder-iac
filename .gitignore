@@ -1,0 +1,9 @@
+.env*
+bin/
+.DS_Store
+transfer.sh
+
+custom_modules
+docker-compose.yml
+_run.sh
+.claude/
