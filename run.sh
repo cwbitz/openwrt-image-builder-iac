@@ -66,6 +66,31 @@ usage()
     exit 1
 }
 
+# Docker container and pull policies
+BW_IMAGE=""
+FORCE_PULL=0
+FORCE_RECREATE=0
+SHOW_INFO=0
+
+# Target profile config
+BW_PROFILE=""
+
+# Module and package control configurations
+BW_OVERRIDE_MODULES=""
+BW_ADJUST_MODULES=""
+BW_EXTRA_PACKAGES=""
+BW_DISABLED_SERVICES=""
+
+# Target image customization configurations
+BW_EXTRA_IMAGE_NAME=""
+BW_ROOTFS_PARTSIZE=""
+
+# Output, local custom modules, and mirror network configurations
+BW_OUTPUT_DIR="./bin"
+BW_CUSTOM_MODULES_PATH="./custom_modules"
+BW_USE_MIRROR=0
+BW_MIRROR="mirrors.tuna.tsinghua.edu.cn"
+
 # Check for help flags first
 HAS_HELP=0
 for arg in "$@"; do
@@ -85,13 +110,271 @@ if [ "$HAS_HELP" -eq 1 ]; then
                 -h|--help)
                     ;;
                 *)
-                    echo "Wrong parameter \"$arg\" when using help flag"
+                    echo "Wrong parameter"
                     echo ""
                     break
                     ;;
             esac
         done
     fi
+    usage
+fi
+
+HAS_CONFLICTING_PARAM=0
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        # Docker container and pull policies
+        -i|--image)
+            if [ $# -lt 2 ]; then echo "Wrong parameter"; echo ""; usage; fi
+            BW_IMAGE="$2"
+            shift 2
+            ;;
+        -i=*|--image=*)
+            BW_IMAGE="${1#*=}"
+            shift 1
+            ;;
+        -i*)
+            BW_IMAGE="${1#-i}"
+            shift 1
+            ;;
+        -P|--force-pull)
+            FORCE_PULL=1
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -R|--force-recreate)
+            FORCE_RECREATE=1
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -I|--info)
+            SHOW_INFO=1
+            shift 1
+            ;;
+
+        # Target profile config
+        -p|--profile)
+            if [ $# -lt 2 ]; then echo "Wrong parameter"; echo ""; usage; fi
+            BW_PROFILE="$2"
+            HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -p=*|--profile=*)
+            BW_PROFILE="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -p*)
+            BW_PROFILE="${1#-p}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        # Module and package control configurations
+        -O|--override-modules)
+            if [ $# -lt 2 ]; then echo "Wrong parameter"; echo ""; usage; fi
+            BW_OVERRIDE_MODULES="$2"
+            HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -O=*|--override-modules=*)
+            BW_OVERRIDE_MODULES="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -O*)
+            BW_OVERRIDE_MODULES="${1#-O}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        -a|--adjust-modules)
+            if [ $# -lt 2 ]; then echo "Wrong parameter"; echo ""; usage; fi
+            BW_ADJUST_MODULES="$2"
+            HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -a=*|--adjust-modules=*)
+            BW_ADJUST_MODULES="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -a*)
+            BW_ADJUST_MODULES="${1#-a}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        -e|--extra-packages)
+            if [ $# -lt 2 ]; then echo "Wrong parameter"; echo ""; usage; fi
+            BW_EXTRA_PACKAGES="$2"
+            HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -e=*|--extra-packages=*)
+            BW_EXTRA_PACKAGES="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -e*)
+            BW_EXTRA_PACKAGES="${1#-e}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        -d|--disabled-services)
+            if [ $# -lt 2 ]; then echo "Wrong parameter"; echo ""; usage; fi
+            BW_DISABLED_SERVICES="$2"
+            HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -d=*|--disabled-services=*)
+            BW_DISABLED_SERVICES="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -d*)
+            BW_DISABLED_SERVICES="${1#-d}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        # Target image customization configurations
+        -E|--extra-image-name)
+            if [ $# -lt 2 ]; then echo "Wrong parameter"; echo ""; usage; fi
+            BW_EXTRA_IMAGE_NAME="$2"
+            HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -E=*|--extra-image-name=*)
+            BW_EXTRA_IMAGE_NAME="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -E*)
+            BW_EXTRA_IMAGE_NAME="${1#-E}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        -r|--rootfs-partsize)
+            if [ $# -lt 2 ]; then echo "Wrong parameter"; echo ""; usage; fi
+            BW_ROOTFS_PARTSIZE="$2"
+            HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -r=*|--rootfs-partsize=*)
+            BW_ROOTFS_PARTSIZE="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -r*)
+            BW_ROOTFS_PARTSIZE="${1#-r}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        # Output, local custom modules, and mirror network configurations
+        -o|--output-dir)
+            if [ $# -lt 2 ]; then echo "Wrong parameter"; echo ""; usage; fi
+            BW_OUTPUT_DIR="$2"
+            HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -o=*|--output-dir=*)
+            BW_OUTPUT_DIR="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -o*)
+            BW_OUTPUT_DIR="${1#-o}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        -c|--custom-modules-path)
+            if [ $# -lt 2 ]; then echo "Wrong parameter"; echo ""; usage; fi
+            BW_CUSTOM_MODULES_PATH="$2"
+            HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -c=*|--custom-modules-path=*)
+            BW_CUSTOM_MODULES_PATH="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -c*)
+            BW_CUSTOM_MODULES_PATH="${1#-c}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        -u|--use-mirror)
+            BW_USE_MIRROR=1
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        -m|--mirror)
+            if [ $# -lt 2 ]; then echo "Wrong parameter"; echo ""; usage; fi
+            BW_MIRROR="$2"
+            HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -m=*|--mirror=*)
+            BW_MIRROR="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -m*)
+            BW_MIRROR="${1#-m}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        # Help
+        -h|--help)
+            usage
+            ;;
+        *)
+            echo "Wrong parameter"
+            echo ""
+            usage
+            ;;
+    esac
+done
+
+# Validate --override-modules does not contain negative module entries (starting with '-')
+if [ -n "$BW_OVERRIDE_MODULES" ]; then
+    for item in $BW_OVERRIDE_MODULES; do
+        if [[ "$item" == -* ]]; then
+            echo "Wrong parameter"
+            echo ""
+            usage
+        fi
+    done
+fi
+
+if [ "$SHOW_INFO" -eq 1 ]; then
+    # Check for parameter conflicts when querying image info.
+    # Only --image and --info are allowed.
+    if [ "$HAS_CONFLICTING_PARAM" -eq 1 ]; then
+        echo "Wrong parameter"
+        echo ""
+        usage
+    fi
+fi
+
+if [ -z "${BW_IMAGE:-}" ]; then
+    echo "Wrong parameter"
+    echo ""
+    usage
+fi
+
+if [[ "$BW_IMAGE" != openwrt/imagebuilder* ]]; then
+    echo "Wrong parameter"
+    echo ""
     usage
 fi
 
@@ -119,31 +402,6 @@ log_info "Detected OS: $OS_LABEL"
 
 HOST_UID=$(id -u)
 HOST_GID=$(id -g)
-
-# Docker container and pull policies
-BW_IMAGE=""
-FORCE_PULL=0
-FORCE_RECREATE=0
-SHOW_INFO=0
-
-# Target profile config
-BW_PROFILE=""
-
-# Module and package control configurations
-BW_OVERRIDE_MODULES=""
-BW_ADJUST_MODULES=""
-BW_EXTRA_PACKAGES=""
-BW_DISABLED_SERVICES=""
-
-# Target image customization configurations
-BW_EXTRA_IMAGE_NAME=""
-BW_ROOTFS_PARTSIZE=""
-
-# Output, local custom modules, and mirror network configurations
-BW_OUTPUT_DIR="./bin"
-BW_CUSTOM_MODULES_PATH="./custom_modules"
-BW_USE_MIRROR=0
-BW_MIRROR="mirrors.tuna.tsinghua.edu.cn"
 
 # Reject running as root user or root primary group on any host OS.
 if { [ "$HOST_UID" -eq 0 ] || [ "$HOST_GID" -eq 0 ]; }; then
@@ -198,264 +456,6 @@ ensure_output_dir_owner() {
     fi
 }
 
-HAS_CONFLICTING_PARAM=0
-
-while [ $# -gt 0 ]; do
-    case "$1" in
-        # Docker container and pull policies
-        -i|--image)
-            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
-            BW_IMAGE="$2"
-            shift 2
-            ;;
-        -i=*|--image=*)
-            BW_IMAGE="${1#*=}"
-            shift 1
-            ;;
-        -i*)
-            BW_IMAGE="${1#-i}"
-            shift 1
-            ;;
-        -P|--force-pull)
-            FORCE_PULL=1
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-        -R|--force-recreate)
-            FORCE_RECREATE=1
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-        -I|--info)
-            SHOW_INFO=1
-            shift 1
-            ;;
-
-        # Target profile config
-        -p|--profile)
-            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
-            BW_PROFILE="$2"
-            HAS_CONFLICTING_PARAM=1
-            shift 2
-            ;;
-        -p=*|--profile=*)
-            BW_PROFILE="${1#*=}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-        -p*)
-            BW_PROFILE="${1#-p}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-
-        # Module and package control configurations
-        -O|--override-modules)
-            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
-            BW_OVERRIDE_MODULES="$2"
-            HAS_CONFLICTING_PARAM=1
-            shift 2
-            ;;
-        -O=*|--override-modules=*)
-            BW_OVERRIDE_MODULES="${1#*=}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-        -O*)
-            BW_OVERRIDE_MODULES="${1#-O}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-
-        -a|--adjust-modules)
-            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
-            BW_ADJUST_MODULES="$2"
-            HAS_CONFLICTING_PARAM=1
-            shift 2
-            ;;
-        -a=*|--adjust-modules=*)
-            BW_ADJUST_MODULES="${1#*=}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-        -a*)
-            BW_ADJUST_MODULES="${1#-a}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-
-        -e|--extra-packages)
-            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
-            BW_EXTRA_PACKAGES="$2"
-            HAS_CONFLICTING_PARAM=1
-            shift 2
-            ;;
-        -e=*|--extra-packages=*)
-            BW_EXTRA_PACKAGES="${1#*=}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-        -e*)
-            BW_EXTRA_PACKAGES="${1#-e}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-
-        -d|--disabled-services)
-            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
-            BW_DISABLED_SERVICES="$2"
-            HAS_CONFLICTING_PARAM=1
-            shift 2
-            ;;
-        -d=*|--disabled-services=*)
-            BW_DISABLED_SERVICES="${1#*=}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-        -d*)
-            BW_DISABLED_SERVICES="${1#-d}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-
-        # Target image customization configurations
-        -E|--extra-image-name)
-            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
-            BW_EXTRA_IMAGE_NAME="$2"
-            HAS_CONFLICTING_PARAM=1
-            shift 2
-            ;;
-        -E=*|--extra-image-name=*)
-            BW_EXTRA_IMAGE_NAME="${1#*=}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-        -E*)
-            BW_EXTRA_IMAGE_NAME="${1#-E}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-
-        -r|--rootfs-partsize)
-            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
-            BW_ROOTFS_PARTSIZE="$2"
-            HAS_CONFLICTING_PARAM=1
-            shift 2
-            ;;
-        -r=*|--rootfs-partsize=*)
-            BW_ROOTFS_PARTSIZE="${1#*=}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-        -r*)
-            BW_ROOTFS_PARTSIZE="${1#-r}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-
-        # Output, local custom modules, and mirror network configurations
-        -o|--output-dir)
-            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
-            BW_OUTPUT_DIR="$2"
-            HAS_CONFLICTING_PARAM=1
-            shift 2
-            ;;
-        -o=*|--output-dir=*)
-            BW_OUTPUT_DIR="${1#*=}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-        -o*)
-            BW_OUTPUT_DIR="${1#-o}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-
-        -c|--custom-modules-path)
-            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
-            BW_CUSTOM_MODULES_PATH="$2"
-            HAS_CONFLICTING_PARAM=1
-            shift 2
-            ;;
-        -c=*|--custom-modules-path=*)
-            BW_CUSTOM_MODULES_PATH="${1#*=}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-        -c*)
-            BW_CUSTOM_MODULES_PATH="${1#-c}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-
-        -u|--use-mirror)
-            BW_USE_MIRROR=1
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-
-        -m|--mirror)
-            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
-            BW_MIRROR="$2"
-            HAS_CONFLICTING_PARAM=1
-            shift 2
-            ;;
-        -m=*|--mirror=*)
-            BW_MIRROR="${1#*=}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-        -m*)
-            BW_MIRROR="${1#-m}"
-            HAS_CONFLICTING_PARAM=1
-            shift 1
-            ;;
-
-        # Help
-        -h|--help)
-            usage
-            ;;
-        *)
-            log_error "Unknown parameter \"$1\""
-            usage
-            exit 1
-            ;;
-    esac
-done
-
-# Validate --override-modules does not contain negative module entries (starting with '-')
-if [ -n "$BW_OVERRIDE_MODULES" ]; then
-    for item in $BW_OVERRIDE_MODULES; do
-        if [[ "$item" == -* ]]; then
-            log_error "Invalid argument for --override-modules: \"$item\". Removing modules using '-' is not allowed when overriding module list."
-            usage
-            exit 1
-        fi
-    done
-fi
-
-if [ "$SHOW_INFO" -eq 1 ]; then
-    # Check for parameter conflicts when querying image info.
-    # Only --image and --info are allowed.
-    if [ "$HAS_CONFLICTING_PARAM" -eq 1 ]; then
-        log_error "Conflict: Parameter options other than --image are not supported when using --info."
-        usage
-        exit 1
-    fi
-fi
-
-if [ -z "${BW_IMAGE:-}" ]; then
-    log_error "No image specified"
-    usage
-    exit 1
-fi
-
-if [[ "$BW_IMAGE" != openwrt/imagebuilder* ]]; then
-    log_error "Only openwrt/imagebuilder images are supported. Please use an image from https://hub.docker.com/r/openwrt/imagebuilder/tags."
-    usage
-    exit 1
-fi
-
 log_info "Image: $BW_IMAGE"
 
 if [ "$SHOW_INFO" -eq 1 ]; then
@@ -463,11 +463,11 @@ if [ "$SHOW_INFO" -eq 1 ]; then
     if [ "$FORCE_PULL" -eq 1 ] || ! docker image inspect "$BW_IMAGE" >/dev/null 2>&1; then
         log_info "Pulling image..."
         docker pull "$BW_IMAGE"
-        echo ""
-        log_info "Image pulled successfully."
-        echo "----------------------------------------------------------------"
-        echo ""
     fi
+    echo ""
+    log_info "Showing image info:"
+    echo "----------------------------------------------------------------"
+    echo ""
     docker run --rm "$BW_IMAGE" make info
     exit 0
 fi
