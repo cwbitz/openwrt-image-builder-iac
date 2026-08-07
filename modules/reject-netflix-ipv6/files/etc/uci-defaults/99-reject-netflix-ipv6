@@ -1,1 +1,0 @@
-echo "conf-dir=/etc/dnsmasq.d" >> /etc/dnsmasq.conf

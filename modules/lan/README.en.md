@@ -2,49 +2,49 @@
 
 ## Overview
 
-This module configures the LAN interface IP address on OpenWrt and supports custom subnets.
+This module configures the LAN interface IP address on OpenWrt and supports custom subnet assignment.
 
 ## Features
 
-- Custom LAN IP address
-- Flexible via environment variables
-- Apply network config automatically
-- Support different subnets
+- Custom LAN IP address configuration
+- Configurable via environment variables
+- Apply settings automatically on first boot
+- Support for custom subnet deployment
 
 ## Parameters
 
 ### Environment
-- `LAN_IP` — LAN interface IP (default: 192.168.2.1)
+- `LAN_IP` — LAN interface IP address (default: `192.168.2.1`)
 
 ## Example
 
-Set in `example.env`:
-```
+Set in `.env.example`:
+```bash
 LAN_IP=192.168.2.1
 ```
 
-## How it works
+## How It Works
 
-1. Read `LAN_IP` from environment
-2. Update network config using UCI
+1. Read `LAN_IP` from the environment
+2. Update the OpenWrt network configuration via UCI
 3. Set `network.lan.ipaddr`
-4. Commit changes
+4. Commit the changes
 
 ## Files
 
-- `example.env` — Example config
-- `files/etc/uci-defaults/89-lan` — UCI script
+- `.env.example` — example environment file
+- `files/etc/uci-defaults/89-lan` — UCI configuration script
 
-## Scenarios
+## Use Cases
 
-When changing the default LAN subnet:
+When customizing the default LAN network:
 - Avoid IP conflicts
-- Fit specific environments
-- Enterprise integration
-- Multi‑router deployments
+- Match network design requirements
+- Integrate into enterprise environments
+- Support multiple routers or nested networks
 
 ## Notes
 
 - Ensure the IP does not conflict with other devices
-- Update the DHCP pool accordingly
-- Use private address ranges
+- Update DHCP pool settings if needed
+- Use private IPv4 address space

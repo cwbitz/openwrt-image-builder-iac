@@ -1,3 +1,5 @@
-if [ -f /etc/dropbear/authorized_key ]; then
-    chmod 644 /etc/dropbear/authorized_keys
+#!/bin/sh
+
+if [ -f /etc/dropbear/authorized_keys ]; then
+    chmod 600 /etc/dropbear/authorized_keys
 fi

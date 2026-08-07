@@ -6,62 +6,62 @@ This module sets the root password for OpenWrt, providing secure administrator a
 
 ## Features
 
-- Set the root login password
+- Configure the root login password
 - Support random password generation
-- Enhance system security
+- Strengthen system security
 - Prevent unauthorized access
 
-## Environment variables
+## Environment Variables
 
 ### Password
 - `ROOT_PASSWORD` — root password
   - `random`: generate a secure random password
-  - any other value: use the specified password
+  - any other value: use the provided password
 
 ## Options
 
-### Auto‑generate (recommended)
+### Auto-generate (recommended)
 ```bash
 ROOT_PASSWORD=random
 ```
-The system will generate a secure random password.
+The system generates a secure random password.
 
 ### Custom password
 ```bash
 ROOT_PASSWORD=your_secure_password
 ```
-Use your own strong password.
+Use a strong custom password.
 
-## Security advice
+## Security Advice
 
 ### Password policy
-- 8+ characters
-- Mix of upper/lowercase, digits, symbols
-- Avoid common passwords
-- Rotate regularly
+- Minimum 8 characters
+- Mix uppercase, lowercase, digits, and symbols
+- Avoid common or predictable passwords
+- Rotate passwords periodically
 
 ### Best practices
 - Prefer SSH key authentication
-- Disable password login (after keys are configured)
+- Disable password login after keys are configured
 - Enable firewall protection
-- Restrict SSH source IPs
+- Restrict SSH access by source IP when possible
 
 ## Files
 
-- `example.env` — Environment variable example
-- `files/etc/uci-defaults/92-system` — System config script
+- `.env.example` — environment variable example
+- `files/etc/uci-defaults/92-system` — password configuration script
 
-## Scenarios
+## Use Cases
 
 For secure system access:
 - Production deployments
 - Remote administration
-- Multi‑user environments
+- Multi-user environments
 - Compliance requirements
 
 ## Notes
 
-- Keep the password safe
-- Prefer combining with SSH keys
-- Avoid sending passwords over insecure networks
+- Keep the password secure
+- Use SSH keys when possible
+- Avoid transmitting passwords over insecure networks
 - Review security logs regularly

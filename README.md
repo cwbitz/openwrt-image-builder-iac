@@ -1,283 +1,184 @@
 <div align="center">
 
-# OpenWrt Builder
+# OpenWrt Builder Wrapper
 
 [English](README.en.md) | 简体中文
 
-轻松定制您专属的 OpenWrt 固件
+基于官方 OpenWrt ImageBuilder 的模块化固件构建工具
 
-图形界面 + 命令行，让固件构建更简单高效
+命令行构建 + 模块化扩展，让固件定制更灵活
 
-[![Release](https://img.shields.io/github/v/release/EkkoG/OpenWrt?include_prereleases&style=flat-square&label=alpha)](https://github.com/EkkoG/OpenWrt/releases/tag/alpha)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/EkkoG/OpenWrt?style=flat-square)](https://github.com/EkkoG/OpenWrt/stargazers)
-
 </div>
 
 ---
 
 ## 特性一览
 
-- **开箱即用**: 基于官方 ImageBuilder，几分钟生成固件
-- **模块化**: 内置常用模块，支持自定义模块目录
-- **一键构建**: 图形界面或脚本命令，实时日志与进度
-- **容器化**: Docker 隔离构建环境，无需配置编译工具链
-- **配置可复用**: 多套构建方案，环境变量集中管理
-
-## 界面预览
-
-<div align="center">
-<table>
-<tr>
-<td><img src="./assets/screentshot1.png" width="420" alt="主界面" /></td>
-<td><img src="./assets/screentshot2.png" width="420" alt="构建页面" /></td>
-</tr>
-</table>
-</div>
+- **开箱即用**：基于官方 OpenWrt ImageBuilder，快速生成固件
+- **模块化**：内置模块并支持 `custom_modules` 自定义扩展
+- **命令行构建**：使用 `run.sh`，支持 Linux 和 macOS
+- **容器化**：Docker 隔离构建环境，无需本机编译工具链
+- **配置复用**：环境变量集中管理，可重复使用构建方案
 
 ---
 
-## 下载与安装（GUI）
+## 快速使用
 
-- 从发布页下载预编译安装包: [Releases](https://github.com/EkkoG/OpenWrt/releases)
-
-| 平台 | 安装包格式 | 说明 |
-|------|-----------|------|
-| macOS | `.dmg` | Apple Silicon 选 `aarch64`，Intel 选 `x86_64` |
-| Windows | `.msi` / `.exe` | 支持 Windows 10/11 |
-| Linux | `.deb` / `.AppImage` | 支持 Ubuntu 20.04+ 及其他主流发行版 |
-
-也可从源码构建：见文档后半部分“开发与构建”。
-
-注意：使用 GUI 构建固件前，请先安装并启动 Docker。
-
----
-
-## 快速使用指南
-
-### 方式一：图形界面（推荐）
-
-**安装步骤：**
-
-0) 安装并启动 Docker（必需）
-   - **Linux**: `sudo apt install docker.io` 或 `sudo pacman -S docker`
-   - **macOS/Windows**: 下载 Docker Desktop
-
-1) 下载并安装 OpenWrt Builder
-   - **Linux (.deb)**: `sudo dpkg -i openwrt-builder_*.deb`
-   - **Linux (.AppImage)**: `chmod +x OpenWrt-Builder-*.AppImage`
-   - **macOS**: 打开 .dmg 文件并拖拽到应用程序
-   - **Windows**: 运行 .msi 安装包
-
-2) 选择镜像（OpenWrt/ImmortalWrt）与目标平台/版本
-3) 在"模块"页面勾选需要的功能模块
-4) 可选：设置输出目录、镜像加速等
-5) 在"构建中心"一键构建，等待完成
-
-提示：首次构建会下载较多资源，后续会显著加快。
-
-### 方式二：命令行（进阶）
-
-**Linux/macOS:**
-在仓库根目录使用 `run.sh`：
+### Linux / macOS
 
 ```bash
 # 查看帮助
 ./run.sh --help
 
-# 最小示例（以 ImmortalWrt Rockchip 为例）
+# 示例：官方 OpenWrt ImageBuilder
 ./run.sh \
-  --image=immortalwrt/imagebuilder:rockchip-armv8-openwrt-23.05.1 \
-  --profile=friendlyarm_nanopi-r2s \
-  --with-pull --rm-first --use-mirror
+  --image=openwrt/imagebuilder:generic-arm64 \
+  --profile=generic \
+  --force-pull --force-recreate --use-mirror
 ```
 
-**Windows:**
-在仓库根目录使用 PowerShell 执行 `run.ps1`：
-
-```powershell
-# 查看帮助
-.\run.ps1 -Help
-
-# 最小示例（以 ImmortalWrt Rockchip 为例）
-.\run.ps1 `
-  -Image "immortalwrt/imagebuilder:rockchip-armv8-openwrt-23.05.1" `
-  -Profile "friendlyarm_nanopi-r2s" `
-  -WithPull -RmFirst -UseMirror
-```
-
-**常用参数：**
-
-Linux/macOS (Bash):
-```bash
---image=...         指定 ImageBuilder 镜像（必需）
---profile=...       指定设备 Profile（可选）
---output=...        指定输出目录（默认：./bin）
---custom-modules=... 指定自定义模块目录（默认：./custom_modules）
---with-pull         构建前拉取镜像
---rm-first          构建前清理容器
---use-mirror        使用镜像加速（默认启用）
---mirror=...        指定镜像站域名，例如 mirrors.pku.edu.cn
-```
-
-Windows (PowerShell):
-```powershell
--Image "..."        指定 ImageBuilder 镜像（必需）
--Profile "..."      指定设备 Profile（可选）
--Output "..."       指定输出目录（默认：./bin）
--CustomModules "..." 指定自定义模块目录（默认：./custom_modules）
--WithPull           构建前拉取镜像
--RmFirst            构建前清理容器
--UseMirror          使用镜像加速（默认启用）
--Mirror "..."       指定镜像站域名，例如 mirrors.pku.edu.cn
-```
-
-环境变量（`.env`）示例：
+### 常用参数
 
 ```bash
-# 在默认模块集基础上增减
-MODULES="openclash lan pppoe -tools"
+# Docker 容器与镜像拉取策略
+--image=...                 指定 openwrt/imagebuilder Docker 镜像（必需）
+--force-pull                构建前强制从镜像源拉取/更新镜像
+--force-recreate            构建前强制删除已存在的同名构建容器
 
-# 或完全覆盖默认模块集（更高优先级）
-ENABLE_MODULES="argon base lan"
+# 设备配置
+--profile=...               指定构建的设备 Profile 属性（若省略则默认使用该目标的第一个 Profile）
 
-# 系统环境变量默认启用，模块可直接引用根 .env 中的变量
+# 模块与软件包控制
+--custom-modules-list=...   完全自定义模块列表，覆盖默认模块集（例如 "base extras lan"）
+--modules=...               在默认模块集基础上增减/调整模块（例如 "lan pppoe -extras"）
+--extra-packages=...        指定传入 ImageBuilder 的显式 PACKAGES 软件包列表
+--disabled-services=...     指定构建固件时禁用的服务列表
 
-# 传递给 ImageBuilder 的常见参数
-CONFIG_TARGET_KERNEL_PARTSIZE=32
-CONFIG_TARGET_ROOTFS_PARTSIZE=256
+# 目标固件自定义配置
+--extra-image-name=...      指定固件生成文件名的自定义后缀
+--rootfs-partsize=...       指定根分区大小（MB，若省略则使用设备默认值）
+
+# 输出目录、自定义模块路径与镜像加速配置
+--output=...                指定构建产物的输出目录（默认：./bin）
+--custom-modules=...        指定自定义模块的物理路径（默认：./custom_modules）
+--use-mirror                启用镜像加速下载（若未指定 --mirror，默认使用 mirrors.tuna.tsinghua.edu.cn）
+--mirror=...                指定自定义镜像加速域名，例如 mirrors.ustc.edu.cn（不要包含 http:// 或 https://）
 ```
 
-输出目录默认为 `./bin`，可通过 `--output` 修改。
+### 环境变量配置说明
+
+可通过以下两种方式配置模块变量（如 `BW_LAN_IP`, `BW_ROOT_PASSWORD`, `BW_PPPOE_USERNAME` 等）：
+
+1. **子模块目录 `.env` 文件**：在模块子目录下创建 `.env` 文件（参考各模块下的 `.env.example` 模板）。
+2. **命令行直接赋值**：在运行 `run.sh` 脚本时直接传入环境变量，例如：
+   ```bash
+   BW_LAN_IP=192.168.2.1 BW_ROOT_PASSWORD=secret ./run.sh --image=...
+   ```
+
+### 核心控制环境变量示例
+
+```bash
+# 在默认模块集 (base disable-ipv6 statistics system extras) 基础上增减模块（如 -extras 剔除 extras）
+BW_ADJUST_MODULES="lan pppoe -extras"
+
+# 完全自定义模块列表（若指定则忽略默认模块集和 ADJUST_MODULES）
+BW_OVERRIDE_MODULES="base lan pppoe extras"
+
+# 显式覆盖/追加给 ImageBuilder 的软件包列表（使用前缀 - 可移除默认软件包）
+BW_EXTRA_PACKAGES="luci-app-openclash -dnsmasq"
+
+# 自定义构建镜像扩展属性
+BW_EXTRA_IMAGE_NAME="custom"
+BW_DISABLED_SERVICES="dnsmasq"
+BW_ROOTFS_PARTSIZE="256"
+```
+
+默认输出目录为 `./bin`，可通过 `--output` 修改。
 
 ---
 
-## 模块系统（简述）
+## 模块系统
 
-- **默认模块集**: `add-all-device-to-lan argon base opkg-mirror prefer-ipv6-settings statistics system tools`
-- 两种选择方式：
-  - **ENABLE_MODULES**: 完全覆盖启用模块列表
-  - **MODULES**: 在默认模块集基础上增减（前缀 `-` 表示排除）
-- 模块目录：同时支持 `modules/`（内置）与 `custom_modules/`（自定义）
-- 目录结构：
+默认启用的模块集：
 
-```
-my-module/
-├─ packages           # 依赖包（空格分隔或可执行脚本）
-├─ files/             # 随固件打包进系统的文件
-├─ post-files.sh      # 可选：files 拷贝后处理
-├─ .env               # 可选：模块级变量
-└─ README.md          # 可选：模块说明
-```
+`base system disable-ipv6 statistics extras`
+
+当前内置的所有可选模块：
+
+`base disable-ipv6 extras lan pppoe prefer-ipv6 python root-password ssh-permission statistics system`
+
+模块目录：
+
+- `modules/`：内置模块
+- `custom_modules/`：自定义模块
+
+详细的目录与模块结构请参考下文的 [开发与构建](#开发与构建) 部分。
+
+说明：
+
+- `base`：提供 OpenWrt 系统的基础软件包集合，包括 LuCI Web 管理界面、系统工具和必要的系统组件。
+- `disable-ipv6`：在固件启动后禁用 LAN/WAN 接口的 IPv6、Router Advertisement（RA）和 DHCPv6 等 IPv6 服务。
+- `extras`：安装常用的网络诊断和系统管理工具（如 tcpdump、curl 等），提供完整的系统管理和故障排查能力。
+- `lan`：配置 LAN 网络接口的 IP 地址，支持通过环境变量自定义局域网地址段。
+- `pppoe`：用于在系统首次开机时自动配置 WAN 接口的 PPPoE 拨号账号与密码。
+- `prefer-ipv6`：优化 IPv6 优先级与首选配置。
+- `python`：为 OpenWrt 系统添加 Python 3 轻量级运行环境支持。
+- `root-password`：配置系统 root 用户登录密码（支持自定义或随机密码生成）。
+- `ssh-permission`：自动修正并配置 SSH 授权密钥文件（authorized_keys）的权限，确保 SSH 公钥认证正常工作。
+- `statistics`：提供系统性能监控、温度监控采集以及可视化界面的数据统计功能。
+- `system`：配置系统基础设置（如将时区设置为中国时区、调整系统日志级别等）。
 
 高级特性：
-- 环境变量共享：模块可直接引用根 `.env` 中的变量（默认启用）
-- 变量替换：`files/etc/uci-defaults` 下的文件支持 `$VARNAME` 替换
-- 冲突保护：若不同模块生成同名目标文件，构建会失败以避免覆盖
+
+- 支持模块专属 `.env` 文件或命令行直接赋值环境变量
+- `files/etc/uci-defaults` 中的文件支持 `$VARNAME` 替换
+- 若不同模块生成同名目标文件，构建将失败以避免覆盖
 
 ---
 
-## 常见问题（FAQ）
+## 注意事项
 
-**通用问题：**
-- 构建很慢/网速受限？建议启用 `--use-mirror` 或指定 `--mirror=mirrors.pku.edu.cn`
-- 没有安装 Docker？请先安装 Docker Desktop（macOS/Windows）或 Docker Engine（Linux）
-- 构建完成后产物在哪？默认在 `./bin`（可通过 `--output` 修改）
-- GUI 构建失败/无响应？请确认 Docker 已安装并正在运行；从源码运行还需 Node.js 18+ 与 pnpm 8+，详见下文"开发与构建"
+- 本项目仅支持官方 OpenWrt ImageBuilder 镜像
+- 采用 CLI 命令行构建流程
 
-**Windows 特定问题：**
-- PowerShell 脚本无法执行？运行 `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` 允许脚本执行
-- 提示找不到 Docker？确保 Docker Desktop 已安装并正在运行，尝试重启终端
-- 构建权限问题？确保以管理员权限运行 PowerShell 或 Docker Desktop
-- 中文路径问题？建议将项目放在英文路径下，避免中文目录名
+---
 
-**Linux 特定问题：**
-- AppImage 无法运行？运行 `sudo apt install fuse` 安装 FUSE 支持
+## 常见问题
+
+- 构建速度慢/网速受限？建议启用 `--use-mirror` 或指定 `--mirror=mirrors.ustc.edu.cn`
+- 没有安装 Docker？请先安装 Docker Desktop（macOS）或 Docker Engine（Linux）
+- 构建结果在哪？默认在 `./bin`（可用 `--output` 修改）
+- 找不到 Docker？请确认 Docker 已安装并启动，并重启终端
 - 没有 Docker 权限？将用户加入 docker 组：`sudo usermod -aG docker $USER`，然后重新登录
-- .deb 安装失败？运行 `sudo apt-get install -f` 修复依赖关系
-- GUI 应用无法启动？确保已安装桌面环境和必要的系统库
+- 中文路径问题？建议放在英文路径下，避免路径编码问题
 
 ---
 
 ## 开发与构建
 
-目录结构：
+项目与模块结构：
 
 ```
 .
-├─ build.sh                 # 容器内实际构建脚本（跨平台通用）
-├─ run.sh                   # Linux/macOS 构建脚本（Docker Compose）
-├─ run.ps1                  # Windows PowerShell 构建脚本
-├─ modules/                 # 内置模块库
-├─ custom_modules/          # 建议放置自定义模块
-├─ setup/                   # 构建前置设置脚本
-├─ tauri-app/               # GUI 应用（Tauri 2 + Vue 3）
-└─ LICENSE                  # MIT 许可证
+├─ build.sh             # 容器内实际构建脚本
+├─ run.sh               # 构建脚本
+├─ .env                 # 可选：全局环境变量文件（可参考 .env.example）
+├─ .env.example         # 全局环境变量模板与注释说明
+├─ modules/             # 内置模块目录
+│  └─ [module-name]/    # 模块结构示例
+│     ├─ packages       # 依赖包列表或可执行脚本
+│     ├─ files/         # 将打包到固件的文件
+│     ├─ post-script.sh # 可选：后处理逻辑脚本
+│     ├─ .env           # 可选：模块专属环境变量文件（可参考 .env.example）
+│     ├─ .env.example   # 可选：模块环境变量模板与注释说明
+│     └─ README.md      # 可选：模块说明
+├─ custom_modules/      # 自定义模块目录
+└─ LICENSE              # MIT 许可证
 ```
 
-**GUI 从源码运行与打包：**
-
-```bash
-cd tauri-app
-pnpm install
-
-# 开发（Tauri 调试，固定端口 1420）
-pnpm tauri dev
-
-# 生产打包（生成桌面安装包）
-pnpm tauri build
-```
-
-**平台特定构建要求：**
-
-*Windows:*
-- 安装 Rust toolchain（包含 MSVC 工具链）
-- 安装 Visual Studio Build Tools 或 Visual Studio
-- 确保 PowerShell 5.1+ 或 PowerShell Core 7+
-
-*Linux:*
-- 安装系统开发工具：`sudo apt install build-essential`
-- 安装 GTK 开发库：`sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev`
-- 安装其他依赖：`sudo apt install libappindicator3-dev librsvg2-dev patchelf`
-
-*macOS:*
-- 安装 Xcode Command Line Tools：`xcode-select --install`
-
-说明：打包会将仓库根的 `build.sh`、`run.sh`、`run.ps1`、`setup/`、`modules/` 作为资源一并包含。各平台将自动生成对应的安装包格式(.dmg/.msi/.deb/.AppImage)。
-
----
-
-## 贡献指南
-
-- **Bug 报告**: [提交 Issue](https://github.com/EkkoG/OpenWrt/issues)
-- **功能建议**: [功能请求](https://github.com/EkkoG/OpenWrt/issues/new)
-- **代码贡献**: [提交 Pull Request](https://github.com/EkkoG/OpenWrt/pulls)
-- **文档完善**: 完善 README 和 Wiki
-- **模块分享**: 分享你的自定义模块
-
-## 致谢
-
-<div align="center">
-
-### 核心依赖
-[**OpenWrt**](https://openwrt.org/) • [**ImmortalWrt**](http://immortalwrt.org/) • [**Docker**](https://www.docker.com/)
-
-### 网络工具
-[**OpenClash**](https://github.com/vernesong/OpenClash) • [**dae**](https://github.com/daeuniverse/dae) • [**Passwall**](https://github.com/xiaorouji/openwrt-passwall)
-
-### 技术框架
-[**Tauri**](https://tauri.app/) • [**Vue.js**](https://vuejs.org/) • [**Vuetify**](https://vuetifyjs.com/)
-
-</div>
+本项目主要依赖 Docker
 
 ## 许可证
 
-本项目基于 MIT 协议发布，详见 `LICENSE`。
-
----
-
-<div align="center">
-
-[![Star History Chart](https://api.star-history.com/svg?repos=EkkoG/OpenWrt&type=Date)](https://star-history.com/#EkkoG/OpenWrt&Date)
-
-</div>
+本项目基于 MIT 协议发布，详见 `LICENSE`

@@ -2,72 +2,71 @@
 
 ## Overview
 
-This module adds system monitoring to OpenWrt, providing performance data collection and a web UI.
+This module adds system monitoring to OpenWrt, providing performance data collection and LuCI visualization.
 
 ## Features
 
 - Performance data collection
-- Temperature monitoring and display
-- Web UI charts
+- Temperature monitoring
+- Web UI graphs and charts
 - Hardware IRQ statistics
-- Sensor data collection
+- Sensor metrics
 
 ## Packages
 
 ### UI components
-- `luci-app-temp-status` — Temperature status
-- `luci-app-statistics` — Statistics UI
+- `luci-app-temp-status` — temperature status interface
+- `luci-app-statistics` — statistics dashboard
 
 ### Data collectors
-- `collectd-mod-irq` — IRQ stats
-- `collectd-mod-sensors` — Sensor data
+- `collectd-mod-irq` — IRQ statistics
+- `collectd-mod-sensors` — sensor reporting
 
 ## Capabilities
 
 ### Temperature
-- Real‑time temperature
-- Historical records
+- Real-time temperature display
+- Historical sensor logs
 - Threshold alerts
-- Multiple sensors supported
+- Support for multiple sensors
 
-### System stats
-- CPU usage
-- Memory usage
-- Network traffic
-- Storage monitoring
-- System load
+### System Stats
+- CPU usage tracking
+- Memory usage monitoring
+- Network traffic stats
+- Storage and disk monitoring
+- System load overview
 
-### Hardware
-- IRQ frequency
+### Hardware Monitoring
+- IRQ activity
 - Sensor metrics
-- Voltage/current
-- Fan speed
+- Voltage and current readings
+- Fan speed monitoring
 
 ## Web UI
 
-Accessible via LuCI:
+Accessible through LuCI:
 - System → Administration → Statistics
 - Status → Temperature
-- Real‑time charts
+- Real-time charts
 - Historical queries
 
 ## Files
 
-- `packages` — Package list
-- `files/etc/uci-defaults/99-statistics` — Stats config script
+- `packages` — package list
+- `files/etc/uci-defaults/99-statistics` — initial statistics configuration script
 
-## Scenarios
+## Use Cases
 
-For systems requiring monitoring:
 - Performance tuning
-- Hardware health
+- Hardware health monitoring
 - Fault diagnosis
 - Resource accounting
 - Device maintenance
 
 ## Notes
 
-- Collectors use system resources
-- Requires hardware sensors
-- Historical data needs storage
-- Some features are platform‑dependent
+- Monitoring collectors consume system resources
+- Requires supported hardware sensors
+- Historical data consumes storage
+- Some features depend on platform support

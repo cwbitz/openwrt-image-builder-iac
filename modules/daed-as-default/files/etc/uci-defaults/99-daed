@@ -1,3 +1,0 @@
-uci del dhcp.@dnsmasq[0].dns_redirect
-uci set daed.config.enabled='1'
-uci commit

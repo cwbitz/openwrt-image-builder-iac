@@ -1,84 +1,84 @@
-# System Tools
+# Extras
 
 ## Overview
 
-This module installs common network diagnostics and system management tools on OpenWrt, providing comprehensive admin and troubleshooting capabilities.
+This module installs common network diagnostic and system management utilities on OpenWrt, providing useful tools for administration and troubleshooting.
 
 ## Features
 
-- Network diagnostics and testing
-- System administration and maintenance
-- Text editing and processing
+- Network diagnostics and testing tools
+- System administration utilities
+- Text editing and processing tools
 - Connection tracking and monitoring
 
-## Included tools
+## Included Tools
 
 ### Networking
-- **bind-dig** — DNS query and diagnostics
+- **bind-dig** — DNS query and diagnostic tool
   - Resolve domain names
   - Query DNS servers
-  - Connectivity diagnostics
+  - Verify connectivity
 
-- **wget** — Command‑line downloader
-  - HTTP/HTTPS file downloads
-  - Resume support
-  - Batch downloads
+- **wget** — Command-line downloader
+  - Download files over HTTP/HTTPS
+  - Support resumable downloads
+  - Handle scripted downloads
 
-- **curl** — Multi‑protocol data transfer
-  - HTTP/HTTPS/FTP and more
-  - API testing
-  - Data transfer and debugging
+- **curl** — Multi-protocol transfer utility
+  - Work with HTTP/HTTPS/FTP and more
+  - Test APIs
+  - Transfer and debug data
 
-### Network diagnostics
-- **nping** — Packet generator
-  - Custom packet crafting
-  - Latency testing
-  - Port reachability checks
+### Network Diagnostics
+- **nping** — Packet generation tool
+  - Craft custom packets
+  - Test latency
+  - Check port reachability
 
-- **tcpdump** — Packet analyzer
-  - Live packet capture
-  - Traffic analysis
-  - Protocol debugging
+- **tcpdump** — Packet capture utility
+  - Capture live packets
+  - Analyze traffic
+  - Debug protocols
 
-### System utilities
-- **vim-full** — Full‑featured text editor
+### System Utilities
+- **vim-full** — Full-featured text editor
   - Syntax highlighting
   - Multiple editing modes
-  - Plugin ecosystem
+  - Supports plugins
 
-- **diffutils** — File comparison suite
-  - diff — text file differences
-  - cmp — binary diff
-  - Config comparison
+- **diffutils** — File comparison utilities
+  - Compare text files with `diff`
+  - Compare binary files with `cmp`
+  - Audit configuration changes
 
-- **conntrack** — Connection tracking
+- **conntrack** — Connection tracking utility
   - Monitor connection states
-  - Track NAT connections
-  - Manage firewall connections
+  - Track NAT sessions
+  - Manage firewall connection tracking
 
-## Config files
+## Configuration Files
 
 - `packages` — Package list
 
-## Use cases
+## Use Cases
 
-### Network diagnostics
+### Network Diagnostics
 - Connectivity testing
 - DNS troubleshooting
 - Performance analysis
 - Protocol debugging
 
-### System administration
+### System Administration
 - Edit configuration files
-- Maintenance scripts
-- File download and transfer
-- Log analysis
+- Create maintenance scripts
+- Download and transfer files
+- Analyze logs
 
 ### Troubleshooting
-- Network issue diagnosis
-- Service health checks
-- Performance monitoring
-- Security auditing
+- Diagnose network problems
+- Check service health
+- Monitor performance
+- Audit security issues
 
 ## Examples
 
@@ -101,7 +101,7 @@ conntrack -L
 
 ## Notes
 
-- This toolset consumes some storage space
-- Install only what you need
+- This toolset consumes additional storage
+- Install only the tools you need
 - Some tools require root privileges
-- Learn the basics of each tool for best results
+- Learn basic usage for best results

@@ -1,1 +1,1 @@
-bind-dig wget curl vim-full diffutils nping tcpdump conntrack
+wget curl vim-full diffutils bind-dig nping conntrack tcpdump

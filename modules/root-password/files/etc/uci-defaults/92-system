@@ -1,1 +1,5 @@
-(echo "$ROOT_PASSWORD"; sleep 1; echo "$ROOT_PASSWORD") | passwd > /dev/null
+#!/bin/sh
+
+if [ -n "$BW_ROOT_PASSWORD" ]; then
+    (echo "$BW_ROOT_PASSWORD"; sleep 1; echo "$BW_ROOT_PASSWORD") | passwd > /dev/null
+fi

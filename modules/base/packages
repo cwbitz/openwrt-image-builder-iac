@@ -1,7 +1,29 @@
-base="zoneinfo-all luci luci-compat luci-lib-ipkg -dnsmasq dnsmasq-full luci-i18n-base-zh-cn luci-i18n-firewall-zh-cn openssl-util"
-if [ "$OPENWRT_VERSION" == "24.10" ] || [ "$IS_SNAPSHOT_BUILD" == "1" ]; then
+base="luci -dnsmasq dnsmasq-full -wpad-basic-mbedtls wpad-mbedtls openssl-util openssh-sftp-server rsync luci-i18n-base-zh-cn luci-i18n-firewall-zh-cn"
+
+version_ge() {
+    v1="${1%%-*}"
+    v2="${2%%-*}"
+
+    awk -v V1="$v1" -v V2="$v2" 'BEGIN{
+        n1=split(V1,a,".");
+        n2=split(V2,b,".");
+        n=(n1>n2)?n1:n2;
+        for(i=1;i<=n;i++){
+            ai=(i<=n1)?a[i]:0;
+            bi=(i<=n2)?b[i]:0;
+            if((ai+0)>(bi+0)){ exit 0 }
+            else if((ai+0)<(bi+0)){ exit 1 }
+        }
+        exit 0
+    }'
+}
+
+target_ver="${VERSION_PATH##*/}"
+
+if version_ge "$target_ver" "24.10"; then
     base="$base luci-i18n-package-manager-zh-cn"
 else
     base="$base luci-i18n-opkg-zh-cn"
 fi
-echo $base
+
+printf '%s\n' "$base"

@@ -1,0 +1,15 @@
+#!/bin/sh
+
+uci -q batch <<EOF
+set network.globals.ula_prefix=''
+set network.lan.ipv6='0'
+set network.wan.ipv6='0'
+set dhcp.lan.dhcpv6='disabled'
+set dhcp.lan.ra='disabled'
+set dhcp.lan.ra_management='0'
+set dhcp.lan.ra_default='0'
+set dhcp.lan.ra_flags='none'
+set dhcp.lan.dns_service='0'
+
+commit
+EOF

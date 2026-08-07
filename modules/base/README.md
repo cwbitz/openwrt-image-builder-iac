@@ -26,13 +26,13 @@
 - `luci-i18n-firewall-zh-cn` - 防火墙界面中文翻译
 
 ### 版本相关包
-- OpenWrt 24.10或快照版本：`luci-i18n-package-manager-zh-cn`
-- 其他版本：`luci-i18n-opkg-zh-cn`
+- OpenWrt 24.10 及以后版本（包括 SNAPSHOT）：`luci-i18n-package-manager-zh-cn`
+- 旧稳定版本（24.10 之前）：`luci-i18n-opkg-zh-cn`
 
 ## 版本适配
 
-模块会根据环境变量自动检测OpenWrt版本：
-- `OPENWRT_VERSION` - OpenWrt版本号
+模块会根据环境变量自动检测 OpenWrt 版本：
+- `OPENWRT_VERSION` - OpenWrt 版本号
 - `IS_SNAPSHOT_BUILD` - 是否为快照构建
 
 ## 配置文件

@@ -2,77 +2,64 @@
 
 ## Overview
 
-This module configures basic OpenWrt system settings, including time zone, language, and log levels.
+This module configures basic OpenWrt system settings, including the default time zone and system log levels.
 
 ## Features
 
-- Set system time zone to China Standard Time
-- Configure LuCI interface language to Simplified Chinese
-- Adjust system log levels
-- Optimize localization settings
+- Set the system time zone to China Standard Time
+- Configure system log verbosity
+- Apply settings automatically on first boot
 
-## System settings
+## System Settings
 
-### Time zone
-- **Zonename**: `Asia/Shanghai`
+### Time Zone
+- **Time zone**: `Asia/Shanghai`
 - **Offset**: `CST-8` (UTC+8)
-- Daylight saving handled automatically
+- Automatically handles daylight saving time
 
-### Language
-- **LuCI language**: `zh_cn` (Simplified Chinese)
-- Full Chinese UI experience
-
-### Logging
+### Log Settings
 - **Cron log level**: `8` (debug)
 - **Console log level**: `7` (info)
 
-## UCI snippets
+## Configuration Details
 
-### Time zone
+### Time Zone
 ```bash
 set system.@system[0].zonename='Asia/Shanghai'
 set system.@system[0].timezone='CST-8'
 ```
 
-### UI localization
-```bash
-set luci.main.lang='zh_cn'
-```
-
-### Log levels
+### Log Levels
 ```bash
 set system.@system[0].cronloglevel='8'
 set system.@system[0].conloglevel='7'
 ```
 
-## Log level guide
+## Log Level Guide
 
-- **Level 8**: Debug, most verbose
-- **Level 7**: Info, important events
-- Higher numbers mean more verbosity
+- **Level 8**: Debug-level output for detailed diagnostics
+- **Level 7**: Informational output for normal system events
+- Higher values produce more verbose logging
 
-## Files
+## Configuration File
 
-- `files/etc/uci-defaults/91-system` — UCI system config script
+- `files/etc/uci-defaults/91-system` — system UCI configuration script
 
 ## Effects
 
-- System time displayed in Beijing time
-- Web admin in Chinese
-- Suitable for Mainland China users
-- Helpful for maintenance and troubleshooting
+- Displays system time in Beijing time
+- Improves logging detail for troubleshooting
 
-## Scenarios
+## Use Cases
 
-For localized OpenWrt deployments:
-- Home routers
-- Enterprise devices
-- Learning and lab environments
-- Custom localized builds
+- Home router configurations
+- Enterprise network appliances
+- Lab and development environments
+- Localized system customization
 
 ## Notes
 
-- Applied on first boot
-- Persistent across reboots
-- Adjustable to other time zones
-- Verbose logs consume storage
+- Settings are applied on first boot
+- Configuration persists after reboot
+- Time zone can be changed later if needed
+- Higher log levels increase log output

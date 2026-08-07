@@ -1,7 +1,10 @@
-uci batch << EOF
-set network.wan.proto='pppoe'
-set network.wan.username='$PPPOE_USERNAME'
-set network.wan.password='$PPPOE_PASSWORD'
+#!/bin/sh
 
-commit
+if [ -n "$BW_PPPOE_USERNAME" ] && [ -n "$BW_PPPOE_PASSWORD" ]; then
+    uci -q batch << EOF
+    set network.wan.proto='pppoe'
+    set network.wan.username='$BW_PPPOE_USERNAME'
+    set network.wan.password='$BW_PPPOE_PASSWORD'
+    commit
 EOF
+fi

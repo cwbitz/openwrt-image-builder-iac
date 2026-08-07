@@ -2,43 +2,43 @@
 
 ## Overview
 
-This module provides the base package set for OpenWrt, including the web UI, utilities, and essential system components.
+This module provides a base OpenWrt package set, including the LuCI web interface, utilities, and essential system components.
 
 ## Features
 
-- Install core system components and tools
+- Install core OpenWrt components and tools
 - Configure the LuCI web interface
-- Provide Simplified Chinese language support
-- Adjust package list based on OpenWrt version
+- Include Simplified Chinese language support
+- Adjust packages based on OpenWrt version
 
 ## Packages
 
 ### Core
-- `zoneinfo-all` — Time zone data
+- `zoneinfo-all` — time zone data
 - `luci` — LuCI web interface
-- `luci-compat` — LuCI compatibility layer
-- `luci-lib-ipkg` — Package management library
-- `dnsmasq-full` — Full‑featured DNS/DHCP (replaces minimal dnsmasq)
-- `openssl-util` — OpenSSL utilities
+- `luci-compat` — compatibility layer for LuCI
+- `luci-lib-ipkg` — package management library
+- `dnsmasq-full` — full-featured DNS/DHCP server
+- `openssl-util` — OpenSSL utility tools
 
 ### Chinese localization
-- `luci-i18n-base-zh-cn` — Base UI translation
-- `luci-i18n-firewall-zh-cn` — Firewall UI translation
+- `luci-i18n-base-zh-cn` — LuCI base translation
+- `luci-i18n-firewall-zh-cn` — firewall translation
 
-### Version‑specific
-- OpenWrt 24.10 or snapshots: `luci-i18n-package-manager-zh-cn`
-- Other versions: `luci-i18n-opkg-zh-cn`
+### Version-specific
+- OpenWrt 24.10 and later (including SNAPSHOT): `luci-i18n-package-manager-zh-cn`
+- Older stable versions (before 24.10): `luci-i18n-opkg-zh-cn`
 
-## Version detection
+## Version Detection
 
 Environment variables:
-- `OPENWRT_VERSION` — OpenWrt version
-- `IS_SNAPSHOT_BUILD` — Whether this is a snapshot build
+- `OPENWRT_VERSION` — OpenWrt version identifier
+- `IS_SNAPSHOT_BUILD` — whether the build is a snapshot
 
 ## Files
 
-- `packages` — Script to generate package list dynamically
+- `packages` — package list generation script
 
 ## Usage
 
-Use as the foundational module for OpenWrt systems requiring a full web management interface.
+Use this module as the foundation for OpenWrt systems that require a full web management interface.

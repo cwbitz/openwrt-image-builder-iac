@@ -18,7 +18,7 @@
 
 ## 配置示例
 
-在`example.env`文件中设置：
+在`.env.example`文件中设置：
 ```
 LAN_IP=192.168.2.1
 ```
@@ -32,7 +32,7 @@ LAN_IP=192.168.2.1
 
 ## 配置文件
 
-- `example.env` - 配置示例文件
+- `.env.example` - 配置示例文件
 - `files/etc/uci-defaults/89-lan` - UCI配置脚本
 
 ## 使用场景

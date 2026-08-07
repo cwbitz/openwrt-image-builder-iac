@@ -1,5 +1,0 @@
-{
-    "rust-analyzer.linkedProjects": [
-        "./tauri-app/src-tauri/Cargo.toml"
-    ]
-}

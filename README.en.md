@@ -1,283 +1,192 @@
 <div align="center">
 
-# OpenWrt Builder
+# OpenWrt Builder Wrapper
 
 English | [简体中文](README.md)
 
-Build your customized OpenWrt firmware with ease
+A modular firmware build wrapper for official OpenWrt ImageBuilder
 
-GUI + CLI for a simpler, faster firmware build experience
+CLI driven, Docker powered, and easy to extend with modules
 
-[![Release](https://img.shields.io/github/v/release/EkkoG/OpenWrt?include_prereleases&style=flat-square&label=alpha)](https://github.com/EkkoG/OpenWrt/releases/tag/alpha)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/EkkoG/OpenWrt?style=flat-square)](https://github.com/EkkoG/OpenWrt/stargazers)
-
 </div>
 
 ---
 
 ## Features at a glance
 
-- **Ready to use**: Based on official ImageBuilder, build in minutes
-- **Modular**: Built‑in common modules, supports custom module directory
-- **One‑click build**: GUI or script commands with real‑time logs and progress
-- **Containerized**: Docker‑isolated build environment; no toolchain setup required
-- **Reusable configs**: Multiple build presets; environment variables centrally managed
-
-## UI Preview
-
-<div align="center">
-<table>
-<tr>
-<td><img src="./assets/screentshot1.png" width="420" alt="Home" /></td>
-<td><img src="./assets/screentshot2.png" width="420" alt="Build" /></td>
-</tr>
-</table>
-</div>
-
----
-
-## Download & Install (GUI)
-
-- Download prebuilt installers from the releases page: [Releases](https://github.com/EkkoG/OpenWrt/releases)
-
-| Platform | Package | Notes |
-|------|-----------|------|
-| macOS | `.dmg` | Apple Silicon choose `aarch64`, Intel choose `x86_64` |
-| Windows | `.msi` / `.exe` | Windows 10/11 |
-| Linux | `.deb` / `.AppImage` | Ubuntu 20.04+ and other major distros |
-
-Alternatively build from source: see “Development & Build” below.
-
-Note: Please install and start Docker before using the GUI to build firmware.
+- **Ready to use**: Build custom firmware with official OpenWrt ImageBuilder
+- **Modular**: Bundled modules plus support for `custom_modules`
+- **CLI driven**: `run.sh`, supporting Linux and macOS
+- **Containerized**: Docker isolates the build environment
+- **Reusable configs**: Centralized environment variables and reusable presets
 
 ---
 
 ## Quick Start
 
-### Method 1: Graphical UI (Recommended)
-
-**Installation steps:**
-
-0) Install and start Docker (required)
-   - **Linux**: `sudo apt install docker.io` or `sudo pacman -S docker`
-   - **macOS/Windows**: Install Docker Desktop
-
-1) Download and install OpenWrt Builder
-   - **Linux (.deb)**: `sudo dpkg -i openwrt-builder_*.deb`
-   - **Linux (.AppImage)**: `chmod +x OpenWrt-Builder-*.AppImage`
-   - **macOS**: Open the .dmg and drag to Applications
-   - **Windows**: Run the .msi installer
-
-2) Choose image (OpenWrt/ImmortalWrt) and target platform/version
-3) On the “Modules” page, select the modules you need
-4) Optional: Set output directory, mirror acceleration, etc.
-5) One‑click build in “Build Center” and wait for completion
-
-Tip: The first build downloads more resources; subsequent builds are much faster.
-
-### Method 2: Command Line (Advanced)
-
-**Linux/macOS:**
-From repository root, use `run.sh`:
+### Linux / macOS
 
 ```bash
 # Help
 ./run.sh --help
 
-# Minimal example (ImmortalWrt Rockchip)
+# Example: official OpenWrt ImageBuilder
 ./run.sh \
-  --image=immortalwrt/imagebuilder:rockchip-armv8-openwrt-23.05.1 \
-  --profile=friendlyarm_nanopi-r2s \
-  --with-pull --rm-first --use-mirror
+  --image=openwrt/imagebuilder:generic-arm64 \
+  --profile=generic \
+  --force-pull --force-recreate --use-mirror
 ```
 
-**Windows:**
-From repository root, in PowerShell run `run.ps1`:
-
-```powershell
-# Help
-.\run.ps1 -Help
-
-# Minimal example (ImmortalWrt Rockchip)
-.\run.ps1 `
-  -Image "immortalwrt/imagebuilder:rockchip-armv8-openwrt-23.05.1" `
-  -Profile "friendlyarm_nanopi-r2s" `
-  -WithPull -RmFirst -UseMirror
-```
-
-**Common options:**
-
-Linux/macOS (Bash):
-```bash
---image=...          ImageBuilder image (required)
---profile=...        Device profile (optional)
---output=...         Output directory (default: ./bin)
---custom-modules=... Custom modules directory (default: ./custom_modules)
---with-pull          Pull image before build
---rm-first           Clean container before build
---use-mirror         Use mirror acceleration (enabled by default)
---mirror=...         Mirror domain, e.g. mirrors.pku.edu.cn
-```
-
-Windows (PowerShell):
-```powershell
--Image "..."         ImageBuilder image (required)
--Profile "..."       Device profile (optional)
--Output "..."        Output directory (default: ./bin)
--CustomModules "..." Custom modules directory (default: ./custom_modules)
--WithPull            Pull image before build
--RmFirst             Clean container before build
--UseMirror           Use mirror acceleration (enabled by default)
--Mirror "..."        Mirror domain, e.g. mirrors.pku.edu.cn
-```
-
-Environment variables (`.env`) example:
+### Common options
 
 ```bash
-# Adjust relative to default module set
-MODULES="openclash lan pppoe -tools"
+# Docker container and pull policies
+--image=...                 Specify the openwrt/imagebuilder Docker image (required)
+--force-pull                Pull the image before building
+--force-recreate            Remove the existing container before building
 
-# Or fully override the default module set (higher priority)
-ENABLE_MODULES="argon base lan"
+# Target profile config
+--profile=...               Specify the build profile (defaults to target's first profile if omitted)
 
-# System env vars are enabled by default; modules can reference variables defined in root .env
+# Module and package control configurations
+--custom-modules-list=...   Specify a complete list of modules to build, bypassing defaults (e.g. "base extras lan")
+--modules=...               Specify adjustments to the default module set (e.g. "lan pppoe -extras")
+--extra-packages=...        Specify an explicit PACKAGES list for imagebuilder
+--disabled-services=...     Specify DISABLED_SERVICES for imagebuilder
 
-# Common ImageBuilder parameters
-CONFIG_TARGET_KERNEL_PARTSIZE=32
-CONFIG_TARGET_ROOTFS_PARTSIZE=256
+# Target image customization configurations
+--extra-image-name=...      Specify a custom string to append to the output image filename
+--rootfs-partsize=...       Specify the root partition size in MB (defaults to target's default if omitted)
+
+# Output, local custom modules, and mirror network configurations
+--output=...                Specify the output directory for build artifacts (default: ./bin)
+--custom-modules=...        Specify the path to custom modules directory (default: ./custom_modules)
+--use-mirror                Enable mirror usage (defaults to mirrors.tuna.tsinghua.edu.cn if --mirror is not specified)
+--mirror=...                Specify a custom mirror host, e.g. mirrors.ustc.edu.cn (do not include http:// or https://)
+```
+
+### Environment Variable Configuration
+
+Module environment variables (such as `BW_LAN_IP`, `BW_ROOT_PASSWORD`, `BW_PPPOE_USERNAME`, etc.) can be configured in two ways:
+
+1. **Submodule Directory `.env` File**: Create a `.env` file directly under the module's subdirectory (refer to the `.env.example` template in each module).
+2. **Command Line Environment Variables**: Pass them directly when executing the `run.sh` script, for example:
+   ```bash
+   BW_LAN_IP=192.168.2.1 BW_ROOT_PASSWORD=secret ./run.sh --image=...
+   ```
+
+### Core Control Environment Variables
+
+```bash
+# Adjust default module set (base disable-ipv6 statistics system extras), e.g. -extras removes extras
+BW_ADJUST_MODULES="lan pppoe -extras"
+
+# Completely override the default module set
+BW_OVERRIDE_MODULES="base lan pppoe extras"
+
+# Explicitly override/append packages passed to ImageBuilder (use - prefix to remove default packages)
+BW_EXTRA_PACKAGES="luci-app-openclash -dnsmasq"
+
+# Customize build image parameters
+BW_EXTRA_IMAGE_NAME="custom"
+BW_DISABLED_SERVICES="dnsmasq"
+BW_ROOTFS_PARTSIZE="256"
 ```
 
 Default output directory is `./bin`; override with `--output`.
 
 ---
 
-## Module System (Brief)
+## Module System
 
-- **Default module set**: `add-all-device-to-lan argon base opkg-mirror prefer-ipv6-settings statistics system tools`
-- Two selection methods:
-  - **ENABLE_MODULES**: Fully replace the enabled module list
-  - **MODULES**: Add/remove on top of the default set (`-` prefix to exclude)
-- Module locations: supports both `modules/` (built‑in) and `custom_modules/` (user)
-- Directory structure:
+Default enabled module set:
 
-```
-my-module/
-├─ packages            # Dependency packages (space‑separated list or executable script)
-├─ files/              # Files to include in the firmware
-├─ post-files.sh       # Optional: post‑processing after files copy
-├─ .env                # Optional: module‑level variables
-└─ README.md           # Optional: module description
-```
+`base system disable-ipv6 statistics extras`
+
+All currently available built-in modules:
+
+`base disable-ipv6 extras lan pppoe prefer-ipv6 python root-password ssh-permission statistics system`
+
+Module locations:
+
+- `modules/`: built-in modules
+- `custom_modules/`: custom modules
+
+For details on the project and module file layout, see [Development & Build](#development--build) below.
+
+Module notes:
+
+- `base`: Provides essential packages including the LuCI Web UI, system tools, and required system dependencies.
+- `disable-ipv6`: Disables IPv6 on LAN/WAN interfaces, and stops IPv6 RA (Router Advertisement) and DHCPv6 services upon boot.
+- `extras`: Installs common network diagnosis and system tools (e.g., tcpdump, curl) for advanced troubleshooting.
+- `lan`: Sets up the LAN interface IP address, supporting customization via environment variables.
+- `pppoe`: Automates PPPoE WAN dialing configurations (username and password) on first startup.
+- `prefer-ipv6`: Optimizes IPv6 priority settings and prefer-IPv6 configurations.
+- `python`: Installs a lightweight Python 3 environment and package support.
+- `root-password`: Configures root user login credentials (supports custom or random passwords).
+- `ssh-permission`: Fixes ownership and permissions of SSH authorized_keys files to ensure secure public-key login.
+- `statistics`: Enables performance telemetry, system statistics tracking, temperature monitoring, and LuCI graphing interfaces.
+- `system`: Configures basic system attributes, such as switching timezone to China timezone (CST) and adjusting system log levels.
 
 Advanced features:
-- Env var sharing: modules can reference variables from root `.env` (enabled by default)
-- Variable substitution: files under `files/etc/uci-defaults` support `$VARNAME` replacement
-- Conflict protection: build fails if multiple modules generate the same target path (to prevent overwrite)
+
+- Env var configuration: support module-specific `.env` files or direct CLI assignments
+- Variable substitution: files under `files/etc/uci-defaults` support `$VARNAME`
+- Conflict protection: build fails if multiple modules produce the same target path
+
+---
+
+## Notes
+
+- Only official OpenWrt ImageBuilder images are supported
+- Built with a CLI-first workflow
 
 ---
 
 ## FAQ
 
 **General:**
-- Slow build/limited bandwidth? Enable `--use-mirror` or specify `--mirror=mirrors.pku.edu.cn`
-- Docker not installed? Install Docker Desktop (macOS/Windows) or Docker Engine (Linux)
-- Where are outputs? Default `./bin` (change with `--output`)
-- GUI build fails/unresponsive? Ensure Docker is installed and running; running from source also requires Node.js 18+ and pnpm 8+. See “Development & Build”.
-
-**Windows specific:**
-- PowerShell scripts won’t run? Execute `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
+- Slow build or limited bandwidth? Enable `--use-mirror` or set `--mirror=mirrors.ustc.edu.cn`
+- Docker not installed? Install Docker Desktop (macOS) or Docker Engine (Linux)
+- Where are outputs? Default is `./bin` (change with `--output`)
 - Docker not found? Ensure Docker Desktop is installed and running; try restarting the terminal
-- Permission issues? Run PowerShell or Docker Desktop as Administrator
-- Non‑ASCII path issues? Prefer checking out the repo into an ASCII‑only path
+- Permission issues? Run Docker Desktop as Administrator
+- Non-ASCII path issues? Prefer checking out the repo into an ASCII-only path
 
 **Linux specific:**
-- AppImage won’t start? `sudo apt install fuse` to install FUSE support
-- No Docker permission? Add your user to the docker group: `sudo usermod -aG docker $USER`, then re‑login
-- .deb installation failed? `sudo apt-get install -f` to fix dependencies
-- GUI won’t launch? Ensure required desktop and system libraries are installed
+- AppImage won’t start? `sudo apt install fuse`
+- No Docker permission? Add your user to the docker group: `sudo usermod -aG docker $USER`, then re-login
+- .deb install failed? `sudo apt-get install -f`
 
 ---
 
 ## Development & Build
 
-Directory layout:
+Project and module layout:
 
 ```
 .
-├─ build.sh                 # Actual build script inside container (cross‑platform)
-├─ run.sh                   # Linux/macOS build script (Docker Compose)
-├─ run.ps1                  # Windows PowerShell build script
-├─ modules/                 # Built‑in module library
-├─ custom_modules/          # Put your custom modules here
-├─ setup/                   # Pre‑build setup scripts
-├─ tauri-app/               # GUI app (Tauri 2 + Vue 3)
-└─ LICENSE                  # MIT license
+├─ build.sh             # Actual build script inside container
+├─ run.sh               # Build script
+├─ .env                 # Optional: system-wide environment file (see .env.example)
+├─ .env.example         # System-wide environment template with usage instructions
+├─ modules/             # Built-in module library
+│  └─ [module-name]/    # Module structure layout
+│     ├─ packages       # Dependency packages or executable script
+│     ├─ files/         # Files to include in the firmware
+│     ├─ post-script.sh # Optional post-processing shell script
+│     ├─ .env           # Optional module-specific environment file (see .env.example)
+│     ├─ .env.example   # Optional environment template with usage instructions
+│     └─ README.md      # Optional module description
+├─ custom_modules/      # Custom modules directory
+└─ LICENSE              # MIT license
 ```
 
-**Run GUI from source and package:**
+Required:
 
-```bash
-cd tauri-app
-pnpm install
-
-# Development (Tauri dev, fixed port 1420)
-pnpm tauri dev
-
-# Production packaging (desktop installers)
-pnpm tauri build
-```
-
-**Platform specific requirements:**
-
-*Windows:*
-- Install Rust toolchain (with MSVC)
-- Install Visual Studio Build Tools or Visual Studio
-- Ensure PowerShell 5.1+ or PowerShell Core 7+
-
-*Linux:*
-- Build tools: `sudo apt install build-essential`
-- GTK libs: `sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev`
-- Others: `sudo apt install libappindicator3-dev librsvg2-dev patchelf`
-
-*macOS:*
-- Install Xcode Command Line Tools: `xcode-select --install`
-
-Note: Packaging bundles root `build.sh`, `run.sh`, `run.ps1`, `setup/`, `modules/` as resources. Platform‑specific installers (.dmg/.msi/.deb/.AppImage) will be generated.
-
----
-
-## Contributing
-
-- **Bug reports**: [Open an Issue](https://github.com/EkkoG/OpenWrt/issues)
-- **Feature requests**: [Request feature](https://github.com/EkkoG/OpenWrt/issues/new)
-- **Code contributions**: [Submit a Pull Request](https://github.com/EkkoG/OpenWrt/pulls)
-- **Docs improvements**: Help improve README and Wiki
-- **Module sharing**: Share your custom modules
-
-## Acknowledgements
-
-<div align="center">
-
-### Core
-[**OpenWrt**](https://openwrt.org/) • [**ImmortalWrt**](http://immortalwrt.org/) • [**Docker**](https://www.docker.com/)
-
-### Networking
-[**OpenClash**](https://github.com/vernesong/OpenClash) • [**dae**](https://github.com/daeuniverse/dae) • [**Passwall**](https://github.com/xiaorouji/openwrt-passwall)
-
-### Frameworks
-[**Tauri**](https://tauri.app/) • [**Vue.js**](https://vuejs.org/) • [**Vuetify**](https://vuetifyjs.com/)
-
-</div>
+- Docker
 
 ## License
 
-Released under the MIT License. See `LICENSE`.
-
----
-
-<div align="center">
-
-[![Star History Chart](https://api.star-history.com/svg?repos=EkkoG/OpenWrt&type=Date)](https://star-history.com/#EkkoG/OpenWrt&Date)
-
-</div>
+This project is licensed under MIT. See `LICENSE`

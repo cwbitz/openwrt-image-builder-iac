@@ -2,38 +2,38 @@
 
 ## Overview
 
-This module adds Python 3 support to OpenWrt, providing a lightweight runtime.
+This module adds Python 3 support to OpenWrt by installing a lightweight runtime.
 
 ## Features
 
-- Install a lightweight Python 3
-- Provide a basic Python runtime
-- Execute Python scripts
-- Base for other Python apps
+- Install a minimal Python 3 runtime
+- Provide basic Python scripting support
+- Run Python scripts on the router
+- Serve as a foundation for Python-based applications
 
 ## Package
 
-- `python3-light` — lightweight Python 3
+- `python3-light` — lightweight Python 3 interpreter
 
 ## Characteristics
 
 ### Lightweight
-- Minimal runtime
-- Reduced storage footprint
-- Keep core functionality
-- Fit for embedded environments
+- Minimal runtime footprint
+- Reduced storage usage
+- Retains core Python functionality
+- Suitable for embedded environments
 
 ### Compatibility
-- Standard Python 3 syntax
-- Compatible with most base libraries
-- Extensible via additional packages
-- Good for automation scripts
+- Supports standard Python 3 syntax
+- Compatible with common base libraries
+- Extensible with additional packages
+- Useful for automation scripts
 
 ## Files
 
 - `packages` — package list
 
-## Scenarios
+## Use Cases
 
 When Python scripting is needed:
 - Automation
@@ -41,10 +41,10 @@ When Python scripting is needed:
 - Network monitoring
 - Data processing
 - IoT control
-- Feature extensions
+- Extending firmware features
 
 ## Notes
 
-- Lightweight build excludes some stdlib modules
-- Complex apps may require extra dependencies
-- Choose based on actual needs
+- The lightweight build excludes some standard library modules
+- Complex applications may require extra dependencies
+- Pick packages based on actual requirements

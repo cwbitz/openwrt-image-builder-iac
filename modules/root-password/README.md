@@ -48,7 +48,7 @@ ROOT_PASSWORD=your_secure_password
 
 ## 配置文件
 
-- `example.env` - 环境变量配置示例
+- `.env.example` - 环境变量配置示例
 - `files/etc/uci-defaults/92-system` - 系统配置脚本
 
 ## 使用场景

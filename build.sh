@@ -1,65 +1,179 @@
-#!/bin/bash -e
+#!/bin/bash
 
-OPENWRT_VERSION=24.10
-IS_SNAPSHOT_BUILD=0
-
-# Detect OpenWrt version from image builder tag
-# Parse version number from IMAGEBUILDER_IMAGE if provided
-if [ ! -z "$IMAGEBUILDER_IMAGE" ]; then
-    # Extract version number, handling -snapshot and -master suffixes
-    extracted_version=$(echo "$IMAGEBUILDER_IMAGE" | grep -oE '[0-9]+\.[0-9]+' | head -1)
-    if [ ! -z "$extracted_version" ]; then
-        OPENWRT_VERSION=$extracted_version
-    fi
-
-    if [[ $IMAGEBUILDER_IMAGE =~ "-SNAPSHOT" ]]; then
-        IS_SNAPSHOT_BUILD=1
-    fi
-fi
-
-
-DEFAULT_MODULE_SET="add-all-device-to-lan argon base opkg-mirror prefer-ipv6-settings statistics system tools"
-
-# 加载构建设置脚本
-source ./setup/build-setup.sh
-
-log_info() {
-    # Print info messages when logging is enabled
-    if [ "$LOG_ENABLE" == "1" ]; then
-        echo -e "\033[32m[INFO]\033[0m $1"
-    fi
-}
+set -euo pipefail
 
 log_error() {
-    if [ "$LOG_ENABLE" == "1" ]; then
+    if [ "${BW_LOG_ENABLE:-1}" == "1" ]; then
         echo -e "\033[31m[ERROR]\033[0m $1"
     fi
 }
 
+log_info() {
+    # Print informational messages when logging is enabled
+    if [ "${BW_LOG_ENABLE:-1}" == "1" ]; then
+        echo -e "\033[32m[INFO]\033[0m $1"
+    fi
+}
+
 log_debug() {
-    if [ "$LOG_ENABLE" == "1" ] && [ "$DEBUG" == "1" ]; then
+    if [ "${BW_LOG_ENABLE:-1}" == "1" ] && [ "${BW_DEBUG:-0}" == "1" ]; then
         echo -e "\033[33m[DEBUG]\033[0m $1"
     fi
 }
 
-log_info "OpenWrt version detected: $OPENWRT_VERSION"
-log_info "Default module set: $DEFAULT_MODULE_SET"
-log_info "MODULES: $MODULES"
+# Initialize variables from BW_ prefix environment variables
+PROFILE="${BW_PROFILE:-}"
 
-# Check if ENABLE_MODULES is defined, if so use it directly
-if [ ! -z "$ENABLE_MODULES" ]; then
-    ACTIVE_MODULE_LIST="$ENABLE_MODULES"
-    log_info "Using ENABLE_MODULES directly: $ACTIVE_MODULE_LIST"
+# Module and package control configurations
+OVERRIDE_MODULES="${BW_OVERRIDE_MODULES:-}"
+ADJUST_MODULES="${BW_ADJUST_MODULES:-}"
+EXTRA_PACKAGES="${BW_EXTRA_PACKAGES:-}"
+DISABLED_SERVICES="${BW_DISABLED_SERVICES:-}"
+
+# Target image customization configurations
+EXTRA_IMAGE_NAME="${BW_EXTRA_IMAGE_NAME:-}"
+ROOTFS_PARTSIZE="${BW_ROOTFS_PARTSIZE:-}"
+
+# Network mirror and package download acceleration configurations
+USE_MIRROR="${BW_USE_MIRROR:-0}"
+MIRROR="${BW_MIRROR:-}"
+
+# Initialize and setup the ImageBuilder environment if core directories or Makefile are missing.
+if [ ! -f ./Makefile ] || \
+   [ ! -d ./scripts ] || \
+   [ ! -d ./target ] || \
+   [ ! -d ./include ] || \
+   { [ ! -f ./repositories ] && [ ! -f ./repositories.conf ]; }; then
+    log_info "ImageBuilder environment missing or incomplete; running setup process"
+    
+    # Define and export custom wget function: remove -nv, -q, etc. to force progress bar display
+    wget() {
+        local clean_args=()
+        for arg in "$@"; do
+            if [[ "$arg" != "-nv" && "$arg" != "--no-verbose" && "$arg" != "-q" && "$arg" != "--quiet" ]]; then
+                clean_args+=("$arg")
+            fi
+        done
+        command wget --progress=bar:force:noscroll --show-progress "${clean_args[@]}"
+    }
+    export -f wget
+
+    # Save the original VERSION_PATH
+    ORIGINAL_VERSION_PATH="${VERSION_PATH:-}"
+
+    # If VERSION_PATH points to a SNAPSHOT release (e.g. releases/25.12-SNAPSHOT),
+    # temporarily rewrite it to "snapshots" so setup.sh downloads from the correct directory.
+    if [[ "$VERSION_PATH" == *SNAPSHOT* ]]; then
+        log_info "Detected SNAPSHOT version path '$VERSION_PATH', temporarily rewriting to 'snapshots' for setup.sh"
+        export VERSION_PATH="snapshots"
+    fi
+
+    setup_success=0
+
+    # 1. First Attempt: USTC Mirror (if USE_MIRROR is enabled)
+    if [ "$USE_MIRROR" == "1" ]; then
+        export UPSTREAM_URL="https://mirrors.ustc.edu.cn/openwrt"
+        log_info "Attempting to setup ImageBuilder using USTC mirror: $UPSTREAM_URL"
+        
+        # Run setup.sh in a subshell or temporarily disable set -e to handle failures gracefully
+        set +e
+        ( . ./setup.sh )
+        setup_status=$?
+        set -e
+
+        if [ $setup_status -eq 0 ]; then
+            setup_success=1
+            log_info "Successfully setup ImageBuilder using USTC mirror."
+        else
+            log_error "Failed to setup ImageBuilder using USTC mirror. Falling back to official OpenWrt source..."
+        fi
+    fi
+
+    # 2. Second Attempt: Official Source (if USTC mirror failed or was not requested)
+    if [ "$setup_success" -eq 0 ]; then
+        # Unset UPSTREAM_URL so setup.sh defaults to official downloads.openwrt.org
+        unset UPSTREAM_URL
+        log_info "Attempting to setup ImageBuilder using official OpenWrt source..."
+        . ./setup.sh
+        log_info "Successfully setup ImageBuilder using official source."
+    fi
+
+    # Restore the original VERSION_PATH if it was temporarily rewritten
+    if [ -n "$ORIGINAL_VERSION_PATH" ]; then
+        export VERSION_PATH="$ORIGINAL_VERSION_PATH"
+    fi
+fi
+
+# Apply mirror replacement to repositories/repositories.conf if USE_MIRROR is enabled
+if [ "$USE_MIRROR" == "1" ] && [ -n "${MIRROR:-}" ]; then
+    repo_file=""
+    if [ -f ./repositories.conf ]; then
+        repo_file="./repositories.conf"
+    elif [ -f ./repositories ]; then
+        repo_file="./repositories"
+    fi
+
+    if [ -n "$repo_file" ]; then
+        log_info "Replacing package mirror in $repo_file with $MIRROR"
+        sed -i -E "s|https?://downloads.openwrt.org|https://${MIRROR}|g" "$repo_file"
+    fi
+fi
+
+DEFAULT_MODULES="base system disable-ipv6 statistics extras"
+
+log_info "Detected OpenWrt version: ${VERSION_PATH##*/}"
+export VERSION_PATH
+log_info "Default modules: $DEFAULT_MODULES"
+log_info "ADJUST_MODULES: ${ADJUST_MODULES:-<none>}"
+log_info "OVERRIDE_MODULES: ${OVERRIDE_MODULES:-<none>}"
+
+# Copy modules from container storage to active build locations
+cp -r modules_in_container modules
+if [ -d custom_modules_in_container ]; then
+    cp -r custom_modules_in_container custom_modules
+fi
+
+module_exists() {
+    local mod="$1"
+    [ -d "modules/$mod" ] || { [ -d "custom_modules" ] && [ -d "custom_modules/$mod" ]; }
+}
+
+is_in_default_modules() {
+    local mod="$1"
+    local m
+    for m in $DEFAULT_MODULES; do
+        if [ "$m" == "$mod" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+ACTIVE_MODULES=""
+if [ -n "${OVERRIDE_MODULES:-}" ]; then
+    # Validate each module in OVERRIDE_MODULES exists
+    for module in $OVERRIDE_MODULES; do
+        if ! module_exists "$module"; then
+            log_error "Module '$module' specified in OVERRIDE_MODULES does not exist"
+            exit 1
+        fi
+    done
+    ACTIVE_MODULES="$OVERRIDE_MODULES"
+    log_info "Using OVERRIDE_MODULES: $ACTIVE_MODULES"
 else
-    # Use legacy DEFAULT_MODULE_SET + MODULES logic
-    ACTIVE_MODULE_LIST=$DEFAULT_MODULE_SET
-    for module in $MODULES; do
+    # Fallback to default modules and apply ADJUST_MODULES additions/removals
+    ACTIVE_MODULES="$DEFAULT_MODULES"
+    for module in ${ADJUST_MODULES:-}; do
         # Check if module starts with "-" (exclusion prefix)
         if [ "${module:0:1}" == "-" ]; then
-            # Remove module from active list
             module_to_remove="${module:1}"
+            # Check if the module to remove is in DEFAULT_MODULES
+            if ! is_in_default_modules "$module_to_remove"; then
+                log_info "Module '$module_to_remove' marked for removal is not in DEFAULT_MODULES, ignoring"
+                continue
+            fi
             new_list=""
-            for active_module in $ACTIVE_MODULE_LIST; do
+            for active_module in $ACTIVE_MODULES; do
                 if [ "$active_module" != "$module_to_remove" ]; then
                     if [ -z "$new_list" ]; then
                         new_list="$active_module"
@@ -68,113 +182,283 @@ else
                     fi
                 fi
             done
-            ACTIVE_MODULE_LIST="$new_list"
+            ACTIVE_MODULES="$new_list"
         else
-            # Add module to active list
-            ACTIVE_MODULE_LIST="$ACTIVE_MODULE_LIST $module"
-        fi
-    done
-    
-    ACTIVE_MODULE_LIST="$(echo "$ACTIVE_MODULE_LIST" | tr '\n' ' ')"
-    log_info "Active modules: $ACTIVE_MODULE_LIST"
-fi
-
-cp -r modules_in_container modules
-cp -r custom_modules_in_container custom_modules
-
-PACKAGE_COLLECTION=
-# Load system environment variables (default enabled)
-SYSTEM_ENVIRONMENT="$(cat .env)"
-
-
-process_module_directory() {
-    module_directory=$1
-
-    for module_name in $ACTIVE_MODULE_LIST; do
-        if [ ! -d "$module_directory/$module_name" ]; then
-            continue
-        fi
-        log_info "Processing module: $module_name from $module_directory"
-
-        if [ -f "$module_directory/$module_name/packages" ]; then
-            res=$(. $module_directory/$module_name/packages 2>/dev/null || cat $module_directory/$module_name/packages)
-            if [ ! -z "$res" ]; then
-                PACKAGE_COLLECTION="$PACKAGE_COLLECTION $res"
+            # Verify module exists
+            if ! module_exists "$module"; then
+                log_error "Module '$module' specified in ADJUST_MODULES does not exist"
+                exit 1
+            fi
+            # Avoid duplicate module addition
+            is_duplicate=0
+            for active_module in $ACTIVE_MODULES; do
+                if [ "$active_module" == "$module" ]; then
+                    is_duplicate=1
+                    break
+                fi
+            done
+            if [ "$is_duplicate" -eq 0 ]; then
+                ACTIVE_MODULES="$ACTIVE_MODULES $module"
             fi
         fi
+    done
+fi
 
-        if [ -f "$module_directory/$module_name/.env" ]; then
-            . $module_directory/$module_name/.env
-            module_environment="$(cat $module_directory/$module_name/.env)"
-            # Merge with system environment
-            module_environment="$module_environment"$'\n'"$SYSTEM_ENVIRONMENT"
-        else
-            module_environment="$SYSTEM_ENVIRONMENT"
+log_info "Resolved active modules: $ACTIVE_MODULES"
+
+FINAL_PACKAGES=
+
+collect_packages() {
+    local dir="$1"
+    local mod="$2"
+    if [ -f "$dir/$mod/packages" ]; then
+        local res
+        res=$(. "$dir/$mod/packages" 2>/dev/null || cat "$dir/$mod/packages")
+        if [ -n "$res" ]; then
+            FINAL_PACKAGES="$FINAL_PACKAGES $res"
         fi
+    fi
+}
 
-        # Process UCI defaults with environment variable substitution
-        if [ -d "$module_directory/$module_name/files/etc/uci-defaults" ]; then
-            for config_file in $(find "$module_directory/$module_name/files/etc/uci-defaults" -type f); do
-                echo "$module_environment" | while IFS= read -r env_line; do
-                    variable_name="$(echo "$env_line" | cut -d '=' -f 1)"
-                    if [ ! -z "$variable_name" ]; then
-                        variable_value="${!variable_name}"
-                        log_debug "Substituting $variable_name with $variable_value in $config_file"
-                        sed -e "s|\$$variable_name|$variable_value|g" -i $config_file
-                    fi
-                done
-            done
+merge_extra_packages() {
+    [ -z "${EXTRA_PACKAGES:-}" ] && return 0
+    log_info "Merging EXTRA_PACKAGES: $EXTRA_PACKAGES"
+    FINAL_PACKAGES="$FINAL_PACKAGES $EXTRA_PACKAGES"
+}
+
+deduplicate_packages() {
+    local list="$1"
+    local unique=""
+    for pkg in $list; do
+        local found=0
+        for u in $unique; do
+            if [ "$u" = "$pkg" ]; then
+                found=1
+                break
+            fi
+        done
+        if [ "$found" -eq 0 ]; then
+            unique="$unique $pkg"
         fi
+    done
+    echo "$unique"
+}
 
-        if [ -d "$module_directory/$module_name/files" ]; then
-            mkdir -p files
-            # Copy module files to build directory
-
-            # Copy files, ensuring no duplicates
-            # Exclude .DS_Store files
-            for source_file in $(find "$module_directory/$module_name/files" -type f | grep -v .DS_Store); do
-                target_file="files/${source_file#$module_directory/$module_name/files/}"
-                if [ -f "$target_file" ]; then
-                    log_error "Duplicate file detected: $target_file"
+check_package_conflicts() {
+    local list="$1"
+    for pkg in $list; do
+        # If the package starts with '-', it's a negative package
+        if [ "${pkg:0:1}" = "-" ]; then
+            local pos_pkg="${pkg:1}"
+            # Check if positive package is also in the list
+            for p in $list; do
+                if [ "$p" = "$pos_pkg" ]; then
+                    log_error "Package conflict detected: '$pos_pkg' and '$pkg' cannot both be specified"
                     exit 1
                 fi
-                mkdir -p $(dirname $target_file)
-                cp $source_file $target_file
             done
-        fi
-
-        if [ -f "$module_directory/$module_name/post-files.sh" ]; then
-            log_info "Executing post-processing script for $module_name"
-            . $module_directory/$module_name/post-files.sh
         fi
     done
 }
 
-log_info "Validating module availability"
-for module_name in $ACTIVE_MODULE_LIST; do
-    if [ ! -d "modules/$module_name" ] && [ ! -d "custom_modules/$module_name" ]; then
-        log_error "Module not found: $module_name"
+clean_value() {
+    local val="$1"
+    # Remove leading/trailing whitespace
+    val="${val##[[:space:]]}"
+    val="${val%%[[:space:]]}"
+    # Strip leading/trailing double quotes
+    val="${val#\"}"
+    val="${val%\"}"
+    # Strip leading/trailing single quotes
+    val="${val#\'}"
+    val="${val%\'}"
+    echo -n "$val"
+}
+
+is_text_file() {
+    local file="$1"
+    # Use file utility if available, or fallback to checking with grep/head
+    if command -v file >/dev/null 2>&1; then
+        file "$file" | grep -qE 'text|empty|XML|JSON'
+    else
+        # Fallback check: check for any non-printable and non-whitespace characters
+        ! LC_ALL=C grep -q '[^[:print:][:space:]]' "$file" < /dev/null 2>/dev/null
+    fi
+}
+
+# Global associative array to store the resolved variables for the current module
+declare -A CURRENT_MODULE_ENV
+
+collect_module_env() {
+    local dir="$1"
+    local mod="$2"
+
+    # Reset the associative array
+    CURRENT_MODULE_ENV=()
+
+    local module_env_file="$dir/$mod/.env"
+
+    # Get a list of all variable names from module .env
+    local var_names=""
+    if [ -f "$module_env_file" ]; then
+        while IFS= read -r line || [ -n "$line" ]; do
+            # Skip empty or comment lines
+            [[ "$line" =~ ^[[:space:]]*# ]] && continue
+            [[ -z "${line//[[:space:]]/}" ]] && continue
+            local var_name="${line%%=*}"
+            var_name="${var_name##[[:space:]]}"
+            var_name="${var_name%%[[:space:]]}"
+            if [ -n "$var_name" ]; then
+                var_names="$var_names $var_name"
+            fi
+        done < "$module_env_file"
+    fi
+
+    # Deduplicate variable names
+    var_names=$(echo "$var_names" | tr ' ' '\n' | sort -u | tr '\n' ' ')
+
+    for var_name in $var_names; do
+        local env_val="${!var_name:-}"
+
+        # Parse value from global .env if it exists
+        local global_val=""
+        if [ -f .env ]; then
+            local global_line
+            global_line=$(grep -E "^[[:space:]]*$var_name[[:space:]]*=" .env | tail -n 1 || true)
+            if [ -n "$global_line" ]; then
+                global_val=$(clean_value "${global_line#*=}")
+            fi
+        fi
+
+        # Parse value from module .env if it exists
+        local mod_val=""
+        if [ -f "$module_env_file" ]; then
+            local mod_line
+            mod_line=$(grep -E "^[[:space:]]*$var_name[[:space:]]*=" "$module_env_file" | tail -n 1 || true)
+            if [ -n "$mod_line" ]; then
+                mod_val=$(clean_value "${mod_line#*=}")
+            fi
+        fi
+
+        local final_val=""
+        # Priority resolution logic:
+        # 1. Environment variable (passed from run.sh / compose) takes highest priority
+        if [ -n "$env_val" ]; then
+            final_val="$env_val"
+        fi
+
+        # 2. Module's own .env value
+        if [ -z "$final_val" ] && [ -n "$mod_val" ]; then
+            final_val="$mod_val"
+        fi
+
+        # 3. Global .env value
+        if [ -z "$final_val" ] && [ -n "$global_val" ]; then
+            final_val="$global_val"
+        fi
+
+        CURRENT_MODULE_ENV["$var_name"]="$final_val"
+    done
+}
+
+apply_env() {
+    local dir="$1"
+    local mod="$2"
+    [ -d "$dir/$mod/files" ] || return 0
+
+    collect_module_env "$dir" "$mod"
+
+    # Now substitute all text files in files/ directory
+    for f in $(find "$dir/$mod/files" -type f); do
+        if is_text_file "$f"; then
+            for var_name in "${!CURRENT_MODULE_ENV[@]}"; do
+                local val="${CURRENT_MODULE_ENV[$var_name]}"
+                log_debug "Substituting variable '$var_name' with '$val' in $f"
+                # Use a temporary file for safe in-place replacement (macOS/Linux compatible)
+                sed -e "s|\$$var_name|$val|g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+            done
+        fi
+    done
+}
+
+copy_files() {
+    local dir="$1"
+    local mod="$2"
+    [ -d "$dir/$mod/files" ] || return 0
+
+    mkdir -p files
+    # Copy files while avoiding duplicates
+    # Skip possible .DS_Store files
+    while IFS= read -r source_file; do
+        local target_file="files/${source_file#$dir/$mod/files/}"
+        if [ -f "$target_file" ]; then
+            log_error "Duplicate file detected: $target_file"
+            exit 1
+        fi
+        mkdir -p "$(dirname "$target_file")"
+        cp "$source_file" "$target_file"
+    done < <(find "$dir/$mod/files" -type f | grep -v .DS_Store || true)
+}
+
+run_post_scripts() {
+    local dir="$1"
+    local mod="$2"
+    if [ -f "$dir/$mod/post-script.sh" ]; then
+        log_info "Running post-processing script for module '$mod'"
+        . "$dir/$mod/post-script.sh"
+    fi
+}
+
+process_dir() {
+    local dir=$1
+    local mod
+
+    for mod in $ACTIVE_MODULES; do
+        [ -d "$dir/$mod" ] || continue
+        log_info "Processing module '$mod' from '$dir'"
+
+        collect_packages "$dir" "$mod"
+        apply_env "$dir" "$mod"
+        copy_files "$dir" "$mod"
+        run_post_scripts "$dir" "$mod"
+    done
+}
+
+log_info "Validating active modules..."
+for mod in $ACTIVE_MODULES; do
+    if [ ! -d "modules/$mod" ] && [ ! -d "custom_modules/$mod" ]; then
+        log_error "Module not found: '$mod'"
         exit 1
     fi
 done
 
+process_dir modules
+process_dir custom_modules
 
-# 设置构建环境
-setup_build_environment
+merge_extra_packages
+FINAL_PACKAGES=$(deduplicate_packages "$FINAL_PACKAGES")
+check_package_conflicts "$FINAL_PACKAGES"
 
-process_module_directory modules
-process_module_directory custom_modules
+log_info "Collected packages: ${FINAL_PACKAGES:-<none>}"
 
-log_info "Package collection complete: $PACKAGE_COLLECTION"
-
-log_info ""
+log_info "Contents of custom files overlay:"
 ls files -R
 log_info ""
 
+MAKE_ARGS="PACKAGES=\"$FINAL_PACKAGES\" FILES=\"files\" BIN_DIR=\"bin\""
+if [ ! -z "${EXTRA_IMAGE_NAME:-}" ]; then
+    MAKE_ARGS="$MAKE_ARGS EXTRA_IMAGE_NAME=\"$EXTRA_IMAGE_NAME\""
+fi
+if [ ! -z "${DISABLED_SERVICES:-}" ]; then
+    MAKE_ARGS="$MAKE_ARGS DISABLED_SERVICES=\"$DISABLED_SERVICES\""
+fi
+if [ ! -z "${ROOTFS_PARTSIZE:-}" ]; then
+    MAKE_ARGS="$MAKE_ARGS ROOTFS_PARTSIZE=\"$ROOTFS_PARTSIZE\""
+fi
+
 make info
-cat ./repositories.conf
 if [ -z "$PROFILE" ]; then
-    make image PACKAGES="$PACKAGE_COLLECTION" FILES="files" -S
+    eval make image $MAKE_ARGS -S
 else
-    make PROFILE="$PROFILE" image PACKAGES="$PACKAGE_COLLECTION" FILES="files" -S
+    eval make PROFILE=\"$PROFILE\" image $MAKE_ARGS -S
 fi

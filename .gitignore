@@ -1,9 +1,7 @@
-.env*
+# Ignore local module-specific environment configs, but keep their examples
+modules/*/.env
 bin/
 .DS_Store
-transfer.sh
 
 custom_modules
 docker-compose.yml
-_run.sh
-.claude/
