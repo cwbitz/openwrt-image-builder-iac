@@ -2,9 +2,6 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
-
 # Optional logging and debug configurations (defaults)
 BW_LOG_ENABLE="${BW_LOG_ENABLE:-1}"
 BW_DEBUG="${BW_DEBUG:-0}"
@@ -33,6 +30,72 @@ log_debug() {
     fi
 }
 
+usage()
+{
+    # Docker container and pull policies
+    echo "--image: specify the openwrt/imagebuilder Docker image; find it at https://hub.docker.com/r/openwrt/imagebuilder/tags"
+    echo "--force-pull: pull the image before building"
+    echo "--force-recreate: remove the existing container before building"
+
+    # Query image info
+    echo "--info: query basic image and profile information before building (conflicts with options other than --image and --force-pull)"
+
+    # Target profile config
+    echo "--profile: specify the build profile (defaults to target's first profile if omitted)"
+
+    # Module and package control configurations
+    echo "--custom-modules-list: specify a complete list of modules to build, bypassing defaults (e.g. \"base extras lan\")"
+    echo "--modules: specify adjustments to the default module set (e.g. \"lan pppoe -extras\")"
+    echo "--extra-packages: specify an explicit PACKAGES list for imagebuilder"
+    echo "--disabled-services: specify DISABLED_SERVICES for imagebuilder"
+
+    # Target image customization configurations
+    echo "--extra-image-name: specify a custom string to append to the output image filename"
+    echo "--rootfs-partsize: specify the root partition size in MB (defaults to target's default if omitted)"
+
+    # Output, local custom modules, and mirror network configurations
+    echo "--output: specify the output directory for build artifacts (default: ./bin)"
+    echo "--custom-modules: specify the path to custom modules directory (default: ./custom_modules)"
+    echo "--use-mirror: enable mirror usage (defaults to mirrors.tuna.tsinghua.edu.cn if --mirror is not specified)"
+    echo "--mirror: specify a custom mirror host, e.g. mirrors.ustc.edu.cn (do not include http:// or https://)"
+
+    # Help
+    echo "-h|--help: print this help message"
+    exit 1
+}
+
+# Check for help flags first
+HAS_HELP=0
+for arg in "$@"; do
+    case "$arg" in
+        -h|--help)
+            HAS_HELP=1
+            break
+            ;;
+    esac
+done
+
+if [ "$HAS_HELP" -eq 1 ]; then
+    if [ "$#" -gt 1 ]; then
+        # Find the first non-help parameter to report as wrong parameter
+        for arg in "$@"; do
+            case "$arg" in
+                -h|--help)
+                    ;;
+                *)
+                    echo "Wrong parameter"
+                    echo ""
+                    break
+                    ;;
+            esac
+        done
+    fi
+    usage
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 OS_NAME=$(uname -s)
 case "$OS_NAME" in
     Darwin)
@@ -59,6 +122,7 @@ HOST_GID=$(id -g)
 BW_IMAGE=""
 FORCE_PULL=0
 FORCE_RECREATE=0
+SHOW_INFO=0
 
 # Target profile config
 BW_PROFILE=""
@@ -101,37 +165,7 @@ if ! command -v docker >/dev/null 2>&1; then
     exit 1
 fi
 
-if ! docker info >/dev/null 2>&1; then
-    log_warn "Docker is installed but the daemon is not running. Attempting to start it..."
-    if ! start_docker_daemon; then
-        log_error "Failed to start Docker automatically. Please start Docker manually."
-        exit 1
-    fi
-
-    log_info "Waiting for Docker daemon to become ready..."
-    retry=0
-    until docker info >/dev/null 2>&1; do
-        sleep 2
-        retry=$((retry + 1))
-        if [ $retry -ge 15 ]; then
-            log_error "Docker daemon did not become ready within the timeout period."
-            exit 1
-        fi
-    done
-fi
-
-function compose() {
-    if docker compose version >/dev/null 2>&1; then
-        docker compose "$@"
-    elif command -v docker-compose >/dev/null 2>&1; then
-        docker-compose "$@"
-    else
-        log_error "Docker Compose is not available. Install Docker Desktop or the docker-compose CLI."
-        exit 1
-    fi
-}
-
-function start_docker_daemon() {
+start_docker_daemon() {
     if [ "$OS_NAME" = "Linux" ]; then
         if command -v systemctl >/dev/null 2>&1; then
             log_info "Starting Docker daemon via systemctl..."
@@ -155,7 +189,37 @@ function start_docker_daemon() {
     return 0
 }
 
-function ensure_output_dir_owner() {
+if ! docker info >/dev/null 2>&1; then
+    log_warn "Docker is installed but the daemon is not running. Attempting to start it..."
+    if ! start_docker_daemon; then
+        log_error "Failed to start Docker automatically. Please start Docker manually."
+        exit 1
+    fi
+
+    log_info "Waiting for Docker daemon to become ready..."
+    retry=0
+    until docker info >/dev/null 2>&1; do
+        sleep 2
+        retry=$((retry + 1))
+        if [ $retry -ge 15 ]; then
+            log_error "Docker daemon did not become ready within the timeout period."
+            exit 1
+        fi
+    done
+fi
+
+compose() {
+    if docker compose version >/dev/null 2>&1; then
+        docker compose "$@"
+    elif command -v docker-compose >/dev/null 2>&1; then
+        docker-compose "$@"
+    else
+        log_error "Docker Compose is not available. Install Docker Desktop or the docker-compose CLI."
+        exit 1
+    fi
+}
+
+ensure_output_dir_owner() {
     local target_dir="$1"
     if [[ "$OS_NAME" != "Linux" ]]; then
         return
@@ -170,38 +234,9 @@ function ensure_output_dir_owner() {
     fi
 }
 
-function usage()
-{
-    # Docker container and pull policies
-    echo "--image: specify the openwrt/imagebuilder Docker image; find it at https://hub.docker.com/r/openwrt/imagebuilder/tags"
-    echo "--force-pull: pull the image before building"
-    echo "--force-recreate: remove the existing container before building"
+HAS_CONFLICTING_PARAM=0
 
-    # Target profile config
-    echo "--profile: specify the build profile (defaults to target's first profile if omitted)"
-
-    # Module and package control configurations
-    echo "--custom-modules-list: specify a complete list of modules to build, bypassing defaults (e.g. \"base extras lan\")"
-    echo "--modules: specify adjustments to the default module set (e.g. \"lan pppoe -extras\")"
-    echo "--extra-packages: specify an explicit PACKAGES list for imagebuilder"
-    echo "--disabled-services: specify DISABLED_SERVICES for imagebuilder"
-
-    # Target image customization configurations
-    echo "--extra-image-name: specify a custom string to append to the output image filename"
-    echo "--rootfs-partsize: specify the root partition size in MB (defaults to target's default if omitted)"
-
-    # Output, local custom modules, and mirror network configurations
-    echo "--output: specify the output directory for build artifacts (default: ./bin)"
-    echo "--custom-modules: specify the path to custom modules directory (default: ./custom_modules)"
-    echo "--use-mirror: enable mirror usage (defaults to mirrors.tuna.tsinghua.edu.cn if --mirror is not specified)"
-    echo "--mirror: specify a custom mirror host, e.g. mirrors.ustc.edu.cn (do not include http:// or https://)"
-
-    # Help
-    echo "-h|--help: print this help message"
-    exit 1
-}
-
-while [ "$1" != "" ]; do
+while [ "${1:-}" != "" ]; do
     PARAM=$(echo "$1" | awk -F= '{print $1}')
     VALUE=$(echo "$1" | awk -F= '{print $2}')
     case "$PARAM" in
@@ -214,47 +249,62 @@ while [ "$1" != "" ]; do
             ;;
         --force-recreate)
             FORCE_RECREATE=1
+            HAS_CONFLICTING_PARAM=1
+            ;;
+        --info)
+            SHOW_INFO=1
             ;;
 
         # Target profile config
         --profile)
             BW_PROFILE=$VALUE
+            HAS_CONFLICTING_PARAM=1
             ;;
 
         # Module and package control configurations
         --custom-modules-list)
             BW_OVERRIDE_MODULES=$VALUE
+            HAS_CONFLICTING_PARAM=1
             ;;
         --modules)
             BW_ADJUST_MODULES=$VALUE
+            HAS_CONFLICTING_PARAM=1
             ;;
         --extra-packages)
             BW_EXTRA_PACKAGES=$VALUE
+            HAS_CONFLICTING_PARAM=1
             ;;
         --disabled-services)
             BW_DISABLED_SERVICES=$VALUE
+            HAS_CONFLICTING_PARAM=1
             ;;
 
         # Target image customization configurations
         --extra-image-name)
             BW_EXTRA_IMAGE_NAME=$VALUE
+            HAS_CONFLICTING_PARAM=1
             ;;
         --rootfs-partsize)
             BW_ROOTFS_PARTSIZE=$VALUE
+            HAS_CONFLICTING_PARAM=1
             ;;
 
         # Output, local custom modules, and mirror network configurations
         --output)
             BW_OUTPUT_DIR=$VALUE
+            HAS_CONFLICTING_PARAM=1
             ;;
         --custom-modules)
             BW_CUSTOM_MODULES_PATH=$VALUE
+            HAS_CONFLICTING_PARAM=1
             ;;
         --use-mirror)
             BW_USE_MIRROR=${VALUE:-1}
+            HAS_CONFLICTING_PARAM=1
             ;;
         --mirror)
             BW_MIRROR=$VALUE
+            HAS_CONFLICTING_PARAM=1
             ;;
 
         # Help
@@ -270,6 +320,16 @@ while [ "$1" != "" ]; do
     shift
 done
 
+if [ "$SHOW_INFO" -eq 1 ]; then
+    # Check for parameter conflicts when querying image info.
+    # Only --image, --force-pull, and --info are allowed.
+    if [ "$HAS_CONFLICTING_PARAM" -eq 1 ]; then
+        log_error "Conflict: Parameter options other than --image and --force-pull are not supported when using --info."
+        usage
+        exit 1
+    fi
+fi
+
 if [ -z "${BW_IMAGE:-}" ]; then
     log_error "No image specified"
     usage
@@ -283,6 +343,16 @@ if [[ "$BW_IMAGE" != openwrt/imagebuilder* ]]; then
 fi
 
 log_info "Image: $BW_IMAGE"
+
+if [ "$SHOW_INFO" -eq 1 ]; then
+    log_info "Querying image info..."
+    if [ "$FORCE_PULL" -eq 1 ] || ! docker image inspect "$BW_IMAGE" >/dev/null 2>&1; then
+        log_info "Pulling image..."
+        docker pull "$BW_IMAGE"
+    fi
+    docker run --rm "$BW_IMAGE" make info
+    exit 0
+fi
 
 # Inspect image to get VERSION_PATH and TARGET for dynamic container naming
 log_info "Inspecting image metadata..."
@@ -352,7 +422,7 @@ services:
     environment:
 END
 
-for var in BW_LOG_ENABLE BW_DEBUG BW_IMAGE BW_USE_MIRROR BW_MIRROR BW_PROFILE BW_EXTRA_PACKAGES BW_EXTRA_IMAGE_NAME BW_DISABLED_SERVICES BW_ROOTFS_PARTSIZE BW_ADJUST_MODULES BW_OVERRIDE_MODULES; do
+for var in BW_LOG_ENABLE BW_DEBUG BW_IMAGE BW_PROFILE BW_OVERRIDE_MODULES BW_ADJUST_MODULES BW_EXTRA_PACKAGES BW_DISABLED_SERVICES BW_EXTRA_IMAGE_NAME BW_ROOTFS_PARTSIZE BW_USE_MIRROR BW_MIRROR; do
     append_env_var "$var" "${!var}"
 done
 
