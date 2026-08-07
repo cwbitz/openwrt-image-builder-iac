@@ -119,7 +119,7 @@ if [ "$USE_MIRROR" == "1" ] && [ -n "${MIRROR:-}" ]; then
     fi
 fi
 
-DEFAULT_MODULES="base system root-password pppoe disable-ipv6 extras"
+DEFAULT_MODULES="base system root-password pppoe lan disable-ipv6 extras"
 
 log_info "Detected OpenWrt version: ${VERSION_PATH##*/}"
 export VERSION_PATH

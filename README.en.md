@@ -79,8 +79,8 @@ Module environment variables (such as `BW_LAN_IP`, `BW_ROOT_PASSWORD`, `BW_PPPOE
 ### Core Control Environment Variables
 
 ```bash
-# Adjust default module set (base system root-password pppoe disable-ipv6 extras), e.g. -extras removes extras
-BW_ADJUST_MODULES="lan -extras"
+# Adjust default module set (base system root-password pppoe lan disable-ipv6 extras), e.g. -extras removes extras
+BW_ADJUST_MODULES="statistics -extras"
 
 # Completely override the default module set
 BW_OVERRIDE_MODULES="base lan pppoe extras"
@@ -102,7 +102,7 @@ Default output directory is `./bin`; override with `--output`.
 
 Default enabled module set:
 
-`base system root-password pppoe disable-ipv6 extras`
+`base system root-password pppoe lan disable-ipv6 extras`
 
 All currently available built-in modules:
 
