@@ -463,8 +463,11 @@ if [ "$SHOW_INFO" -eq 1 ]; then
     if [ "$FORCE_PULL" -eq 1 ] || ! docker image inspect "$BW_IMAGE" >/dev/null 2>&1; then
         log_info "Pulling image..."
         docker pull "$BW_IMAGE"
+        echo ""
+        log_info "Image pulled successfully."
+        echo "----------------------------------------------------------------"
+        echo ""
     fi
-    echo ""
     log_info "Showing image info:"
     echo "----------------------------------------------------------------"
     echo ""
