@@ -595,7 +595,7 @@ fi
 
 log_info "Starting build container"
 set +e
-compose up $PULL_FLAG --exit-code-from $CONTAINER_NAME --remove-orphans
+compose up $PULL_FLAG --exit-code-from imagebuilder --remove-orphans
 build_status=$?
 set -e
 
