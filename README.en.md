@@ -42,28 +42,29 @@ CLI driven, Docker powered, and easy to extend with modules
 
 ```bash
 # Docker container and pull policies
---image=...                 Specify the openwrt/imagebuilder Docker image (required)
---force-pull                Pull the image before building
---force-recreate            Remove the existing container before building
+-i | --image=...                  Specify the openwrt/imagebuilder Docker image (required)
+-P | --force-pull                 Pull the image before building
+-R | --force-recreate             Remove the existing container before building
+-I | --info                       Query basic image and profile information
 
 # Target profile config
---profile=...               Specify the build profile (defaults to target's first profile if omitted)
+-p | --profile=...                Specify the build profile (defaults to target's first profile if omitted)
 
 # Module and package control configurations
---custom-modules-list=...   Specify a complete list of modules to build, bypassing defaults (e.g. "base extras lan")
---modules=...               Specify adjustments to the default module set (e.g. "lan pppoe -extras")
---extra-packages=...        Specify an explicit PACKAGES list for imagebuilder
---disabled-services=...     Specify DISABLED_SERVICES for imagebuilder
+-O | --override-modules=...       Specify a complete list of modules to build, bypassing defaults (e.g. "base lan prefer-ipv6 extras")
+-a | --adjust-modules=...         Specify adjustments to the default module set (e.g. "statistics -extras")
+-e | --extra-packages=...         Specify an explicit PACKAGES list for imagebuilder
+-d | --disabled-services=...      Specify DISABLED_SERVICES for imagebuilder
 
 # Target image customization configurations
---extra-image-name=...      Specify a custom string to append to the output image filename
---rootfs-partsize=...       Specify the root partition size in MB (defaults to target's default if omitted)
+-E | --extra-image-name=...       Specify a custom string to append to the output image filename
+-r | --rootfs-partsize=...        Specify the root partition size in MB (defaults to target's default if omitted)
 
 # Output, local custom modules, and mirror network configurations
---output=...                Specify the output directory for build artifacts (default: ./bin)
---custom-modules=...        Specify the path to custom modules directory (default: ./custom_modules)
---use-mirror                Enable mirror usage (defaults to mirrors.tuna.tsinghua.edu.cn if --mirror is not specified)
---mirror=...                Specify a custom mirror host, e.g. mirrors.ustc.edu.cn (do not include http:// or https://)
+-o | --output-dir=...             Specify the output directory for build artifacts (default: ./bin)
+-c | --custom-modules-path=...    Specify the path to custom modules directory (default: ./custom_modules)
+-u | --use-mirror                 Enable mirror usage (defaults to mirrors.tuna.tsinghua.edu.cn if -m / --mirror is not specified)
+-m | --mirror=...                 Specify a custom mirror host, e.g. mirrors.ustc.edu.cn (do not include http:// or https://)
 ```
 
 ### Environment Variable Configuration
@@ -94,7 +95,7 @@ BW_DISABLED_SERVICES="dnsmasq"
 BW_ROOTFS_PARTSIZE="256"
 ```
 
-Default output directory is `./bin`; override with `--output`.
+Default output directory is `./bin`; override with `--output-dir`.
 
 ---
 
@@ -149,7 +150,7 @@ Advanced features:
 **General:**
 - Slow build or limited bandwidth? Enable `--use-mirror` or set `--mirror=mirrors.ustc.edu.cn`
 - Docker not installed? Install Docker Desktop (macOS) or Docker Engine (Linux)
-- Where are outputs? Default is `./bin` (change with `--output`)
+- Where are outputs? Default is `./bin` (change with `--output-dir`)
 - Docker not found? Ensure Docker Desktop is installed and running; try restarting the terminal
 - Permission issues? Run Docker Desktop as Administrator
 - Non-ASCII path issues? Prefer checking out the repo into an ASCII-only path

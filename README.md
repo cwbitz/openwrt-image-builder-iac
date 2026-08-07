@@ -42,28 +42,29 @@
 
 ```bash
 # Docker 容器与镜像拉取策略
---image=...                 指定 openwrt/imagebuilder Docker 镜像（必需）
---force-pull                构建前强制从镜像源拉取/更新镜像
---force-recreate            构建前强制删除已存在的同名构建容器
+-i | --image=...                  指定 openwrt/imagebuilder Docker 镜像（必需）
+-P | --force-pull                 构建前强制从镜像源拉取/更新镜像
+-R | --force-recreate             构建前强制删除已存在的同名构建容器
+-I | --info                       查询镜像和 Profile 基础信息
 
 # 设备配置
---profile=...               指定构建的设备 Profile 属性（若省略则默认使用该目标的第一个 Profile）
+-p | --profile=...                指定构建的设备 Profile 属性（若省略则默认使用该目标的第一个 Profile）
 
 # 模块与软件包控制
---custom-modules-list=...   完全自定义模块列表，覆盖默认模块集（例如 "base extras lan"）
---modules=...               在默认模块集基础上增减/调整模块（例如 "lan pppoe -extras"）
---extra-packages=...        指定传入 ImageBuilder 的显式 PACKAGES 软件包列表
---disabled-services=...     指定构建固件时禁用的服务列表
+-O | --override-modules=...       完全自定义模块列表，覆盖默认模块集（例如 "base lan prefer-ipv6 extras"）
+-a | --adjust-modules=...         在默认模块集基础上增减/调整模块（例如 "statistics -extras"）
+-e | --extra-packages=...         指定传入 ImageBuilder 的显式 PACKAGES 软件包列表
+-d | --disabled-services=...      指定构建固件时禁用的服务列表
 
 # 目标固件自定义配置
---extra-image-name=...      指定固件生成文件名的自定义后缀
---rootfs-partsize=...       指定根分区大小（MB，若省略则使用设备默认值）
+-E | --extra-image-name=...       指定固件生成文件名的自定义后缀
+-r | --rootfs-partsize=...        指定根分区大小（MB，若省略则使用设备默认值）
 
 # 输出目录、自定义模块路径与镜像加速配置
---output=...                指定构建产物的输出目录（默认：./bin）
---custom-modules=...        指定自定义模块的物理路径（默认：./custom_modules）
---use-mirror                启用镜像加速下载（若未指定 --mirror，默认使用 mirrors.tuna.tsinghua.edu.cn）
---mirror=...                指定自定义镜像加速域名，例如 mirrors.ustc.edu.cn（不要包含 http:// 或 https://）
+-o | --output-dir=...             指定构建产物的输出目录（默认：./bin）
+-c | --custom-modules-path=...    指定自定义模块的物理路径（默认：./custom_modules）
+-u | --use-mirror                 启用镜像加速下载（若未指定 -m / --mirror，默认使用 mirrors.tuna.tsinghua.edu.cn）
+-m | --mirror=...                 指定自定义镜像加速域名，例如 mirrors.ustc.edu.cn（不要包含 http:// 或 https://）
 ```
 
 ### 环境变量配置说明
@@ -94,7 +95,7 @@ BW_DISABLED_SERVICES="dnsmasq"
 BW_ROOTFS_PARTSIZE="256"
 ```
 
-默认输出目录为 `./bin`，可通过 `--output` 修改。
+默认输出目录为 `./bin`，可通过 `--output-dir` 修改。
 
 ---
 
@@ -148,7 +149,7 @@ BW_ROOTFS_PARTSIZE="256"
 
 - 构建速度慢/网速受限？建议启用 `--use-mirror` 或指定 `--mirror=mirrors.ustc.edu.cn`
 - 没有安装 Docker？请先安装 Docker Desktop（macOS）或 Docker Engine（Linux）
-- 构建结果在哪？默认在 `./bin`（可用 `--output` 修改）
+- 构建结果在哪？默认在 `./bin`（可用 `--output-dir` 修改）
 - 找不到 Docker？请确认 Docker 已安装并启动，并重启终端
 - 没有 Docker 权限？将用户加入 docker 组：`sudo usermod -aG docker $USER`，然后重新登录
 - 中文路径问题？建议放在英文路径下，避免路径编码问题

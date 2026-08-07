@@ -32,35 +32,37 @@ log_debug() {
 
 usage()
 {
-    # Docker container and pull policies
-    echo "--image: specify the openwrt/imagebuilder Docker image; find it at https://hub.docker.com/r/openwrt/imagebuilder/tags"
-    echo "--force-pull: pull the image before building"
-    echo "--force-recreate: remove the existing container before building"
-
-    # Query image info
-    echo "--info: query basic image and profile information before building (conflicts with options other than --image and --force-pull)"
-
-    # Target profile config
-    echo "--profile: specify the build profile (defaults to target's first profile if omitted)"
-
-    # Module and package control configurations
-    echo "--custom-modules-list: specify a complete list of modules to build, bypassing defaults (e.g. \"base extras lan\")"
-    echo "--modules: specify adjustments to the default module set (e.g. \"lan pppoe -extras\")"
-    echo "--extra-packages: specify an explicit PACKAGES list for imagebuilder"
-    echo "--disabled-services: specify DISABLED_SERVICES for imagebuilder"
-
-    # Target image customization configurations
-    echo "--extra-image-name: specify a custom string to append to the output image filename"
-    echo "--rootfs-partsize: specify the root partition size in MB (defaults to target's default if omitted)"
-
-    # Output, local custom modules, and mirror network configurations
-    echo "--output: specify the output directory for build artifacts (default: ./bin)"
-    echo "--custom-modules: specify the path to custom modules directory (default: ./custom_modules)"
-    echo "--use-mirror: enable mirror usage (defaults to mirrors.tuna.tsinghua.edu.cn if --mirror is not specified)"
-    echo "--mirror: specify a custom mirror host, e.g. mirrors.ustc.edu.cn (do not include http:// or https://)"
-
-    # Help
-    echo "-h|--help: print this help message"
+    echo "Usage: ./run.sh [OPTIONS]"
+    echo ""
+    echo "Docker container and pull policies:"
+    echo "  -i | --image                specify the openwrt/imagebuilder Docker image; find it at https://hub.docker.com/r/openwrt/imagebuilder/tags"
+    echo "  -P | --force-pull           pull the image before building"
+    echo "  -R | --force-recreate       remove the existing container before building"
+    echo ""
+    echo "Query image info:"
+    echo "  -I | --info                 query basic image and profile information before building (conflicts with options other than --image)"
+    echo ""
+    echo "Target profile config:"
+    echo "  -p | --profile              specify the build profile (defaults to target's first profile if omitted)"
+    echo ""
+    echo "Module and package control configurations:"
+    echo "  -O | --override-modules     specify a complete list of modules to build, bypassing defaults (e.g. \"base lan prefer-ipv6 extras\")"
+    echo "  -a | --adjust-modules       specify adjustments to the default module set (e.g. \"statistics -extras\")"
+    echo "  -e | --extra-packages       specify an explicit PACKAGES list for imagebuilder"
+    echo "  -d | --disabled-services    specify DISABLED_SERVICES for imagebuilder"
+    echo ""
+    echo "Target image customization configurations:"
+    echo "  -E | --extra-image-name     specify a custom string to append to the output image filename"
+    echo "  -r | --rootfs-partsize      specify the root partition size in MB (defaults to target's default if omitted)"
+    echo ""
+    echo "Output, local custom modules, and mirror network configurations:"
+    echo "  -o | --output-dir           specify the output directory for build artifacts (default: ./bin)"
+    echo "  -c | --custom-modules-path  specify the path to custom modules directory (default: ./custom_modules)"
+    echo "  -u | --use-mirror           enable mirror usage (defaults to mirrors.tuna.tsinghua.edu.cn if --mirror is not specified)"
+    echo "  -m | --mirror               specify a custom mirror host, e.g. mirrors.ustc.edu.cn (do not include http:// or https://)"
+    echo ""
+    echo "Help:"
+    echo "  -h | --help                 print this help message"
     exit 1
 }
 
@@ -83,7 +85,7 @@ if [ "$HAS_HELP" -eq 1 ]; then
                 -h|--help)
                     ;;
                 *)
-                    echo "Wrong parameter"
+                    echo "Wrong parameter \"$arg\" when using help flag"
                     echo ""
                     break
                     ;;
@@ -165,47 +167,9 @@ if ! command -v docker >/dev/null 2>&1; then
     exit 1
 fi
 
-start_docker_daemon() {
-    if [ "$OS_NAME" = "Linux" ]; then
-        if command -v systemctl >/dev/null 2>&1; then
-            log_info "Starting Docker daemon via systemctl..."
-            sudo systemctl start docker
-        elif command -v service >/dev/null 2>&1; then
-            log_info "Starting Docker daemon via service..."
-            sudo service docker start
-        else
-            log_error "Cannot start Docker automatically: systemctl or service is not available."
-            return 1
-        fi
-    elif [ "$OS_NAME" = "Darwin" ]; then
-        if command -v open >/dev/null 2>&1; then
-            log_info "Starting Docker Desktop..."
-            open -a Docker
-        else
-            log_error "Cannot start Docker automatically on macOS: open command not found."
-            return 1
-        fi
-    fi
-    return 0
-}
-
 if ! docker info >/dev/null 2>&1; then
-    log_warn "Docker is installed but the daemon is not running. Attempting to start it..."
-    if ! start_docker_daemon; then
-        log_error "Failed to start Docker automatically. Please start Docker manually."
-        exit 1
-    fi
-
-    log_info "Waiting for Docker daemon to become ready..."
-    retry=0
-    until docker info >/dev/null 2>&1; do
-        sleep 2
-        retry=$((retry + 1))
-        if [ $retry -ge 15 ]; then
-            log_error "Docker daemon did not become ready within the timeout period."
-            exit 1
-        fi
-    done
+    log_error "Docker is installed but the daemon is not running. Please start Docker manually."
+    exit 1
 fi
 
 compose() {
@@ -236,95 +200,245 @@ ensure_output_dir_owner() {
 
 HAS_CONFLICTING_PARAM=0
 
-while [ "${1:-}" != "" ]; do
-    PARAM=$(echo "$1" | awk -F= '{print $1}')
-    VALUE=$(echo "$1" | awk -F= '{print $2}')
-    case "$PARAM" in
+while [ $# -gt 0 ]; do
+    case "$1" in
         # Docker container and pull policies
-        --image)
-            BW_IMAGE=$VALUE
+        -i|--image)
+            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
+            BW_IMAGE="$2"
+            shift 2
             ;;
-        --force-pull)
+        -i=*|--image=*)
+            BW_IMAGE="${1#*=}"
+            shift 1
+            ;;
+        -i*)
+            BW_IMAGE="${1#-i}"
+            shift 1
+            ;;
+        -P|--force-pull)
             FORCE_PULL=1
+            HAS_CONFLICTING_PARAM=1
+            shift 1
             ;;
-        --force-recreate)
+        -R|--force-recreate)
             FORCE_RECREATE=1
             HAS_CONFLICTING_PARAM=1
+            shift 1
             ;;
-        --info)
+        -I|--info)
             SHOW_INFO=1
+            shift 1
             ;;
 
         # Target profile config
-        --profile)
-            BW_PROFILE=$VALUE
+        -p|--profile)
+            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
+            BW_PROFILE="$2"
             HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -p=*|--profile=*)
+            BW_PROFILE="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -p*)
+            BW_PROFILE="${1#-p}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
             ;;
 
         # Module and package control configurations
-        --custom-modules-list)
-            BW_OVERRIDE_MODULES=$VALUE
+        -O|--override-modules)
+            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
+            BW_OVERRIDE_MODULES="$2"
             HAS_CONFLICTING_PARAM=1
+            shift 2
             ;;
-        --modules)
-            BW_ADJUST_MODULES=$VALUE
+        -O=*|--override-modules=*)
+            BW_OVERRIDE_MODULES="${1#*=}"
             HAS_CONFLICTING_PARAM=1
+            shift 1
             ;;
-        --extra-packages)
-            BW_EXTRA_PACKAGES=$VALUE
+        -O*)
+            BW_OVERRIDE_MODULES="${1#-O}"
             HAS_CONFLICTING_PARAM=1
+            shift 1
             ;;
-        --disabled-services)
-            BW_DISABLED_SERVICES=$VALUE
+
+        -a|--adjust-modules)
+            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
+            BW_ADJUST_MODULES="$2"
             HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -a=*|--adjust-modules=*)
+            BW_ADJUST_MODULES="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -a*)
+            BW_ADJUST_MODULES="${1#-a}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        -e|--extra-packages)
+            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
+            BW_EXTRA_PACKAGES="$2"
+            HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -e=*|--extra-packages=*)
+            BW_EXTRA_PACKAGES="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -e*)
+            BW_EXTRA_PACKAGES="${1#-e}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        -d|--disabled-services)
+            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
+            BW_DISABLED_SERVICES="$2"
+            HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -d=*|--disabled-services=*)
+            BW_DISABLED_SERVICES="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -d*)
+            BW_DISABLED_SERVICES="${1#-d}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
             ;;
 
         # Target image customization configurations
-        --extra-image-name)
-            BW_EXTRA_IMAGE_NAME=$VALUE
+        -E|--extra-image-name)
+            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
+            BW_EXTRA_IMAGE_NAME="$2"
             HAS_CONFLICTING_PARAM=1
+            shift 2
             ;;
-        --rootfs-partsize)
-            BW_ROOTFS_PARTSIZE=$VALUE
+        -E=*|--extra-image-name=*)
+            BW_EXTRA_IMAGE_NAME="${1#*=}"
             HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -E*)
+            BW_EXTRA_IMAGE_NAME="${1#-E}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        -r|--rootfs-partsize)
+            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
+            BW_ROOTFS_PARTSIZE="$2"
+            HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -r=*|--rootfs-partsize=*)
+            BW_ROOTFS_PARTSIZE="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -r*)
+            BW_ROOTFS_PARTSIZE="${1#-r}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
             ;;
 
         # Output, local custom modules, and mirror network configurations
-        --output)
-            BW_OUTPUT_DIR=$VALUE
+        -o|--output-dir)
+            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
+            BW_OUTPUT_DIR="$2"
             HAS_CONFLICTING_PARAM=1
+            shift 2
             ;;
-        --custom-modules)
-            BW_CUSTOM_MODULES_PATH=$VALUE
+        -o=*|--output-dir=*)
+            BW_OUTPUT_DIR="${1#*=}"
             HAS_CONFLICTING_PARAM=1
+            shift 1
             ;;
-        --use-mirror)
-            BW_USE_MIRROR=${VALUE:-1}
+        -o*)
+            BW_OUTPUT_DIR="${1#-o}"
             HAS_CONFLICTING_PARAM=1
+            shift 1
             ;;
-        --mirror)
-            BW_MIRROR=$VALUE
+
+        -c|--custom-modules-path)
+            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
+            BW_CUSTOM_MODULES_PATH="$2"
             HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -c=*|--custom-modules-path=*)
+            BW_CUSTOM_MODULES_PATH="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -c*)
+            BW_CUSTOM_MODULES_PATH="${1#-c}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        -u|--use-mirror)
+            BW_USE_MIRROR=1
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+
+        -m|--mirror)
+            if [ $# -lt 2 ]; then log_error "Option $1 requires an argument."; usage; fi
+            BW_MIRROR="$2"
+            HAS_CONFLICTING_PARAM=1
+            shift 2
+            ;;
+        -m=*|--mirror=*)
+            BW_MIRROR="${1#*=}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -m*)
+            BW_MIRROR="${1#-m}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
             ;;
 
         # Help
-        -h | --help)
+        -h|--help)
             usage
             ;;
         *)
-            log_error "Unknown parameter \"$PARAM\""
+            log_error "Unknown parameter \"$1\""
             usage
             exit 1
             ;;
     esac
-    shift
 done
+
+# Validate --override-modules does not contain negative module entries (starting with '-')
+if [ -n "$BW_OVERRIDE_MODULES" ]; then
+    for item in $BW_OVERRIDE_MODULES; do
+        if [[ "$item" == -* ]]; then
+            log_error "Invalid argument for --override-modules: \"$item\". Removing modules using '-' is not allowed when overriding module list."
+            usage
+            exit 1
+        fi
+    done
+fi
 
 if [ "$SHOW_INFO" -eq 1 ]; then
     # Check for parameter conflicts when querying image info.
-    # Only --image, --force-pull, and --info are allowed.
+    # Only --image and --info are allowed.
     if [ "$HAS_CONFLICTING_PARAM" -eq 1 ]; then
-        log_error "Conflict: Parameter options other than --image and --force-pull are not supported when using --info."
+        log_error "Conflict: Parameter options other than --image are not supported when using --info."
         usage
         exit 1
     fi
