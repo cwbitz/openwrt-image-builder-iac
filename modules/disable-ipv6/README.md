@@ -16,6 +16,11 @@
 - 需要避免 IPv6 相关兼容性问题
 - 需要对网络行为进行更严格控制的场景
 
+## 配置文件
+
+- `files/etc/sysctl.d/99-disable-ipv6.conf` - 内核参数配置，禁用所有接口的 IPv6
+- `files/etc/uci-defaults/99-disable-ipv6` - UCI 默认配置脚本，修改网络和 DHCP 设置以关闭 IPv6
+
 ## 说明
 
 - 启用此模块后，系统将尽量不再使用 IPv6

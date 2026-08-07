@@ -79,8 +79,8 @@
 ### 核心控制环境变量示例
 
 ```bash
-# 在默认模块集 (base disable-ipv6 statistics system extras) 基础上增减模块（如 -extras 剔除 extras）
-BW_ADJUST_MODULES="lan pppoe -extras"
+# 在默认模块集 (base system root-password pppoe disable-ipv6 extras) 基础上增减模块（如 -extras 剔除 extras）
+BW_ADJUST_MODULES="lan -extras"
 
 # 完全自定义模块列表（若指定则忽略默认模块集和 ADJUST_MODULES）
 BW_OVERRIDE_MODULES="base lan pppoe extras"
@@ -102,7 +102,7 @@ BW_ROOTFS_PARTSIZE="256"
 
 默认启用的模块集：
 
-`base system disable-ipv6 statistics extras`
+`base system root-password pppoe disable-ipv6 extras`
 
 当前内置的所有可选模块：
 

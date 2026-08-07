@@ -14,23 +14,21 @@ This module sets the root password for OpenWrt, providing secure administrator a
 ## Environment Variables
 
 ### Password
-- `ROOT_PASSWORD` — root password
-  - `random`: generate a secure random password
+- `BW_ROOT_PASSWORD` — root password
+  - `random`: generate a secure random password (depending on external build script implementation)
   - any other value: use the provided password
 
-## Options
+## Example
 
-### Auto-generate (recommended)
+Set in `.env` or `.env.example`:
 ```bash
-ROOT_PASSWORD=random
+BW_ROOT_PASSWORD=your_secure_password
 ```
-The system generates a secure random password.
 
-### Custom password
+Or pass when executing build scripts:
 ```bash
-ROOT_PASSWORD=your_secure_password
+BW_ROOT_PASSWORD=your_secure_password ./run.sh ...
 ```
-Use a strong custom password.
 
 ## Security Advice
 
@@ -49,7 +47,7 @@ Use a strong custom password.
 ## Files
 
 - `.env.example` — environment variable example
-- `files/etc/uci-defaults/92-system` — password configuration script
+- `files/etc/uci-defaults/92-system` — password configuration script that runs `passwd` on first boot
 
 ## Use Cases
 

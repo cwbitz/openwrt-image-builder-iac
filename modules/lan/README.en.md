@@ -13,19 +13,24 @@ This module configures the LAN interface IP address on OpenWrt and supports cust
 
 ## Parameters
 
-### Environment
-- `LAN_IP` — LAN interface IP address (default: `192.168.2.1`)
+### Environment Variables
+- `BW_LAN_IP` — LAN interface IP address (default: `192.168.2.1`)
 
 ## Example
 
-Set in `.env.example`:
+Set in `.env` or `.env.example`:
 ```bash
-LAN_IP=192.168.2.1
+BW_LAN_IP=192.168.2.1
+```
+
+Or pass when executing build scripts:
+```bash
+BW_LAN_IP=192.168.2.1 ./run.sh ...
 ```
 
 ## How It Works
 
-1. Read `LAN_IP` from the environment
+1. Read `BW_LAN_IP` from the environment variables
 2. Update the OpenWrt network configuration via UCI
 3. Set `network.lan.ipaddr`
 4. Commit the changes

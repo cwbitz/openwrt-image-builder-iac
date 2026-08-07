@@ -2,26 +2,26 @@
 
 ## Overview
 
-This module corrects the permissions of the SSH authorized keys file to ensure public key authentication works properly.
+This module corrects the permissions of the SSH authorized keys file to ensure public key authentication works properly and securely.
 
 ## Features
 
 - Fix authorized keys file permissions
 - Ensure SSH public key authentication works reliably
-- Improve system security
-- Satisfy Dropbear permission requirements
+- Improve system security by enforcing strict file permissions
+- Satisfy Dropbear security and permission requirements
 
 ## How It Works
 
 ### Permissions
 - Check whether `/etc/dropbear/authorized_keys` exists
-- Set the file mode to `644` (rw-r--r--)
-- Ensure the SSH service can read authorized keys
+- Set the file mode to `600` (rw-------)
+- Ensure the SSH service can read authorized keys while blocking access to other local accounts
 
 ### Why It Matters
-- `644` grants owner write access while keeping group and others read-only
-- Helps avoid authentication failures caused by incorrect permissions
-- Matches Dropbear/SSH expectations for authorized keys
+- `600` grants only the owner read/write access, keeping group and others without any permissions
+- Helps avoid Dropbear ignoring key files or authentication failures caused by overly loose permissions
+- Matches Dropbear/SSH security best practices for authorized keys
 
 ## Technical Notes
 
@@ -31,10 +31,10 @@ This module corrects the permissions of the SSH authorized keys file to ensure p
 - Each public key should appear on its own line
 
 ### Permission Detail
-- `644` (rw-r--r--)
+- `600` (rw-------)
   - Owner: read/write
-  - Group: read-only
-  - Others: read-only
+  - Group: no access
+  - Others: no access
 
 ## Files
 

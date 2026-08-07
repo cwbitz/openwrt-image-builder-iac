@@ -7,20 +7,20 @@ This module adds system monitoring to OpenWrt, providing performance data collec
 ## Features
 
 - Performance data collection
-- Temperature monitoring
+- Temperature monitoring and display
 - Web UI graphs and charts
 - Hardware IRQ statistics
 - Sensor metrics
 
 ## Packages
 
-### UI components
-- `luci-app-temp-status` — temperature status interface
-- `luci-app-statistics` — statistics dashboard
+### UI Components
+- `luci-app-temp-status` — temperature status display for the LuCI interface
+- `luci-app-statistics` — Web interface for configuring and viewing collectd graphs
 
-### Data collectors
-- `collectd-mod-irq` — IRQ statistics
-- `collectd-mod-sensors` — sensor reporting
+### Data Collectors
+- `collectd-mod-irq` — IRQ statistics module
+- `collectd-mod-sensors` — sensor metrics reporting module
 
 ## Capabilities
 
@@ -38,7 +38,7 @@ This module adds system monitoring to OpenWrt, providing performance data collec
 - System load overview
 
 ### Hardware Monitoring
-- IRQ activity
+- IRQ activity frequency
 - Sensor metrics
 - Voltage and current readings
 - Fan speed monitoring
@@ -54,19 +54,19 @@ Accessible through LuCI:
 ## Files
 
 - `packages` — package list
-- `files/etc/uci-defaults/99-statistics` — initial statistics configuration script
+- `files/etc/uci-defaults/99-statistics` — statistics UCI configuration script that enables sensors, irq, interface (configured for `eth1` by default), and rrdtool charts spanning up to a year
 
 ## Use Cases
 
 - Performance tuning
 - Hardware health monitoring
-- Fault diagnosis
+- Fault diagnosis and analysis
 - Resource accounting
-- Device maintenance
+- Device maintenance and management
 
 ## Notes
 
-- Monitoring collectors consume system resources
-- Requires supported hardware sensors
-- Historical data consumes storage
-- Some features depend on platform support
+- Monitoring collectors consume some system resources (CPU and RAM)
+- Requires supported hardware sensors to display temperature and sensor stats
+- Historical data is stored via RRDtool and consumes storage space
+- Default interface monitoring is set for `eth1`; update the config script if your layout differs

@@ -6,9 +6,8 @@ This module configures basic OpenWrt system settings, including the default time
 
 ## Features
 
-- Set the system time zone to China Standard Time
+- Set the system time zone to China Standard Time (Beijing Time)
 - Configure system log verbosity
-- Apply settings automatically on first boot
 
 ## System Settings
 

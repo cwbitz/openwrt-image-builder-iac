@@ -16,6 +16,11 @@ This module disables IPv6 on OpenWrt as thoroughly as possible, making it suitab
 - Environments avoiding IPv6 compatibility problems
 - Scenarios requiring stricter network control
 
+## Configuration Files
+
+- `files/etc/sysctl.d/99-disable-ipv6.conf` — kernel sysctl configuration to disable IPv6 globally
+- `files/etc/uci-defaults/99-disable-ipv6` — UCI configuration script to disable IPv6 on network interfaces and DHCP service
+
 ## Notes
 
 - Enabling this module prevents IPv6 usage in most cases

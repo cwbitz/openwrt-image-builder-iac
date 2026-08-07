@@ -2,24 +2,25 @@
 
 ## Overview
 
-This module provides a base OpenWrt package set, including the LuCI web interface, utilities, and essential system components.
+This module provides a base OpenWrt package set, including the LuCI web interface, system utilities, and essential system components.
 
 ## Features
 
-- Install core OpenWrt components and tools
-- Configure the LuCI web interface
+- Install core OpenWrt components and utilities (SFTP, Rsync, etc.)
+- Configure the LuCI web interface with full WPA/WPA2/WPA3 wireless encryption support (`wpad-mbedtls`)
+- Replace the lightweight DNS/DHCP server with full-featured `dnsmasq-full`
 - Include Simplified Chinese language support
-- Adjust packages based on OpenWrt version
+- Dynamically adjust packages based on OpenWrt target version
 
 ## Packages
 
 ### Core
-- `zoneinfo-all` — time zone data
 - `luci` — LuCI web interface
-- `luci-compat` — compatibility layer for LuCI
-- `luci-lib-ipkg` — package management library
-- `dnsmasq-full` — full-featured DNS/DHCP server
+- `-dnsmasq` / `dnsmasq-full` — removes minimal dnsmasq and installs full-featured DNS/DHCP server
+- `-wpad-basic-mbedtls` / `wpad-mbedtls` — removes basic wpad and installs full-featured wireless encryption component
 - `openssl-util` — OpenSSL utility tools
+- `openssh-sftp-server` — SSH SFTP server support
+- `rsync` — Remote data synchronization utility
 
 ### Chinese localization
 - `luci-i18n-base-zh-cn` — LuCI base translation
@@ -31,9 +32,7 @@ This module provides a base OpenWrt package set, including the LuCI web interfac
 
 ## Version Detection
 
-Environment variables:
-- `OPENWRT_VERSION` — OpenWrt version identifier
-- `IS_SNAPSHOT_BUILD` — whether the build is a snapshot
+The module automatically inspects the target version via the `VERSION_PATH` environment variable and includes the appropriate package manager translation package.
 
 ## Files
 
@@ -41,4 +40,4 @@ Environment variables:
 
 ## Usage
 
-Use this module as the foundation for OpenWrt systems that require a full web management interface.
+Use this module as the foundation for OpenWrt systems that require a full web management interface and standard system tools.

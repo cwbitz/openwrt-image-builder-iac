@@ -2,11 +2,11 @@
 
 ## 概述
 
-此模块用于配置OpenWrt系统的root用户密码，提供安全的系统管理员账户访问控制。
+此模块用于配置 OpenWrt 系统的 root 用户密码，提供安全的系统管理员账户访问控制。
 
 ## 功能
 
-- 设置root用户登录密码
+- 设置 root 用户登录密码
 - 支持随机密码生成
 - 增强系统安全性
 - 防止未授权访问
@@ -14,42 +14,40 @@
 ## 环境变量配置
 
 ### 密码设置
-- `ROOT_PASSWORD` - root用户密码
-  - 设置为 `random` 时自动生成随机密码
+- `BW_ROOT_PASSWORD` - root 用户密码
+  - 设置为 `random` 时自动生成随机密码（此功能取决于外部构建或封装脚本的实现）
   - 设置为具体值时使用指定密码
 
-## 密码配置选项
+## 配置示例
 
-### 自动生成（推荐）
+在 `.env` 或模块的 `.env.example` 文件中设置：
 ```bash
-ROOT_PASSWORD=random
+BW_ROOT_PASSWORD=your_secure_password
 ```
-系统会自动生成安全的随机密码
 
-### 自定义密码
+或者在构建脚本执行时传入：
 ```bash
-ROOT_PASSWORD=your_secure_password
+BW_ROOT_PASSWORD=your_secure_password ./run.sh ...
 ```
-使用自定义的强密码
 
 ## 安全建议
 
 ### 密码要求
-- 使用8位以上字符
+- 使用 8 位以上字符
 - 包含大小写字母、数字和特殊符号
 - 避免使用常见密码
 - 定期更换密码
 
 ### 安全实践
-- 优先使用SSH密钥认证
+- 优先使用 SSH 密钥认证
 - 禁用密码登录（配置密钥后）
 - 启用防火墙保护
-- 限制SSH访问源IP
+- 限制 SSH 访问源 IP
 
 ## 配置文件
 
 - `.env.example` - 环境变量配置示例
-- `files/etc/uci-defaults/92-system` - 系统配置脚本
+- `files/etc/uci-defaults/92-system` - 系统配置脚本，在首次启动时调用 `passwd` 命令设置 root 密码
 
 ## 使用场景
 
@@ -62,6 +60,6 @@ ROOT_PASSWORD=your_secure_password
 ## 注意事项
 
 - 请务必记住设置的密码
-- 建议配合SSH密钥使用
+- 建议配合 SSH 密钥使用
 - 避免在不安全网络传输密码
 - 定期检查系统安全日志
