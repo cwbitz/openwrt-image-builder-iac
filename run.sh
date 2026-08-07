@@ -463,6 +463,10 @@ if [ "$SHOW_INFO" -eq 1 ]; then
     if [ "$FORCE_PULL" -eq 1 ] || ! docker image inspect "$BW_IMAGE" >/dev/null 2>&1; then
         log_info "Pulling image..."
         docker pull "$BW_IMAGE"
+        echo ""
+        log_info "Image pulled successfully."
+        echo "----------------------------------------------------------------"
+        echo ""
     fi
     docker run --rm "$BW_IMAGE" make info
     exit 0
@@ -474,6 +478,10 @@ log_info "Inspecting image metadata..."
 if ! docker image inspect "$BW_IMAGE" >/dev/null 2>&1; then
     log_info "Image not found locally, pulling..."
     docker pull "$BW_IMAGE"
+    echo ""
+    log_info "Image pulled successfully."
+    echo "----------------------------------------------------------------"
+    echo ""
 fi
 
 IMG_VERSION_PATH=""
