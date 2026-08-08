@@ -585,11 +585,9 @@ if [ "$FORCE_RECREATE" -eq 1 ]; then
 fi
 
 mkdir -p "$BW_OUTPUT_DIR"
-# macOS does not require ownership changes.
-# On Linux, make sure the output directory is owned by the current host user.
-if [[ "$OS_NAME" == "Linux" ]]; then
-    ensure_output_dir_owner "$BW_OUTPUT_DIR"
-fi
+# Ensure the output directory and all existing contents have broad write permissions
+# so that the container's compilation user (UID 1000) can write and overwrite build artifacts into it.
+chmod -R 777 "$BW_OUTPUT_DIR" 2>/dev/null || chmod 777 "$BW_OUTPUT_DIR"
 
 if [ ! -f .env ]; then
     log_warn ".env file not found; using default values."
@@ -601,6 +599,12 @@ set +e
 compose up $PULL_FLAG --exit-code-from imagebuilder --remove-orphans
 build_status=$?
 set -e
+
+# After the container finishes running, on Linux, restore ownership of the output directory 
+# and files back to the current host user (reverting potential root/builder ownerships).
+if [[ "$OS_NAME" == "Linux" ]]; then
+    ensure_output_dir_owner "$BW_OUTPUT_DIR"
+fi
 
 if [ $build_status -ne 0 ]; then
     log_error "Build failed with exit code $build_status."
