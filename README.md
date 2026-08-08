@@ -156,6 +156,7 @@ BW_ROOTFS_PARTSIZE="256"
 ## 常见问题
 
 - 构建速度慢/网速受限？建议启用 `--use-mirror` 或指定 `--mirror=mirrors.ustc.edu.cn`
+- 启用镜像源后构建失败？若指定的国内镜像源（如清华源/中科大源）尚未完全同步官方发布的新版本仓库，会导致包管理器报错或构建失败。此时建议**不要启用镜像源**（去掉 `-u | --use-mirror` 参数）直接使用官方源，或等国内镜像源同步完毕后再试。
 - 没有安装 Docker？请先安装 Docker Desktop（macOS）或 Docker Engine（Linux）
 - 构建结果在哪？默认在 `./bin`（可用 `--output-dir` 修改）
 - 找不到 Docker？请确认 Docker 已安装并启动，并重启终端

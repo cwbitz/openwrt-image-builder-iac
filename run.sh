@@ -56,7 +56,7 @@ usage()
     echo "  -r | --rootfs-partsize      specify the root partition size in MB (defaults to target's default if omitted)"
     echo ""
     echo "Output, local custom modules, and mirror network configurations:"
-    echo "  -o | --output-dir           specify the output directory for build artifacts (default: ./bin)"
+    echo "  -o | --output-dir           specify the output directory for build artifacts (default: ./artifacts)"
     echo "  -c | --custom-modules-path  specify the path to custom modules directory (default: ./custom_modules)"
     echo "  -u | --use-mirror           enable mirror usage (defaults to mirrors.tuna.tsinghua.edu.cn if --mirror is not specified)"
     echo "  -m | --mirror               specify a custom mirror host, e.g. mirrors.ustc.edu.cn (do not include http:// or https://)"
@@ -86,7 +86,7 @@ BW_EXTRA_IMAGE_NAME="${BW_EXTRA_IMAGE_NAME:-}"
 BW_ROOTFS_PARTSIZE="${BW_ROOTFS_PARTSIZE:-}"
 
 # Output, local custom modules, and mirror network configurations
-BW_OUTPUT_DIR="${BW_OUTPUT_DIR:-./bin}"
+BW_OUTPUT_DIR="${BW_OUTPUT_DIR:-./artifacts}"
 BW_CUSTOM_MODULES_PATH="${BW_CUSTOM_MODULES_PATH:-./custom_modules}"
 BW_USE_MIRROR="${BW_USE_MIRROR:-0}"
 BW_MIRROR="${BW_MIRROR:-mirrors.tuna.tsinghua.edu.cn}"
@@ -432,7 +432,9 @@ fi
 
 compose() {
     if docker compose version >/dev/null 2>&1; then
-        docker compose "$@"
+        # Use '--log-level error' to suppress standard status notifications 
+        # (such as 'Aborting on container exit') while preserving compile logs.
+        docker --log-level error compose "$@"
     elif command -v docker-compose >/dev/null 2>&1; then
         docker-compose "$@"
     else
@@ -542,7 +544,7 @@ services:
       - ./.env:$CONTAINER_BUILD_DIR/.env
       - ./modules:$CONTAINER_BUILD_DIR/modules_in_container
       - $BW_CUSTOM_MODULES_PATH:$CONTAINER_BUILD_DIR/custom_modules_in_container
-      - $BW_OUTPUT_DIR:$CONTAINER_BUILD_DIR/$CONTAINER_BIN_DIR
+      - $BW_OUTPUT_DIR:$CONTAINER_BUILD_DIR/artifacts
     command: "./build.sh"
     environment:
 END

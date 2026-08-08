@@ -157,6 +157,7 @@ Advanced features:
 
 **General:**
 - Slow build or limited bandwidth? Enable `--use-mirror` or set `--mirror=mirrors.ustc.edu.cn`
+- Build failed after enabling mirror sources? If the designated local mirror source (e.g. Tsinghua or USTC) is out of sync with official packages for a newly released version, package manager errors or build failures might occur. In such cases, it is recommended to **disable the mirror option** (omit the `-u | --use-mirror` flag) to fetch from official repositories directly, or wait until the local mirrors complete synchronization.
 - Docker not installed? Install Docker Desktop (macOS) or Docker Engine (Linux)
 - Where are outputs? Default is `./bin` (change with `--output-dir`)
 - Docker not found? Ensure Docker Desktop is installed and running; try restarting the terminal

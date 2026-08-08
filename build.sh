@@ -462,3 +462,10 @@ if [ -z "$PROFILE" ]; then
 else
     eval make PROFILE=\"$PROFILE\" image $MAKE_ARGS -S
 fi
+
+# Copy build artifacts to output directory to sync with the host
+if [ -d artifacts ]; then
+    log_info "Copying build artifacts to host output directory..."
+    # Copy all files and folders recursively while preserving directory structures
+    cp -r bin/. artifacts/
+fi
