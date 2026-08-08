@@ -160,7 +160,6 @@ BW_ROOTFS_PARTSIZE="256"
 - 没有安装 Docker？请先安装 Docker Desktop（macOS）或 Docker Engine（Linux）
 - 构建结果在哪？默认在 `./bin`（可用 `--output-dir` 修改）
 - 找不到 Docker？请确认 Docker 已安装并启动，并重启终端
-- 没有 Docker 权限？将用户加入 docker 组：`sudo usermod -aG docker $USER`，然后重新登录
 - 中文路径问题？建议放在英文路径下，避免路径编码问题
 
 ---

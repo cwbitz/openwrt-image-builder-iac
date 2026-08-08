@@ -432,29 +432,12 @@ fi
 
 compose() {
     if docker compose version >/dev/null 2>&1; then
-        # Use '--log-level error' to suppress standard status notifications 
-        # (such as 'Aborting on container exit') while preserving compile logs.
-        docker --log-level error compose "$@"
+        docker compose "$@"
     elif command -v docker-compose >/dev/null 2>&1; then
         docker-compose "$@"
     else
         log_error "Docker Compose is not available. Install Docker Desktop or the docker-compose CLI."
         exit 1
-    fi
-}
-
-ensure_output_dir_owner() {
-    local target_dir="$1"
-    if [[ "$OS_NAME" != "Linux" ]]; then
-        return
-    fi
-
-    if [ "$HOST_UID" -eq 0 ]; then
-        chown -R "$HOST_UID:$HOST_GID" "$target_dir"
-    elif command -v sudo >/dev/null 2>&1; then
-        sudo chown -R "$HOST_UID:$HOST_GID" "$target_dir"
-    else
-        log_warn "sudo is not available; skipping ownership change for $target_dir."
     fi
 }
 
@@ -467,11 +450,9 @@ if [ "$SHOW_INFO" -eq 1 ]; then
         docker pull "$BW_IMAGE"
         echo ""
         log_info "Image pulled successfully."
-        echo "----------------------------------------------------------------"
         echo ""
     fi
     log_info "Showing image info:"
-    echo "----------------------------------------------------------------"
     echo ""
     docker run --rm "$BW_IMAGE" make info
     exit 0
@@ -485,7 +466,6 @@ if ! docker image inspect "$BW_IMAGE" >/dev/null 2>&1; then
     docker pull "$BW_IMAGE"
     echo ""
     log_info "Image pulled successfully."
-    echo "----------------------------------------------------------------"
     echo ""
 fi
 
@@ -539,12 +519,21 @@ services:
   imagebuilder:
     image: "$BW_IMAGE"
     container_name: "$CONTAINER_NAME"
+    user: "$HOST_UID:$HOST_GID"
     volumes:
+      - $BW_OUTPUT_DIR:$CONTAINER_BUILD_DIR/artifacts
       - ./build.sh:$CONTAINER_BUILD_DIR/build.sh
       - ./.env:$CONTAINER_BUILD_DIR/.env
       - ./modules:$CONTAINER_BUILD_DIR/modules_in_container
+END
+
+if [ -d "$BW_CUSTOM_MODULES_PATH" ]; then
+    cat >> "$COMPOSE_FILE" <<-END
       - $BW_CUSTOM_MODULES_PATH:$CONTAINER_BUILD_DIR/custom_modules_in_container
-      - $BW_OUTPUT_DIR:$CONTAINER_BUILD_DIR/artifacts
+END
+fi
+
+cat >> "$COMPOSE_FILE" <<-END
     command: "./build.sh"
     environment:
 END
@@ -587,9 +576,6 @@ if [ "$FORCE_RECREATE" -eq 1 ]; then
 fi
 
 mkdir -p "$BW_OUTPUT_DIR"
-# Ensure the output directory and all existing contents have broad write permissions
-# so that the container's compilation user (UID 1000) can write and overwrite build artifacts into it.
-chmod -R 777 "$BW_OUTPUT_DIR" 2>/dev/null || chmod 777 "$BW_OUTPUT_DIR"
 
 if [ ! -f .env ]; then
     log_warn ".env file not found; using default values."
@@ -598,15 +584,10 @@ fi
 
 log_info "Starting build container"
 set +e
-compose up $PULL_FLAG --exit-code-from imagebuilder --remove-orphans
+# Filter out noisy 'Aborting on container exit' and 'Stopping/Stopped' lifecycle messages.
+compose up $PULL_FLAG --exit-code-from imagebuilder --remove-orphans 2> >(grep -v -E "Aborting on container exit|Stopping|Stopped|remove" >&2)
 build_status=$?
 set -e
-
-# After the container finishes running, on Linux, restore ownership of the output directory 
-# and files back to the current host user (reverting potential root/builder ownerships).
-if [[ "$OS_NAME" == "Linux" ]]; then
-    ensure_output_dir_owner "$BW_OUTPUT_DIR"
-fi
 
 if [ $build_status -ne 0 ]; then
     log_error "Build failed with exit code $build_status."

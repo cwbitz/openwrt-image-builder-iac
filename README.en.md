@@ -161,7 +161,6 @@ Advanced features:
 - Docker not installed? Install Docker Desktop (macOS) or Docker Engine (Linux)
 - Where are outputs? Default is `./bin` (change with `--output-dir`)
 - Docker not found? Ensure Docker Desktop is installed and running; try restarting the terminal
-- Permission issues? Run Docker Desktop as Administrator
 - Non-ASCII path issues? Prefer checking out the repo into an ASCII-only path
 
 **Linux specific:**
