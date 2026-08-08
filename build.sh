@@ -2,6 +2,16 @@
 
 set -euo pipefail
 
+# Ensure ownership of the artifacts directory matches the host user upon container exit
+cleanup() {
+    local exit_code=$?
+    if [ -d artifacts ] && [ -n "${HOST_UID:-}" ] && [ -n "${HOST_GID:-}" ]; then
+        chown -R "$HOST_UID:$HOST_GID" artifacts
+    fi
+    exit $exit_code
+}
+trap cleanup EXIT
+
 log_error() {
     if [ "${BW_LOG_ENABLE:-1}" == "1" ]; then
         echo -e "\033[31m[ERROR]\033[0m $1"
