@@ -77,6 +77,14 @@ Module environment variables (such as `BW_LAN_IP`, `BW_ROOT_PASSWORD`, `BW_PPPOE
    BW_LAN_IP=192.168.2.1 BW_ROOT_PASSWORD=secret ./run.sh --image=...
    ```
 
+#### Precedence Rules
+
+When the same configuration option or control variable is defined in multiple places, the precedence (from highest to lowest) is resolved as follows:
+1. **CLI command-line options**: e.g., `--profile`, `--extra-packages`, `--force-pull`. Command line arguments always have the highest priority and override any other values.
+2. **Host environment variables / Inline assignments**: e.g., `export BW_LAN_IP=...` on the host, or passing variables directly inline `BW_LAN_IP=... ./run.sh ...` (applies to all `BW_` prefixes and custom module-level environment variables).
+3. **Module-specific environment files**: i.e., configurations declared inside `modules/<name>/.env` files.
+4. **Global environment configuration**: i.e., configurations declared inside the root `.env` file.
+
 ### Core Control Environment Variables
 
 ```bash
