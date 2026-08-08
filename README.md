@@ -61,7 +61,7 @@
 -r | --rootfs-partsize=...        指定根分区大小（MB，若省略则使用设备默认值）
 
 # 输出目录、自定义模块路径与镜像加速配置
--o | --output-dir=...             指定构建产物的输出目录（默认：./bin）
+-o | --output-dir=...             指定构建产物的输出目录（默认：./artifacts）
 -c | --custom-modules-path=...    指定自定义模块的物理路径（默认：./custom_modules）
 -u | --use-mirror                 启用镜像加速下载（若未指定 -m / --mirror，默认使用 mirrors.tuna.tsinghua.edu.cn）
 -m | --mirror=...                 指定自定义镜像加速域名，例如 mirrors.ustc.edu.cn（不要包含 http:// 或 https://）
@@ -103,19 +103,37 @@ BW_DISABLED_SERVICES="dnsmasq"
 BW_ROOTFS_PARTSIZE="256"
 ```
 
-默认输出目录为 `./bin`，可通过 `--output-dir` 修改。
+默认输出目录为 `./artifacts`，可通过 `--output-dir` 修改。
+
+构建产物的目录结构为 `artifacts/targets/<target>/<subtarget>/`，其中包含生成的固件镜像（如 `*-sysupgrade.bin`、`*-factory.bin`）、`profiles.json`、`sha256sums` 等文件。
 
 ---
 
 ## 模块系统
 
-默认启用的模块集：
+所有模块及其支持的环境变量映射一览表如下，供编写 `./run.sh` 命令时查阅（✔ 表示默认启用，✘ 表示默认关闭、需通过模块控制参数手动启用）：
 
-`base system root-password pppoe lan disable-ipv6 extras`
+| 模块 | 默认启用 | 模块说明 | 支持的环境变量（默认值） |
+|------|:---:|----------|--------------------------|
+| `base` | ✔ | 提供 OpenWrt 系统基础软件包（LuCI Web 界面、`-dnsmasq`/`dnsmasq-full`、`-wpad-basic-mbedtls`/`wpad-mbedtls`、中文语言包等），并根据 OpenWrt 版本自动适配包列表 | 无 |
+| `system` | ✔ | 配置系统基础设置：时区（`Asia/Shanghai` / `CST-8`）与日志级别 | 无 |
+| `root-password` | ✔ | 配置系统 root 登录密码，支持随机生成 | `BW_ROOT_PASSWORD`（默认空） |
+| `pppoe` | ✔ | 首次开机自动配置 WAN 接口的 PPPoE 拨号账号与密码 | `BW_PPPOE_USERNAME`、`BW_PPPOE_PASSWORD`（需同时设置，默认空） |
+| `lan` | ✔ | 配置 LAN 网络接口的 IP 地址 | `BW_LAN_IP`（默认 `192.168.2.1`） |
+| `disable-ipv6` | ✔ | 禁用 LAN/WAN 接口的 IPv6、RA（Router Advertisement）与 DHCPv6 | 无 |
+| `extras` | ✔ | 安装常用网络诊断与系统管理工具（tcpdump、curl、vim-full、conntrack 等） | 无 |
+| `prefer-ipv6` | ✘ | 优化 IPv6 优先级与首选配置 | 无 |
+| `python` | ✘ | 为 OpenWrt 添加 Python 3 轻量级运行环境（`python3-light`） | 无 |
+| `ssh-permission` | ✘ | 修正并配置 SSH `authorized_keys` 文件权限（600） | 无 |
+| `statistics` | ✘ | 提供 collectd 系统性能/温度监控采集及 LuCI 统计图表界面 | 无 |
 
-当前内置的所有可选模块：
+默认启用模块：`base system root-password pppoe lan disable-ipv6 extras`
 
-`base disable-ipv6 extras lan pppoe prefer-ipv6 python root-password ssh-permission statistics system`
+- 可在默认集基础上增减模块：`-a | --adjust-modules`，例如 `statistics -extras`。
+- 可完全自定义模块列表（忽略默认集）：`-O | --override-modules`，例如 `base lan pppoe extras`。
+- 上表中标记为 ✘ 的模块（`prefer-ipv6`、`python`、`ssh-permission`、`statistics`）可通过上述两种方式启用。
+
+> 各环境变量的注入方式与优先级请参见上文 [环境变量配置说明](#环境变量配置说明)。
 
 模块目录：
 
@@ -123,20 +141,6 @@ BW_ROOTFS_PARTSIZE="256"
 - `custom_modules/`：自定义模块
 
 详细的目录与模块结构请参考下文的 [开发与构建](#开发与构建) 部分。
-
-说明：
-
-- `base`：提供 OpenWrt 系统的基础软件包集合，包括 LuCI Web 管理界面、系统工具和必要的系统组件。
-- `disable-ipv6`：在固件启动后禁用 LAN/WAN 接口的 IPv6、Router Advertisement（RA）和 DHCPv6 等 IPv6 服务。
-- `extras`：安装常用的网络诊断和系统管理工具（如 tcpdump、curl 等），提供完整的系统管理和故障排查能力。
-- `lan`：配置 LAN 网络接口的 IP 地址，支持通过环境变量自定义局域网地址段。
-- `pppoe`：用于在系统首次开机时自动配置 WAN 接口的 PPPoE 拨号账号与密码。
-- `prefer-ipv6`：优化 IPv6 优先级与首选配置。
-- `python`：为 OpenWrt 系统添加 Python 3 轻量级运行环境支持。
-- `root-password`：配置系统 root 用户登录密码（支持自定义或随机密码生成）。
-- `ssh-permission`：自动修正并配置 SSH 授权密钥文件（authorized_keys）的权限，确保 SSH 公钥认证正常工作。
-- `statistics`：提供系统性能监控、温度监控采集以及可视化界面的数据统计功能。
-- `system`：配置系统基础设置（如将时区设置为中国时区、调整系统日志级别等）。
 
 高级特性：
 
@@ -158,7 +162,7 @@ BW_ROOTFS_PARTSIZE="256"
 - 构建速度慢/网速受限？建议启用 `--use-mirror` 或指定 `--mirror=mirrors.ustc.edu.cn`
 - 启用镜像源后构建失败？若指定的国内镜像源（如清华源/中科大源）尚未完全同步官方发布的新版本仓库，会导致包管理器报错或构建失败。此时建议**不要启用镜像源**（去掉 `-u | --use-mirror` 参数）直接使用官方源，或等国内镜像源同步完毕后再试。
 - 没有安装 Docker？请先安装 Docker Desktop（macOS）或 Docker Engine（Linux）
-- 构建结果在哪？默认在 `./bin`（可用 `--output-dir` 修改）
+- 构建结果在哪？默认在 `./artifacts`，固件位于 `artifacts/targets/<target>/<subtarget>/`（可用 `--output-dir` 修改）
 - 找不到 Docker？请确认 Docker 已安装并启动，并重启终端
 - 中文路径问题？建议放在英文路径下，避免路径编码问题
 
@@ -174,6 +178,7 @@ BW_ROOTFS_PARTSIZE="256"
 ├─ run.sh               # 构建脚本
 ├─ .env                 # 可选：全局环境变量文件（可参考 .env.example）
 ├─ .env.example         # 全局环境变量模板与注释说明
+├─ artifacts/           # 构建产物输出目录（默认，可用 --output-dir 修改）
 ├─ modules/             # 内置模块目录
 │  └─ [module-name]/    # 模块结构示例
 │     ├─ packages       # 依赖包列表或可执行脚本

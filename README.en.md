@@ -61,7 +61,7 @@ CLI driven, Docker powered, and easy to extend with modules
 -r | --rootfs-partsize=...        Specify the root partition size in MB (defaults to target's default if omitted)
 
 # Output, local custom modules, and mirror network configurations
--o | --output-dir=...             Specify the output directory for build artifacts (default: ./bin)
+-o | --output-dir=...             Specify the output directory for build artifacts (default: ./artifacts)
 -c | --custom-modules-path=...    Specify the path to custom modules directory (default: ./custom_modules)
 -u | --use-mirror                 Enable mirror usage (defaults to mirrors.tuna.tsinghua.edu.cn if -m / --mirror is not specified)
 -m | --mirror=...                 Specify a custom mirror host, e.g. mirrors.ustc.edu.cn (do not include http:// or https://)
@@ -103,19 +103,37 @@ BW_DISABLED_SERVICES="dnsmasq"
 BW_ROOTFS_PARTSIZE="256"
 ```
 
-Default output directory is `./bin`; override with `--output-dir`.
+Default output directory is `./artifacts`; override with `--output-dir`.
+
+The build artifacts are laid out under `artifacts/targets/<target>/<subtarget>/`, containing the generated firmware images (e.g. `*-sysupgrade.bin`, `*-factory.bin`), `profiles.json`, `sha256sums`, etc.
 
 ---
 
 ## Module System
 
-Default enabled module set:
+A reference table of all modules and the environment variables they support (for use when writing your `./run.sh` command). ✔ = enabled by default, ✘ = disabled by default (enable it via the module control options):
 
-`base system root-password pppoe lan disable-ipv6 extras`
+| Module | Enabled by default | Description | Supported environment variables (default) |
+|--------|:---:|-------------|-------------------------------------------|
+| `base` | ✔ | Provides the essential OpenWrt packages (LuCI Web UI, `-dnsmasq`/`dnsmasq-full`, `-wpad-basic-mbedtls`/`wpad-mbedtls`, Chinese language packs, etc.) and adapts the package list to the OpenWrt version. | none |
+| `system` | ✔ | Configures basic system settings: timezone (`Asia/Shanghai` / `CST-8`) and log levels. | none |
+| `root-password` | ✔ | Sets the root login password, with support for random generation. | `BW_ROOT_PASSWORD` (empty by default) |
+| `pppoe` | ✔ | Configures the WAN PPPoE dial-up username/password on first boot. | `BW_PPPOE_USERNAME`, `BW_PPPOE_PASSWORD` (must both be set; empty by default) |
+| `lan` | ✔ | Sets the LAN interface IP address. | `BW_LAN_IP` (default `192.168.2.1`) |
+| `disable-ipv6` | ✔ | Disables IPv6, RA (Router Advertisement), and DHCPv6 on LAN/WAN interfaces. | none |
+| `extras` | ✔ | Installs common network diagnostics and system management tools (tcpdump, curl, vim-full, conntrack, etc.). | none |
+| `prefer-ipv6` | ✘ | Optimizes IPv6 priority and prefer-IPv6 configurations. | none |
+| `python` | ✘ | Adds a lightweight Python 3 runtime (`python3-light`). | none |
+| `ssh-permission` | ✘ | Fixes/converges the SSH `authorized_keys` file permissions (600). | none |
+| `statistics` | ✘ | Enables collectd system performance/temperature monitoring and LuCI statistics graphing. | none |
 
-All currently available built-in modules:
+Default enabled modules: `base system root-password pppoe lan disable-ipv6 extras`
 
-`base disable-ipv6 extras lan pppoe prefer-ipv6 python root-password ssh-permission statistics system`
+- Add or remove modules on top of the default set with `-a | --adjust-modules` (e.g. `statistics -extras`).
+- Specify an entirely custom module list (ignoring the default set) with `-O | --override-modules` (e.g. `base lan pppoe extras`).
+- Modules marked ✘ above (`prefer-ipv6`, `python`, `ssh-permission`, `statistics`) can be enabled through either of these two options.
+
+> For how to supply these variables and their precedence, see [Environment Variable Configuration](#environment-variable-configuration) above.
 
 Module locations:
 
@@ -123,20 +141,6 @@ Module locations:
 - `custom_modules/`: custom modules
 
 For details on the project and module file layout, see [Development & Build](#development--build) below.
-
-Module notes:
-
-- `base`: Provides essential packages including the LuCI Web UI, system tools, and required system dependencies.
-- `disable-ipv6`: Disables IPv6 on LAN/WAN interfaces, and stops IPv6 RA (Router Advertisement) and DHCPv6 services upon boot.
-- `extras`: Installs common network diagnosis and system tools (e.g., tcpdump, curl) for advanced troubleshooting.
-- `lan`: Sets up the LAN interface IP address, supporting customization via environment variables.
-- `pppoe`: Automates PPPoE WAN dialing configurations (username and password) on first startup.
-- `prefer-ipv6`: Optimizes IPv6 priority settings and prefer-IPv6 configurations.
-- `python`: Installs a lightweight Python 3 environment and package support.
-- `root-password`: Configures root user login credentials (supports custom or random passwords).
-- `ssh-permission`: Fixes ownership and permissions of SSH authorized_keys files to ensure secure public-key login.
-- `statistics`: Enables performance telemetry, system statistics tracking, temperature monitoring, and LuCI graphing interfaces.
-- `system`: Configures basic system attributes, such as switching timezone to China timezone (CST) and adjusting system log levels.
 
 Advanced features:
 
@@ -159,7 +163,7 @@ Advanced features:
 - Slow build or limited bandwidth? Enable `--use-mirror` or set `--mirror=mirrors.ustc.edu.cn`
 - Build failed after enabling mirror sources? If the designated local mirror source (e.g. Tsinghua or USTC) is out of sync with official packages for a newly released version, package manager errors or build failures might occur. In such cases, it is recommended to **disable the mirror option** (omit the `-u | --use-mirror` flag) to fetch from official repositories directly, or wait until the local mirrors complete synchronization.
 - Docker not installed? Install Docker Desktop (macOS) or Docker Engine (Linux)
-- Where are outputs? Default is `./bin` (change with `--output-dir`)
+- Where are outputs? Default is `./artifacts`, firmware under `artifacts/targets/<target>/<subtarget>/` (change with `--output-dir`)
 - Docker not found? Ensure Docker Desktop is installed and running; try restarting the terminal
 - Non-ASCII path issues? Prefer checking out the repo into an ASCII-only path
 
@@ -180,6 +184,7 @@ Project and module layout:
 ├─ run.sh               # Build script
 ├─ .env                 # Optional: system-wide environment file (see .env.example)
 ├─ .env.example         # System-wide environment template with usage instructions
+├─ artifacts/           # Build artifacts output directory (default; change with --output-dir)
 ├─ modules/             # Built-in module library
 │  └─ [module-name]/    # Module structure layout
 │     ├─ packages       # Dependency packages or executable script

@@ -2,11 +2,11 @@
 
 set -euo pipefail
 
-# Ensure ownership of the artifacts directory matches the host user upon container exit
+# Ensure ownership of the generated artifacts (the host-mounted ./bin) matches the host user upon container exit
 cleanup() {
     local exit_code=$?
-    if [ -d artifacts ] && [ -n "${HOST_UID:-}" ] && [ -n "${HOST_GID:-}" ]; then
-        chown -R "$HOST_UID:$HOST_GID" artifacts
+    if [ -d bin ] && [ -n "${HOST_UID:-}" ] && [ -n "${HOST_GID:-}" ]; then
+        chown -R "$HOST_UID:$HOST_GID" bin
     fi
     exit $exit_code
 }
@@ -455,7 +455,7 @@ log_info "Contents of custom files overlay:"
 ls files -R
 log_info ""
 
-MAKE_ARGS="PACKAGES=\"$FINAL_PACKAGES\" FILES=\"files\" BIN_DIR=\"bin\""
+MAKE_ARGS="PACKAGES=\"$FINAL_PACKAGES\" FILES=\"files\""
 if [ ! -z "${EXTRA_IMAGE_NAME:-}" ]; then
     MAKE_ARGS="$MAKE_ARGS EXTRA_IMAGE_NAME=\"$EXTRA_IMAGE_NAME\""
 fi
@@ -471,11 +471,4 @@ if [ -z "$PROFILE" ]; then
     eval make image $MAKE_ARGS -S
 else
     eval make PROFILE=\"$PROFILE\" image $MAKE_ARGS -S
-fi
-
-# Copy build artifacts to output directory to sync with the host
-if [ -d artifacts ]; then
-    log_info "Copying build artifacts to host output directory..."
-    # Copy all files and folders recursively while preserving directory structures
-    cp -r bin/. artifacts/
 fi

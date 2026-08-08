@@ -503,7 +503,23 @@ log_info "Rootfs partition size: ${BW_ROOTFS_PARTSIZE:-<none>}"
 CONTAINER_BUILD_DIR=/builder
 CONTAINER_BIN_DIR="bin"
 COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
-trap 'rm -f "$COMPOSE_FILE"' EXIT
+
+# Cleanup on normal exit and on forced interruptions (Ctrl+C / SIGTERM).
+# Removes the temporary compose file and force-removes the build container so
+# a Ctrl+C abort never leaves a stale container behind.
+cleanup() {
+    # Remove the temporary compose file so we never leave anything behind.
+    rm -f "$COMPOSE_FILE"
+    # Force-remove the build container if one was created.
+    if [ -n "${CONTAINER_NAME:-}" ]; then
+        docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+    fi
+}
+trap cleanup EXIT
+# Re-raise as the conventional exit codes (130 = SIGINT, 143 = SIGTERM) while
+# cleaning up first; the EXIT trap runs again after these, which is idempotent.
+trap 'cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM
 
 append_env_var() {
     local name="$1"
@@ -521,7 +537,7 @@ services:
     container_name: "$CONTAINER_NAME"
     user: "0:0"
     volumes:
-      - $BW_OUTPUT_DIR:$CONTAINER_BUILD_DIR/artifacts
+      - $BW_OUTPUT_DIR:$CONTAINER_BUILD_DIR/$CONTAINER_BIN_DIR
       - ./build.sh:$CONTAINER_BUILD_DIR/build.sh
       - ./.env:$CONTAINER_BUILD_DIR/.env
       - ./modules:$CONTAINER_BUILD_DIR/modules_in_container
@@ -589,12 +605,13 @@ compose up $PULL_FLAG --exit-code-from imagebuilder --remove-orphans 2> >(grep -
 build_status=$?
 set -e
 
+compose rm -f >/dev/null 2>&1 || true
+
 if [ $build_status -ne 0 ]; then
     log_error "Build failed with exit code $build_status."
     exit 1
 fi
 
-compose rm -f
 log_info "Build completed successfully"
 log_info "Listing artifacts in $BW_OUTPUT_DIR"
 ls -R "$BW_OUTPUT_DIR"
