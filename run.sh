@@ -548,7 +548,7 @@ services:
 END
 
 for var in BW_LOG_ENABLE BW_DEBUG BW_IMAGE BW_FORCE_PULL BW_FORCE_RECREATE BW_SHOW_INFO BW_PROFILE BW_OVERRIDE_MODULES BW_ADJUST_MODULES BW_EXTRA_PACKAGES BW_DISABLED_SERVICES BW_EXTRA_IMAGE_NAME BW_ROOTFS_PARTSIZE BW_USE_MIRROR BW_MIRROR; do
-    append_env_var "$var" "${!var}"
+    append_env_var "$var" "${!var:-}"
 done
 
 # Dynamically detect and forward module-level environment variables set on the host
@@ -566,7 +566,7 @@ if [ -d modules ]; then
             var_name=$(echo "$var_name" | tr -d '[:space:]')
             
             if [ -n "$var_name" ] && [ -n "${!var_name:-}" ]; then
-                append_env_var "$var_name" "${!var_name}"
+                append_env_var "$var_name" "${!var_name:-}"
             fi
         done < "$env_file"
     done < <(find modules "$BW_CUSTOM_MODULES_PATH" -name ".env.example" 2>/dev/null || true)
