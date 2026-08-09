@@ -2,6 +2,11 @@
 
 set -euo pipefail
 
+# Ensure we have a large directory for temporary files inside the container's workspace
+# to avoid running out of space on tmpfs /tmp when constructing large images.
+mkdir -p /builder/tmp
+export TMPDIR=/builder/tmp
+
 # Ensure ownership of the generated artifacts (the host-mounted ./bin) matches the host user upon container exit
 cleanup() {
     local exit_code=$?

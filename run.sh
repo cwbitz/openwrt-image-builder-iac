@@ -500,8 +500,6 @@ log_info "Disabled services: ${BW_DISABLED_SERVICES:-<none>}"
 log_info "Rootfs partition size: ${BW_ROOTFS_PARTSIZE:-<none>}"
 
 # Use the official imagebuilder container working directory
-CONTAINER_BUILD_DIR=/builder
-CONTAINER_BIN_DIR="bin"
 COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
 
 # Cleanup on normal exit and on forced interruptions (Ctrl+C / SIGTERM).
@@ -537,15 +535,15 @@ services:
     container_name: "$CONTAINER_NAME"
     user: "0:0"
     volumes:
-      - $BW_OUTPUT_DIR:$CONTAINER_BUILD_DIR/$CONTAINER_BIN_DIR
-      - ./build.sh:$CONTAINER_BUILD_DIR/build.sh
-      - ./.env:$CONTAINER_BUILD_DIR/.env
-      - ./modules:$CONTAINER_BUILD_DIR/modules_in_container
+      - $BW_OUTPUT_DIR:/builder/bin
+      - ./build.sh:/builder/build.sh
+      - ./.env:/builder/.env
+      - ./modules:/builder/modules_in_container
 END
 
 if [ -d "$BW_CUSTOM_MODULES_PATH" ]; then
     cat >> "$COMPOSE_FILE" <<-END
-      - $BW_CUSTOM_MODULES_PATH:$CONTAINER_BUILD_DIR/custom_modules_in_container
+      - $BW_CUSTOM_MODULES_PATH:/builder/custom_modules_in_container
 END
 fi
 
