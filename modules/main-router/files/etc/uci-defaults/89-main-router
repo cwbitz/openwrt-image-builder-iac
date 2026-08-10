@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if [ -n "$BW_MAIN_LAN_IP" ]; then
+    uci -q batch << EOF
+    set network.lan.ipaddr='$BW_MAIN_LAN_IP'
+    commit
+EOF
+fi

@@ -1,10 +1,13 @@
 #!/bin/sh
 
+# Configures PPPoE on first boot.
+# Direct double-quoted uci commands (instead of a heredoc) are used so that
+# special characters in the username/password (e.g. '$', '"', '\') survive
+# build-time substitution and are handled correctly at runtime.
+
 if [ -n "$BW_PPPOE_USERNAME" ] && [ -n "$BW_PPPOE_PASSWORD" ]; then
-    uci -q batch << EOF
-    set network.wan.proto='pppoe'
-    set network.wan.username='$BW_PPPOE_USERNAME'
-    set network.wan.password='$BW_PPPOE_PASSWORD'
-    commit
-EOF
+    uci set network.wan.proto='pppoe'
+    uci set network.wan.username="$BW_PPPOE_USERNAME"
+    uci set network.wan.password="$BW_PPPOE_PASSWORD"
+    uci commit network
 fi

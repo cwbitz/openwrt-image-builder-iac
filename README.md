@@ -69,21 +69,23 @@
 
 ### 环境变量配置说明
 
-可通过以下两种方式配置模块变量（如 `BW_LAN_IP`, `BW_ROOT_PASSWORD`, `BW_PPPOE_USERNAME` 等）：
+可通过以下两种方式配置模块变量（如 `BW_MAIN_LAN_IP`, `BW_ROOT_PASSWORD`, `BW_PPPOE_USERNAME` 等）：
 
 1. **子模块目录 `.env` 文件**：在模块子目录下创建 `.env` 文件（参考各模块下的 `.env.example` 模板）。
 2. **命令行直接赋值**：在运行 `run.sh` 脚本时直接传入环境变量，例如：
-   ```bash
-   BW_LAN_IP=192.168.2.1 BW_ROOT_PASSWORD=secret ./run.sh --image=...
-   ```
+    ```bash
+    BW_MAIN_LAN_IP=192.168.2.1 BW_ROOT_PASSWORD=secret ./run.sh --image=...
+    ```
 
 #### 优先级规则（Precedence Rules）
 
 当相同名称的变量或控制选项在多个地方定义时，其生效优先级如下（从高到低）：
 1. **CLI 命令行参数**：如 `--profile`、`--extra-packages`、`--force-pull` 等。命令行直接传入的值始终最高，会覆盖其他所有来源。
-2. **外部环境变量 / 运行前直接赋值**：如在宿主机终端中通过 `export BW_LAN_IP=...` 注入，或者在命令前临时指定的变量 `BW_LAN_IP=... ./run.sh ...`（包含所有 `BW_` 开头的控制变量及子模块自定义环境变量）。
+2. **外部环境变量 / 运行前直接赋值**：如在宿主机终端中通过 `export BW_MAIN_LAN_IP=...` 注入，或者在命令前临时指定的变量 `BW_MAIN_LAN_IP=... ./run.sh ...`（包含所有 `BW_` 开头的控制变量及子模块自定义环境变量）。
 3. **子模块专属的配置**：即 `modules/<name>/.env` 文件中的配置。
 4. **项目根目录下的全局配置**：即根目录 `.env` 文件中的配置。
+
+> ⚠️ **注意**：模块目录下的 `.env.example` **仅用于变量发现**（告知脚本该模块支持哪些变量名），脚本**不会读取其中的值**，因此它不属于上述优先级链中的"值来源"。详见 [自定义模块开发规范](#自定义模块开发规范)。
 
 ### 核心控制环境变量示例
 
@@ -119,19 +121,21 @@ BW_ROOTFS_PARTSIZE="256"
 | `system` | ✔ | 配置系统基础设置：时区（`Asia/Shanghai` / `CST-8`）与日志级别 | 无 |
 | `root-password` | ✔ | 配置系统 root 登录密码，支持随机生成 | `BW_ROOT_PASSWORD`（默认空） |
 | `pppoe` | ✔ | 首次开机自动配置 WAN 接口的 PPPoE 拨号账号与密码 | `BW_PPPOE_USERNAME`、`BW_PPPOE_PASSWORD`（需同时设置，默认空） |
-| `lan` | ✔ | 配置 LAN 网络接口的 IP 地址 | `BW_LAN_IP`（默认 `192.168.2.1`） |
+| `main-router` | ✔ | 配置主路由 LAN 网络接口的 IP 地址 | `BW_MAIN_LAN_IP`（默认 `192.168.2.1`） |
 | `disable-ipv6` | ✔ | 禁用 LAN/WAN 接口的 IPv6、RA（Router Advertisement）与 DHCPv6 | 无 |
 | `extras` | ✔ | 安装常用网络诊断与系统管理工具（tcpdump、curl、vim-full、conntrack 等） | 无 |
 | `prefer-ipv6` | ✘ | 优化 IPv6 优先级与首选配置 | 无 |
 | `python` | ✘ | 为 OpenWrt 添加 Python 3 轻量级运行环境（`python3-light`） | 无 |
 | `ssh-permission` | ✘ | 修正并配置 SSH `authorized_keys` 文件权限（600） | 无 |
 | `statistics` | ✘ | 提供 collectd 系统性能/温度监控采集及 LuCI 统计图表界面 | 无 |
+| `bypass-router` | ✘ | 将设备配置为旁路由：LAN 网关/DNS 指向主路由，可选关闭 LAN DHCP | `BW_BYPASS_LAN_IP`、`BW_BYPASS_GATEWAY`、`BW_BYPASS_DNS`、`BW_BYPASS_DISABLE_DHCP` |
+| `ap` | ✘ | 配置无线接入点（AP）：LAN 网关/DNS 指向主路由，可选关闭 DHCP | `BW_AP_LAN_IP`、`BW_AP_GATEWAY`、`BW_AP_DNS`、`BW_AP_DISABLE_DHCP` |
 
-默认启用模块：`base system root-password pppoe lan disable-ipv6 extras`
+默认启用模块：`base system root-password pppoe main-router disable-ipv6 extras`
 
 - 可在默认集基础上增减模块：`-a | --adjust-modules`，例如 `statistics -extras`。
-- 可完全自定义模块列表（忽略默认集）：`-O | --override-modules`，例如 `base lan pppoe extras`。
-- 上表中标记为 ✘ 的模块（`prefer-ipv6`、`python`、`ssh-permission`、`statistics`）可通过上述两种方式启用。
+- 可完全自定义模块列表（忽略默认集）：`-O | --override-modules`，例如 `base main-router pppoe extras`。
+- 上表中标记为 ✘ 的模块（`prefer-ipv6`、`python`、`ssh-permission`、`statistics`、`bypass-router`、`ap`）可通过上述两种方式启用。
 
 > 各环境变量的注入方式与优先级请参见上文 [环境变量配置说明](#环境变量配置说明)。
 
@@ -144,7 +148,7 @@ BW_ROOTFS_PARTSIZE="256"
 
 高级特性：
 
-- 支持模块专属 `.env` 文件或命令行直接赋值环境变量
+- 支持模块专属 `.env` 文件或命令行直接赋值环境变量（`.env.example` 仅声明变量名，不作为默认值来源）
 - `files/etc/uci-defaults` 中的文件支持 `$VARNAME` 替换
 - 若不同模块生成同名目标文件，构建将失败以避免覆盖
 
@@ -185,13 +189,79 @@ BW_ROOTFS_PARTSIZE="256"
 │     ├─ files/         # 将打包到固件的文件
 │     ├─ post-script.sh # 可选：后处理逻辑脚本
 │     ├─ .env           # 可选：模块专属环境变量文件（可参考 .env.example）
-│     ├─ .env.example   # 可选：模块环境变量模板与注释说明
+│     ├─ .env.example   # 可选：声明模块支持的变量名（仅用于变量发现，不读取其中的值）
 │     └─ README.md      # 可选：模块说明
 ├─ custom_modules/      # 自定义模块目录
 └─ LICENSE              # MIT 许可证
 ```
 
 本项目主要依赖 Docker
+
+## 自定义模块开发规范
+
+自定义模块放在 `custom_modules/` 目录（或通过 `-c | --custom-modules-path` 指定其它目录），每个模块对应一个子目录：
+
+```
+custom_modules/my-module/
+├─ packages              # 软件包列表（也可以是可执行脚本，其 stdout 输出软件包列表）
+├─ files/                # 需要打包进固件的文件树（会全部合入固件的 FILES 目录）
+│  └─ etc/uci-defaults/  # 首次开机自动执行的初始化脚本（建议用 2 位数字前缀控制执行顺序）
+├─ post-script.sh        # 可选：构建期间在容器内执行的后处理脚本
+├─ .env                  # 可选：模块专属变量值（优先级仅次于命令行）
+└─ .env.example          # 强烈建议提供：声明模块支持的变量名（用于变量发现）
+```
+
+### 基本要求
+
+- 模块名使用全小写字母与连字符（如 `my-module`）。
+- **不要与 `modules/` 内置模块重名**：同名模块会被同时处理，导致软件包重复、文件路径冲突，构建直接失败。
+- 软件包冲突保护：同一软件包不能同时以 `+pkg` 与 `-pkg` 形式出现在最终包列表中，否则构建报错退出。
+
+### `packages` 文件
+
+- 可以是一行空格分隔的包名列表。
+- 也可以是**可执行脚本**：脚本的 `stdout` 输出内容会被当作包列表（先尝试执行解析，失败则按纯文本读取）。
+- 支持 `-包名` 前缀表示"从默认包列表中移除该包"；最终列表中的正负冲突会被 `check_package_conflicts` 检测并报错。
+
+### `files/` 变量替换（`$VARNAME`）
+
+- 模块 `files/` 下的文本文件支持 `$VARNAME` 占位符，在构建期间被替换为实际值。
+- **只有已在模块 `.env` 或 `.env.example` 中声明的变量名才会被替换**；未声明的 `$FOO` 会原样保留。因此：
+  - 想在脚本中使用变量，就**必须把变量名写进 `.env.example`**（否则变量名永远发现不到）；
+  - 不想被替换的占位符，就不要写进 `.env.example`。
+- **空值处理（重要）**：若某变量在命令行、模块 `.env`、全局 `.env` 三处都没有提供值，它会被替换成**空字符串**——而不是保留 `$VARNAME` 原文：
+  ```sh
+  # 推荐写法：空值时安全跳过
+  if [ -n "$MY_VALUE" ]; then
+      # 仅在提供了值时才执行
+      ...
+  fi
+  # 不推荐：空值时会写出一条空配置
+  uci set network.lan.ipaddr='$MY_VALUE'
+  ```
+- 对 **shell 脚本**（首行以 `#!/bin/sh` 或 `#!/bin/bash` 开头）：值中的 `\`、`$`、反引号、双引号会被自动转义，确保固件运行时还原为字面值（例如密码 `pa$$w@rd` 不会被 shell 误展开成 `pa`）。
+- 对**普通文本文件**：仅做 sed 特殊字符（`\`、`&`、`|`）的转义，不做 shell 转义。
+- 替换仅作用于被判定为文本的文件（`is_text_file`），二进制文件不处理。
+
+### `post-script.sh`
+
+- 以 `source` 方式在构建容器内、文件合并之前执行，可修改构建环境或预置文件。
+- 注意它运行在容器内：`TMPDIR` 已被脚本设置为构建工作区目录（`/builder/tmp`），大文件临时操作无需担心 tmpfs 溢出。
+
+### 变量优先级（重要）
+
+```
+命令行环境变量 / run.sh 前赋值  >  模块下 .env  >  全局 .env
+```
+
+`.env.example` **不在**这条优先级链中——它只提供变量名，永远不提供值。详见上文 [环境变量配置说明](#环境变量配置说明)。
+
+### 新增模块的检查清单
+
+1. 在 `custom_modules/<my-module>/` 下创建 `packages`、`files/`（必要时 `post-script.sh`）。
+2. 创建 `.env.example`，**完整列出** `files/` 中所有将被替换的变量名。
+3. 每个用到变量的 uci-defaults 脚本都用 `if [ -n "$VARNAME" ]` 做空值保护。
+4. 用 `-a | --adjust-modules` 或 `-O | --override-modules` 启用模块，重建并检查 `.manifest` / 解包 `rootfs` 验证结果。
 
 ## 许可证
 

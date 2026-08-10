@@ -69,21 +69,23 @@ CLI driven, Docker powered, and easy to extend with modules
 
 ### Environment Variable Configuration
 
-Module environment variables (such as `BW_LAN_IP`, `BW_ROOT_PASSWORD`, `BW_PPPOE_USERNAME`, etc.) can be configured in two ways:
+Module environment variables (such as `BW_MAIN_LAN_IP`, `BW_ROOT_PASSWORD`, `BW_PPPOE_USERNAME`, etc.) can be configured in two ways:
 
 1. **Submodule Directory `.env` File**: Create a `.env` file directly under the module's subdirectory (refer to the `.env.example` template in each module).
 2. **Command Line Environment Variables**: Pass them directly when executing the `run.sh` script, for example:
    ```bash
-   BW_LAN_IP=192.168.2.1 BW_ROOT_PASSWORD=secret ./run.sh --image=...
+   BW_MAIN_LAN_IP=192.168.2.1 BW_ROOT_PASSWORD=secret ./run.sh --image=...
    ```
 
 #### Precedence Rules
 
 When the same configuration option or control variable is defined in multiple places, the precedence (from highest to lowest) is resolved as follows:
 1. **CLI command-line options**: e.g., `--profile`, `--extra-packages`, `--force-pull`. Command line arguments always have the highest priority and override any other values.
-2. **Host environment variables / Inline assignments**: e.g., `export BW_LAN_IP=...` on the host, or passing variables directly inline `BW_LAN_IP=... ./run.sh ...` (applies to all `BW_` prefixes and custom module-level environment variables).
+2. **Host environment variables / Inline assignments**: e.g., `export BW_MAIN_LAN_IP=...` on the host, or passing variables directly inline `BW_MAIN_LAN_IP=... ./run.sh ...` (applies to all `BW_` prefixes and custom module-level environment variables).
 3. **Module-specific environment files**: i.e., configurations declared inside `modules/<name>/.env` files.
 4. **Global environment configuration**: i.e., configurations declared inside the root `.env` file.
+
+> ⚠️ **Note**: A module's `.env.example` file is **for variable discovery only** (it tells the build script which variable NAMES the module supports). The script **never reads values from it**, so it is not part of the precedence chain above. See [Custom Module Development Guide](#custom-module-development-guide).
 
 ### Core Control Environment Variables
 
@@ -119,19 +121,21 @@ A reference table of all modules and the environment variables they support (for
 | `system` | ✔ | Configures basic system settings: timezone (`Asia/Shanghai` / `CST-8`) and log levels. | none |
 | `root-password` | ✔ | Sets the root login password, with support for random generation. | `BW_ROOT_PASSWORD` (empty by default) |
 | `pppoe` | ✔ | Configures the WAN PPPoE dial-up username/password on first boot. | `BW_PPPOE_USERNAME`, `BW_PPPOE_PASSWORD` (must both be set; empty by default) |
-| `lan` | ✔ | Sets the LAN interface IP address. | `BW_LAN_IP` (default `192.168.2.1`) |
+| `main-router` | ✔ | Sets the LAN interface IP address for the main router. | `BW_MAIN_LAN_IP` (default `192.168.2.1`) |
 | `disable-ipv6` | ✔ | Disables IPv6, RA (Router Advertisement), and DHCPv6 on LAN/WAN interfaces. | none |
 | `extras` | ✔ | Installs common network diagnostics and system management tools (tcpdump, curl, vim-full, conntrack, etc.). | none |
 | `prefer-ipv6` | ✘ | Optimizes IPv6 priority and prefer-IPv6 configurations. | none |
 | `python` | ✘ | Adds a lightweight Python 3 runtime (`python3-light`). | none |
 | `ssh-permission` | ✘ | Fixes/converges the SSH `authorized_keys` file permissions (600). | none |
 | `statistics` | ✘ | Enables collectd system performance/temperature monitoring and LuCI statistics graphing. | none |
+| `bypass-router` | ✘ | Configures the device as a bypass router: points the LAN gateway/DNS to the main router, optional LAN DHCP disable. | `BW_BYPASS_LAN_IP`, `BW_BYPASS_GATEWAY`, `BW_BYPASS_DNS`, `BW_BYPASS_DISABLE_DHCP` |
+| `ap` | ✘ | Configures a wireless access point (AP): points the LAN gateway/DNS to the main router, optional DHCP disable. | `BW_AP_LAN_IP`, `BW_AP_GATEWAY`, `BW_AP_DNS`, `BW_AP_DISABLE_DHCP` |
 
-Default enabled modules: `base system root-password pppoe lan disable-ipv6 extras`
+Default enabled modules: `base system root-password pppoe main-router disable-ipv6 extras`
 
 - Add or remove modules on top of the default set with `-a | --adjust-modules` (e.g. `statistics -extras`).
-- Specify an entirely custom module list (ignoring the default set) with `-O | --override-modules` (e.g. `base lan pppoe extras`).
-- Modules marked ✘ above (`prefer-ipv6`, `python`, `ssh-permission`, `statistics`) can be enabled through either of these two options.
+- Specify an entirely custom module list (ignoring the default set) with `-O | --override-modules` (e.g. `base main-router pppoe extras`).
+- Modules marked ✘ above (`prefer-ipv6`, `python`, `ssh-permission`, `statistics`, `bypass-router`, `ap`) can be enabled through either of these two options.
 
 > For how to supply these variables and their precedence, see [Environment Variable Configuration](#environment-variable-configuration) above.
 
@@ -144,7 +148,7 @@ For details on the project and module file layout, see [Development & Build](#de
 
 Advanced features:
 
-- Env var configuration: support module-specific `.env` files or direct CLI assignments
+- Env var configuration: module-specific `.env` files or direct CLI assignments (`.env.example` only declares variable NAMES, never values)
 - Variable substitution: files under `files/etc/uci-defaults` support `$VARNAME`
 - Conflict protection: build fails if multiple modules produce the same target path
 
@@ -191,7 +195,7 @@ Project and module layout:
 │     ├─ files/         # Files to include in the firmware
 │     ├─ post-script.sh # Optional post-processing shell script
 │     ├─ .env           # Optional module-specific environment file (see .env.example)
-│     ├─ .env.example   # Optional environment template with usage instructions
+│     ├─ .env.example   # Optional: declares the variable NAMES the module supports (discovery only; values never read)
 │     └─ README.md      # Optional module description
 ├─ custom_modules/      # Custom modules directory
 └─ LICENSE              # MIT license
@@ -200,6 +204,72 @@ Project and module layout:
 Required:
 
 - Docker
+
+## Custom Module Development Guide
+
+Custom modules live in `custom_modules/` (or any directory chosen with `-c | --custom-modules-path`). Each module is a sub-directory:
+
+```
+custom_modules/my-module/
+├─ packages              # Package list (or an executable script whose stdout prints the package list)
+├─ files/                # File tree to merge into the firmware (all merged into the FILES dir)
+│  └─ etc/uci-defaults/  # Scripts executed automatically on first boot (use 2-digit numeric prefixes to order)
+├─ post-script.sh        # Optional: post-processing script run inside the build container
+├─ .env                  # Optional: module-specific variable values (ranked right below command line)
+└─ .env.example          # Strongly recommended: declare the variable NAMES the module supports (for discovery)
+```
+
+### Basic requirements
+
+- Module names should be lowercase with hyphens (e.g. `my-module`).
+- **Do not reuse a name from the built-in `modules/` directory**: a name present in both places is processed twice, causing duplicated packages and file-path conflicts that fail the build.
+- Package conflict protection: the same package cannot appear both as `+pkg` and `-pkg` in the final package list; the build aborts if it does.
+
+### `packages` file
+
+- A whitespace-separated package list, or
+- an **executable script** whose `stdout` is treated as the package list (it is sourced first; on failure the file is read as plain text).
+- A `-pkg` prefix removes that package from the default set; positive/negative conflicts in the final list are detected by `check_package_conflicts` and abort the build.
+
+### Variable substitution in `files/` (`$VARNAME`)
+
+- Text files under `files/` support `$VARNAME` placeholders that are replaced with actual values during the build.
+- **Only variable names declared in the module's `.env` or `.env.example` are substituted**; an undeclared `$FOO` stays untouched. Therefore:
+  - To use a variable in your scripts you MUST list its name in `.env.example` (otherwise the name is never discovered);
+  - keep placeholders you do NOT want replaced out of `.env.example`.
+- **Empty values (important)**: if a variable has no value anywhere (command line, module `.env`, global `.env`), it is replaced by an **empty string** — the `$VARNAME` placeholder is NOT preserved:
+  ```sh
+  # Recommended: safely skip when empty
+  if [ -n "$MY_VALUE" ]; then
+      # only run when a value was provided
+      ...
+  fi
+  # Not recommended: writes an empty config line when empty
+  uci set network.lan.ipaddr='$MY_VALUE'
+  ```
+- For **shell scripts** (first line `#!/bin/sh` or `#!/bin/bash`): `\`, `$`, backticks and double quotes inside values are auto-escaped so the firmware runtime sees the literal value (e.g. a password `pa$$w@rd` is not wrongly expanded to `pa`).
+- For **plain-text files**: only sed special characters (`\`, `&`, `|`) are escaped; no shell escaping is applied.
+- Only files detected as text (`is_text_file`) are substituted; binary files are skipped.
+
+### `post-script.sh`
+
+- Sourced inside the build container before files are merged; can tweak the build environment or stage files.
+- It runs inside the container, where `TMPDIR` is already set to the build workspace (`/builder/tmp`), so large temporary operations need not worry about tmpfs overflow.
+
+### Variable precedence (important)
+
+```
+command-line env vars / inline assignments  >  module .env  >  global .env
+```
+
+`.env.example` is **not** in this chain — it only declares names, never values. See [Environment Variable Configuration](#environment-variable-configuration) above.
+
+### Checklist for a new module
+
+1. Create `custom_modules/<my-module>/` with `packages` and `files/` (plus `post-script.sh` when needed).
+2. Create `.env.example` and **list every variable name** referenced in `files/`.
+3. Guard every uci-defaults script that uses a variable with `if [ -n "$VARNAME" ]`.
+4. Enable the module with `-a | --adjust-modules` or `-O | --override-modules`, rebuild, and verify via the `.manifest` / unpacked `rootfs`.
 
 ## License
 

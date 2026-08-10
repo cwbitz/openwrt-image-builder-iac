@@ -134,7 +134,7 @@ if [ "$USE_MIRROR" == "1" ] && [ -n "${MIRROR:-}" ]; then
     fi
 fi
 
-DEFAULT_MODULES="base system root-password pppoe lan disable-ipv6 extras"
+DEFAULT_MODULES="base system root-password pppoe main-router disable-ipv6 extras"
 
 log_info "Detected OpenWrt version: ${VERSION_PATH##*/}"
 export VERSION_PATH
@@ -313,21 +313,27 @@ collect_module_env() {
 
     local module_env_file="$dir/$mod/.env"
 
-    # Get a list of all variable names from module .env
+    # Get a list of all variable names the module declares. We scan BOTH the
+    # module's .env and .env.example files so that variables that are passed
+    # solely through environment variables (e.g. BW_MAIN_LAN_IP=... ./run.sh) are
+    # still discovered and substituted, even when no '.env' file exists.
     local var_names=""
-    if [ -f "$module_env_file" ]; then
-        while IFS= read -r line || [ -n "$line" ]; do
-            # Skip empty or comment lines
-            [[ "$line" =~ ^[[:space:]]*# ]] && continue
-            [[ -z "${line//[[:space:]]/}" ]] && continue
-            local var_name="${line%%=*}"
-            var_name="${var_name##[[:space:]]}"
-            var_name="${var_name%%[[:space:]]}"
-            if [ -n "$var_name" ]; then
-                var_names="$var_names $var_name"
-            fi
-        done < "$module_env_file"
-    fi
+    local env_desc_file
+    for env_desc_file in "$dir/$mod/.env" "$dir/$mod/.env.example"; do
+        if [ -f "$env_desc_file" ]; then
+            while IFS= read -r line || [ -n "$line" ]; do
+                # Skip empty or comment lines
+                [[ "$line" =~ ^[[:space:]]*# ]] && continue
+                [[ -z "${line//[[:space:]]/}" ]] && continue
+                local var_name="${line%%=*}"
+                var_name="${var_name##[[:space:]]}"
+                var_name="${var_name%%[[:space:]]}"
+                if [ -n "$var_name" ]; then
+                    var_names="$var_names $var_name"
+                fi
+            done < "$env_desc_file"
+        fi
+    done
 
     # Deduplicate variable names
     var_names=$(echo "$var_names" | tr ' ' '\n' | sort -u | tr '\n' ' ')
@@ -376,6 +382,22 @@ collect_module_env() {
     done
 }
 
+is_shell_script() {
+    local file="$1"
+
+    # 1. Check if extension is .sh
+    if [[ "$file" == *.sh ]]; then
+        return 0
+    fi
+
+    # 2. Check if located under etc/uci-defaults/ (OpenWrt boot scripts)
+    if [[ "$file" == */etc/uci-defaults/* ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
 apply_env() {
     local dir="$1"
     local mod="$2"
@@ -386,11 +408,38 @@ apply_env() {
     # Now substitute all text files in files/ directory
     for f in $(find "$dir/$mod/files" -type f); do
         if is_text_file "$f"; then
+            local is_shell=0
+            if is_shell_script "$f"; then
+                is_shell=1
+            fi
             for var_name in "${!CURRENT_MODULE_ENV[@]}"; do
                 local val="${CURRENT_MODULE_ENV[$var_name]}"
                 log_debug "Substituting variable '$var_name' with '$val' in $f"
-                # Use a temporary file for safe in-place replacement (macOS/Linux compatible)
-                sed -e "s|\$$var_name|$val|g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+                local final_val="$val"
+                # If target is a shell script, escape shell metacharacters (\, $, `, ")
+                # so the value stays literal when evaluated at runtime.
+                if [ "$is_shell" -eq 1 ]; then
+                    final_val=$(printf '%s' "$final_val" | sed -e 's/[\\$`"]/\\&/g')
+                fi
+                # Perform robust literal string substitution using awk split
+                export AWK_VAR_NAME="$var_name"
+                export AWK_VAR_VAL="$final_val"
+                awk '
+                BEGIN {
+                    target = "\\$" ENVIRON["AWK_VAR_NAME"]
+                    repl = ENVIRON["AWK_VAR_VAL"]
+                }
+                {
+                    n = split($0, parts, target)
+                    out = parts[1]
+                    for (i = 2; i <= n; i++) {
+                        out = out repl parts[i]
+                    }
+                    print out
+                }
+                ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+                unset AWK_VAR_NAME
+                unset AWK_VAR_VAL
             done
         fi
     done

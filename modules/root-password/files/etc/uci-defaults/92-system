@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# Configures the root password on first boot.
+# NOTE: any printable ASCII character is accepted except the newline character.
+# 'printf' (instead of 'echo') is used so values containing backslash
+# sequences (e.g. a literal "\n") are passed through verbatim.
+
 if [ -n "$BW_ROOT_PASSWORD" ]; then
-    (echo "$BW_ROOT_PASSWORD"; sleep 1; echo "$BW_ROOT_PASSWORD") | passwd > /dev/null
+    (printf '%s\n' "$BW_ROOT_PASSWORD"; sleep 1; printf '%s\n' "$BW_ROOT_PASSWORD") | passwd > /dev/null
 fi

@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# Access Point (AP) first-boot configuration.
+# Gateway and DNS usually point to the main router's LAN IP address.
+
+if [ -n "$BW_AP_LAN_IP" ]; then
+    uci set network.lan.ipaddr="$BW_AP_LAN_IP"
+fi
+
+if [ -n "$BW_AP_GATEWAY" ]; then
+    uci set network.lan.gateway="$BW_AP_GATEWAY"
+fi
+
+if [ -n "$BW_AP_DNS" ]; then
+    uci -q delete network.lan.dns
+    for dns in $BW_AP_DNS; do
+        uci -q add_list network.lan.dns="$dns"
+    done
+fi
+
+if [ "$BW_AP_DISABLE_DHCP" = "1" ]; then
+    uci set network.lan.ignore='1'
+fi
+
+uci commit network
