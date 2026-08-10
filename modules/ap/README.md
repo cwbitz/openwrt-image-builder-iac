@@ -14,7 +14,7 @@
 ## 配置参数
 
 ### 环境变量
-- `BW_AP_LAN_IP` - AP 自身 LAN 静态 IP（默认空，为空则不修改）
+- `BW_AP_LAN_IP` - AP 自身 LAN 静态 IP，必须使用 CIDR 格式（如 `192.168.1.2/24`，默认空，为空则不修改）
 - `BW_AP_GATEWAY` - LAN 网关，通常为主路由的 LAN IP（默认空）
 - `BW_AP_DNS` - LAN DNS，可多个，用空格分隔（默认空）
 - `BW_AP_DISABLE_DHCP` - 设为 `1` 时关闭 LAN 口 DHCP（默认空）
@@ -23,7 +23,7 @@
 
 在 `.env` 或模块的 `.env` 文件中设置：
 ```bash
-BW_AP_LAN_IP=192.168.1.100
+BW_AP_LAN_IP=192.168.1.100/24
 BW_AP_GATEWAY=192.168.1.1
 BW_AP_DNS="192.168.1.1 223.5.5.5"
 BW_AP_DISABLE_DHCP=1

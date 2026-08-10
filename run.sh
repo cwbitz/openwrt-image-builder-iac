@@ -524,7 +524,14 @@ append_env_var() {
     local value="$2"
 
     if [ -n "$value" ]; then
-        printf '      %s: "%s"\n' "$name" "$value" >> "$COMPOSE_FILE"
+        # Escape the value for a docker-compose YAML double-quoted scalar.
+        # docker-compose performs variable interpolation on $ before YAML parses:
+        #   $$ -> $, ${VAR} -> value, $name -> value (or blank). A raw $ in the
+        #   value (e.g. a password "pa$$w@rd") would therefore be mangled.
+        # Fixes: $ -> $$ (compose escape) and backslash / double quote -> YAML escapes.
+        local escaped
+        escaped=$(printf '%s' "$value" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\$/$$/g')
+        printf '      %s: "%s"\n' "$name" "$escaped" >> "$COMPOSE_FILE"
     fi
 }
 
@@ -552,7 +559,9 @@ cat >> "$COMPOSE_FILE" <<-END
     environment:
 END
 
-for var in BW_LOG_ENABLE BW_DEBUG BW_IMAGE BW_FORCE_PULL BW_FORCE_RECREATE BW_SHOW_INFO BW_PROFILE BW_OVERRIDE_MODULES BW_ADJUST_MODULES BW_EXTRA_PACKAGES BW_DISABLED_SERVICES BW_EXTRA_IMAGE_NAME BW_ROOTFS_PARTSIZE BW_USE_MIRROR BW_MIRROR HOST_UID HOST_GID; do
+for var in BW_ADJUST_MODULES BW_DEBUG BW_DISABLED_SERVICES BW_EXTRA_IMAGE_NAME BW_EXTRA_PACKAGES \
+           BW_FORCE_PULL BW_FORCE_RECREATE BW_IMAGE BW_LOG_ENABLE BW_MIRROR BW_OVERRIDE_MODULES \
+           BW_PROFILE BW_ROOTFS_PARTSIZE BW_SHOW_INFO BW_USE_MIRROR HOST_GID HOST_UID; do
     append_env_var "$var" "${!var:-}"
 done
 

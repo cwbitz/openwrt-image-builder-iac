@@ -74,8 +74,20 @@
 1. **子模块目录 `.env` 文件**：在模块子目录下创建 `.env` 文件（参考各模块下的 `.env.example` 模板）。
 2. **命令行直接赋值**：在运行 `run.sh` 脚本时直接传入环境变量，例如：
     ```bash
-    BW_MAIN_LAN_IP=192.168.2.1 BW_ROOT_PASSWORD=secret ./run.sh --image=...
+    BW_MAIN_LAN_IP='192.168.2.1' BW_ROOT_PASSWORD='secret' ./run.sh --image=...
     ```
+
+> ⚠️ **命令行赋值请统一使用单引号**：单引号会**原样传递**值、不做任何展开；而**双引号会先被你的 shell 展开**——例如 `BW_ROOT_PASSWORD="pa$$w@rd"` 中的 `$$` 会被替换成 shell 进程 PID（变成 `pa<PID>w@rd`），写进固件的实际密码将与你预期的完全不同。**凡是含 `$`、`\`、反引号、双引号或空格的变量值都必须用单引号包裹**（其余值用单引号同样安全、无副作用）。
+
+```bash
+# ✅ 正确：单引号原样传递
+BW_ROOT_PASSWORD='pa$$w@rd' BW_BYPASS_LAN_IP='10.0.10.3/24' ./run.sh ...
+
+# ❌ 错误：双引号会让 shell 展开 $、命令替换与反斜杠
+BW_ROOT_PASSWORD="pa$$w@rd" ./run.sh ...
+```
+
+> 在 `.env` 文件中则无需引号（脚本按文本原样读取），同样安全。
 
 #### 优先级规则（Precedence Rules）
 
@@ -117,25 +129,25 @@ BW_ROOTFS_PARTSIZE="256"
 
 | 模块 | 默认启用 | 模块说明 | 支持的环境变量（默认值） |
 |------|:---:|----------|--------------------------|
+| `ap` | ✘ | 配置无线接入点（AP）：LAN 网关/DNS 指向主路由，可选关闭 DHCP | `BW_AP_LAN_IP`（CIDR 格式，如 `192.168.1.2/24`）、`BW_AP_GATEWAY`、`BW_AP_DNS`、`BW_AP_DISABLE_DHCP` |
 | `base` | ✔ | 提供 OpenWrt 系统基础软件包（LuCI Web 界面、`-dnsmasq`/`dnsmasq-full`、`-wpad-basic-mbedtls`/`wpad-mbedtls`、中文语言包等），并根据 OpenWrt 版本自动适配包列表 | 无 |
-| `system` | ✔ | 配置系统基础设置：时区（`Asia/Shanghai` / `CST-8`）与日志级别 | 无 |
-| `root-password` | ✔ | 配置系统 root 登录密码，支持随机生成 | `BW_ROOT_PASSWORD`（默认空） |
-| `pppoe` | ✔ | 首次开机自动配置 WAN 接口的 PPPoE 拨号账号与密码 | `BW_PPPOE_USERNAME`、`BW_PPPOE_PASSWORD`（需同时设置，默认空） |
-| `main-router` | ✔ | 配置主路由 LAN 网络接口的 IP 地址 | `BW_MAIN_LAN_IP`（默认 `192.168.2.1`） |
+| `bypass-router` | ✘ | 将设备配置为旁路由：LAN 网关/DNS 指向主路由，可选关闭 LAN DHCP | `BW_BYPASS_LAN_IP`（CIDR 格式，如 `10.0.10.3/24`）、`BW_BYPASS_GATEWAY`、`BW_BYPASS_DNS`、`BW_BYPASS_DISABLE_DHCP` |
 | `disable-ipv6` | ✔ | 禁用 LAN/WAN 接口的 IPv6、RA（Router Advertisement）与 DHCPv6 | 无 |
 | `extras` | ✔ | 安装常用网络诊断与系统管理工具（tcpdump、curl、vim-full、conntrack 等） | 无 |
+| `main-router` | ✔ | 配置主路由 LAN 网络接口的 IP 地址 | `BW_MAIN_LAN_IP`（CIDR 格式，如 `192.168.2.1/24`） |
+| `pppoe` | ✔ | 首次开机自动配置 WAN 接口的 PPPoE 拨号账号与密码 | `BW_PPPOE_USERNAME`、`BW_PPPOE_PASSWORD`（需同时设置，默认空） |
 | `prefer-ipv6` | ✘ | 优化 IPv6 优先级与首选配置 | 无 |
 | `python` | ✘ | 为 OpenWrt 添加 Python 3 轻量级运行环境（`python3-light`） | 无 |
+| `root-password` | ✔ | 配置系统 root 登录密码，支持随机生成 | `BW_ROOT_PASSWORD`（默认空；含 `$` 等特殊字符建议写入模块 .env） |
 | `ssh-permission` | ✘ | 修正并配置 SSH `authorized_keys` 文件权限（600） | 无 |
 | `statistics` | ✘ | 提供 collectd 系统性能/温度监控采集及 LuCI 统计图表界面 | 无 |
-| `bypass-router` | ✘ | 将设备配置为旁路由：LAN 网关/DNS 指向主路由，可选关闭 LAN DHCP | `BW_BYPASS_LAN_IP`、`BW_BYPASS_GATEWAY`、`BW_BYPASS_DNS`、`BW_BYPASS_DISABLE_DHCP` |
-| `ap` | ✘ | 配置无线接入点（AP）：LAN 网关/DNS 指向主路由，可选关闭 DHCP | `BW_AP_LAN_IP`、`BW_AP_GATEWAY`、`BW_AP_DNS`、`BW_AP_DISABLE_DHCP` |
+| `system` | ✔ | 配置系统基础设置：时区（`Asia/Shanghai` / `CST-8`）与日志级别 | 无 |
 
-默认启用模块：`base system root-password pppoe main-router disable-ipv6 extras`
+默认启用模块：`base disable-ipv6 extras main-router pppoe root-password system`
 
 - 可在默认集基础上增减模块：`-a | --adjust-modules`，例如 `statistics -extras`。
 - 可完全自定义模块列表（忽略默认集）：`-O | --override-modules`，例如 `base main-router pppoe extras`。
-- 上表中标记为 ✘ 的模块（`prefer-ipv6`、`python`、`ssh-permission`、`statistics`、`bypass-router`、`ap`）可通过上述两种方式启用。
+- 上表中标记为 ✘ 的模块（`ap`、`bypass-router`、`prefer-ipv6`、`python`、`ssh-permission`、`statistics`）可通过上述两种方式启用。
 
 > 各环境变量的注入方式与优先级请参见上文 [环境变量配置说明](#环境变量配置说明)。
 
@@ -225,23 +237,25 @@ custom_modules/my-module/
 
 ### `files/` 变量替换（`$VARNAME`）
 
-- 模块 `files/` 下的文本文件支持 `$VARNAME` 占位符，在构建期间被替换为实际值。
-- **只有已在模块 `.env` 或 `.env.example` 中声明的变量名才会被替换**；未声明的 `$FOO` 会原样保留。因此：
-  - 想在脚本中使用变量，就**必须把变量名写进 `.env.example`**（否则变量名永远发现不到）；
+模块 `files/` 下**文本文件**中的 `$VARNAME` 占位符会在构建期间被替换为实际值：
+
+- **变量发现**：仅替换在模块 `.env` 或 `.env.example` 中**声明过的变量名**，未声明的 `$FOO` 会原样保留。因此——
+  - 想在脚本中使用变量，就**必须把变量名写进 `.env.example`**（否则变量名永远无法被发现）；
   - 不想被替换的占位符，就不要写进 `.env.example`。
-- **空值处理（重要）**：若某变量在命令行、模块 `.env`、全局 `.env` 三处都没有提供值，它会被替换成**空字符串**——而不是保留 `$VARNAME` 原文：
+- **空值处理**：若某变量在命令行、模块 `.env`、全局 `.env` 中均未提供值，它会被替换成**空字符串**，而非保留 `$VARNAME` 原文：
   ```sh
-  # 推荐写法：空值时安全跳过
+  # ✅ 推荐：空值时安全跳过
   if [ -n "$MY_VALUE" ]; then
       # 仅在提供了值时才执行
       ...
   fi
-  # 不推荐：空值时会写出一条空配置
+  # ❌ 不推荐：空值时会留下一行空配置
   uci set network.lan.ipaddr='$MY_VALUE'
   ```
-- 对 **shell 脚本**（首行以 `#!/bin/sh` 或 `#!/bin/bash` 开头）：值中的 `\`、`$`、反引号、双引号会被自动转义，确保固件运行时还原为字面值（例如密码 `pa$$w@rd` 不会被 shell 误展开成 `pa`）。
-- 对**普通文本文件**：仅做 sed 特殊字符（`\`、`&`、`|`）的转义，不做 shell 转义。
-- 替换仅作用于被判定为文本的文件（`is_text_file`），二进制文件不处理。
+- **转义规则**：
+  - **shell 脚本**（以 `.sh` 结尾或位于 `etc/uci-defaults/` 目录下）：值中的 `\`、`$`、反引号、双引号会被自动转义，确保固件运行时还原为字面值（例如密码 `pa$$w@rd` 不会被 shell 误展开成 `pa`）。
+  - **普通文本文件**：不进行任何字符转义，值直接用于 awk 字符串拼接，保证字面值传输。
+- **文件类型检测**：仅处理被 `is_text_file` 判定为文本的文件（如 `.conf`、`.json`、脚本等），二进制文件直接跳过。
 
 ### `post-script.sh`
 

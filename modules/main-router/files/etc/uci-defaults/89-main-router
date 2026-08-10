@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Main router first-boot configuration.
+# Sets the main router's LAN IP address.
+
 if [ -n "$BW_MAIN_LAN_IP" ]; then
     uci -q batch << EOF
     set network.lan.ipaddr='$BW_MAIN_LAN_IP'

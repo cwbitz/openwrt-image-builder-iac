@@ -20,10 +20,14 @@
 
 ## 配置示例
 
-在 `.env` 或模块的 `.env.example` 文件中设置：
+在 `.env` 或模块的 `.env` 文件中设置：
 ```bash
 BW_ROOT_PASSWORD=your_secure_password
 ```
+
+> ⚠️ **密码含 `$` / `\` / `"` / 反引号时**：请直接写入模块的 `.env` 文件（如 `BW_ROOT_PASSWORD=pa$$w@rd`），
+> 或在命令行用**单引号**传值 `BW_ROOT_PASSWORD='pa$$w@rd' ./run.sh`。
+> 若用双引号在命令行传值，shell 与 docker-compose 会展开 `$`，导致固件里的实际密码与预期不符。
 
 或者在构建脚本执行时传入：
 ```bash

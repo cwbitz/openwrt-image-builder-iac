@@ -74,8 +74,20 @@ Module environment variables (such as `BW_MAIN_LAN_IP`, `BW_ROOT_PASSWORD`, `BW_
 1. **Submodule Directory `.env` File**: Create a `.env` file directly under the module's subdirectory (refer to the `.env.example` template in each module).
 2. **Command Line Environment Variables**: Pass them directly when executing the `run.sh` script, for example:
    ```bash
-   BW_MAIN_LAN_IP=192.168.2.1 BW_ROOT_PASSWORD=secret ./run.sh --image=...
+   BW_MAIN_LAN_IP='192.168.2.1' BW_ROOT_PASSWORD='secret' ./run.sh --image=...
    ```
+
+> ⚠️ **Wrap command-line values in single quotes**: single quotes pass the value through **verbatim**; **double quotes let your shell expand it first** — e.g. in `BW_ROOT_PASSWORD="pa$$w@rd"` the `$$` becomes the shell's PID (turning into `pa<PID>w@rd`), so the password baked into the firmware differs from what you intended. **Any value containing `$`, `\`, backticks, double quotes or spaces MUST be single-quoted** (single quotes are safe for every other value too).
+
+```bash
+# ✅ Correct: single quotes pass the value through verbatim
+BW_ROOT_PASSWORD='pa$$w@rd' BW_BYPASS_LAN_IP='10.0.10.3/24' ./run.sh ...
+
+# ❌ Wrong: double quotes let the shell expand $, command substitutions and backslashes
+BW_ROOT_PASSWORD="pa$$w@rd" ./run.sh ...
+```
+
+> In a `.env` file no quotes are needed (the script reads values as plain text), which is equally safe.
 
 #### Precedence Rules
 
@@ -117,25 +129,25 @@ A reference table of all modules and the environment variables they support (for
 
 | Module | Enabled by default | Description | Supported environment variables (default) |
 |--------|:---:|-------------|-------------------------------------------|
+| `ap` | ✘ | Configures a wireless access point (AP): points the LAN gateway/DNS to the main router, optional DHCP disable. | `BW_AP_LAN_IP` (CIDR notation, e.g. `192.168.1.2/24`), `BW_AP_GATEWAY`, `BW_AP_DNS`, `BW_AP_DISABLE_DHCP` |
 | `base` | ✔ | Provides the essential OpenWrt packages (LuCI Web UI, `-dnsmasq`/`dnsmasq-full`, `-wpad-basic-mbedtls`/`wpad-mbedtls`, Chinese language packs, etc.) and adapts the package list to the OpenWrt version. | none |
-| `system` | ✔ | Configures basic system settings: timezone (`Asia/Shanghai` / `CST-8`) and log levels. | none |
-| `root-password` | ✔ | Sets the root login password, with support for random generation. | `BW_ROOT_PASSWORD` (empty by default) |
-| `pppoe` | ✔ | Configures the WAN PPPoE dial-up username/password on first boot. | `BW_PPPOE_USERNAME`, `BW_PPPOE_PASSWORD` (must both be set; empty by default) |
-| `main-router` | ✔ | Sets the LAN interface IP address for the main router. | `BW_MAIN_LAN_IP` (default `192.168.2.1`) |
+| `bypass-router` | ✘ | Configures the device as a bypass router: points the LAN gateway/DNS to the main router, optional LAN DHCP disable. | `BW_BYPASS_LAN_IP` (CIDR notation, e.g. `10.0.10.3/24`), `BW_BYPASS_GATEWAY`, `BW_BYPASS_DNS`, `BW_BYPASS_DISABLE_DHCP` |
 | `disable-ipv6` | ✔ | Disables IPv6, RA (Router Advertisement), and DHCPv6 on LAN/WAN interfaces. | none |
 | `extras` | ✔ | Installs common network diagnostics and system management tools (tcpdump, curl, vim-full, conntrack, etc.). | none |
+| `main-router` | ✔ | Sets the LAN interface IP address for the main router. | `BW_MAIN_LAN_IP` (CIDR notation, e.g. `192.168.2.1/24`) |
+| `pppoe` | ✔ | Configures the WAN PPPoE dial-up username/password on first boot. | `BW_PPPOE_USERNAME`, `BW_PPPOE_PASSWORD` (must both be set; empty by default) |
 | `prefer-ipv6` | ✘ | Optimizes IPv6 priority and prefer-IPv6 configurations. | none |
 | `python` | ✘ | Adds a lightweight Python 3 runtime (`python3-light`). | none |
+| `root-password` | ✔ | Sets the root login password, with support for random generation. | `BW_ROOT_PASSWORD` (empty by default; values with `$` are best put in the module .env) |
 | `ssh-permission` | ✘ | Fixes/converges the SSH `authorized_keys` file permissions (600). | none |
 | `statistics` | ✘ | Enables collectd system performance/temperature monitoring and LuCI statistics graphing. | none |
-| `bypass-router` | ✘ | Configures the device as a bypass router: points the LAN gateway/DNS to the main router, optional LAN DHCP disable. | `BW_BYPASS_LAN_IP`, `BW_BYPASS_GATEWAY`, `BW_BYPASS_DNS`, `BW_BYPASS_DISABLE_DHCP` |
-| `ap` | ✘ | Configures a wireless access point (AP): points the LAN gateway/DNS to the main router, optional DHCP disable. | `BW_AP_LAN_IP`, `BW_AP_GATEWAY`, `BW_AP_DNS`, `BW_AP_DISABLE_DHCP` |
+| `system` | ✔ | Configures basic system settings: timezone (`Asia/Shanghai` / `CST-8`) and log levels. | none |
 
-Default enabled modules: `base system root-password pppoe main-router disable-ipv6 extras`
+Default enabled modules: `base disable-ipv6 extras main-router pppoe root-password system`
 
 - Add or remove modules on top of the default set with `-a | --adjust-modules` (e.g. `statistics -extras`).
 - Specify an entirely custom module list (ignoring the default set) with `-O | --override-modules` (e.g. `base main-router pppoe extras`).
-- Modules marked ✘ above (`prefer-ipv6`, `python`, `ssh-permission`, `statistics`, `bypass-router`, `ap`) can be enabled through either of these two options.
+- Modules marked ✘ above (`ap`, `bypass-router`, `prefer-ipv6`, `python`, `ssh-permission`, `statistics`) can be enabled through either of these two options.
 
 > For how to supply these variables and their precedence, see [Environment Variable Configuration](#environment-variable-configuration) above.
 
@@ -233,23 +245,25 @@ custom_modules/my-module/
 
 ### Variable substitution in `files/` (`$VARNAME`)
 
-- Text files under `files/` support `$VARNAME` placeholders that are replaced with actual values during the build.
-- **Only variable names declared in the module's `.env` or `.env.example` are substituted**; an undeclared `$FOO` stays untouched. Therefore:
+`$VARNAME` placeholders inside **text files** under `files/` are replaced with actual values during the build:
+
+- **Variable discovery**: only variable names declared in the module's `.env` or `.env.example` are substituted; an undeclared `$FOO` stays untouched. Therefore:
   - To use a variable in your scripts you MUST list its name in `.env.example` (otherwise the name is never discovered);
   - keep placeholders you do NOT want replaced out of `.env.example`.
-- **Empty values (important)**: if a variable has no value anywhere (command line, module `.env`, global `.env`), it is replaced by an **empty string** — the `$VARNAME` placeholder is NOT preserved:
+- **Empty values**: if a variable has no value anywhere (command line, module `.env`, global `.env`), it is replaced by an **empty string** — the `$VARNAME` placeholder is NOT preserved:
   ```sh
-  # Recommended: safely skip when empty
+  # ✅ Recommended: safely skip when empty
   if [ -n "$MY_VALUE" ]; then
       # only run when a value was provided
       ...
   fi
-  # Not recommended: writes an empty config line when empty
+  # ❌ Not recommended: writes an empty config line when empty
   uci set network.lan.ipaddr='$MY_VALUE'
   ```
-- For **shell scripts** (first line `#!/bin/sh` or `#!/bin/bash`): `\`, `$`, backticks and double quotes inside values are auto-escaped so the firmware runtime sees the literal value (e.g. a password `pa$$w@rd` is not wrongly expanded to `pa`).
-- For **plain-text files**: only sed special characters (`\`, `&`, `|`) are escaped; no shell escaping is applied.
-- Only files detected as text (`is_text_file`) are substituted; binary files are skipped.
+- **Escaping rules**:
+  - **Shell scripts** (ending in `.sh` or located under `etc/uci-defaults/`): `\`, `$`, backticks and double quotes inside values are auto-escaped so the firmware runtime sees the literal value (e.g. a password `pa$$w@rd` is not wrongly expanded to `pa`).
+  - **Plain-text files**: no escaping is applied; values are used directly in awk string concatenation, guaranteeing literal transmission.
+- **File type detection**: only files detected as text (`is_text_file`) are processed (e.g. `.conf`, `.json`, scripts, etc.); binary files are skipped outright.
 
 ### `post-script.sh`
 
