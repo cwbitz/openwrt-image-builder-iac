@@ -81,7 +81,7 @@
 
 ```bash
 # ✅ 正确：单引号原样传递
-BW_ROOT_PASSWORD='pa$$w@rd' BW_BYPASS_LAN_IP='10.0.10.3/24' ./run.sh ...
+BW_ROOT_PASSWORD='pa$$w@rd' BW_BYPASS_LAN_IP='192.168.2.3/24' ./run.sh ...
 
 # ❌ 错误：双引号会让 shell 展开 $、命令替换与反斜杠
 BW_ROOT_PASSWORD="pa$$w@rd" ./run.sh ...
@@ -129,9 +129,9 @@ BW_ROOTFS_PARTSIZE="256"
 
 | 模块 | 默认启用 | 模块说明 | 支持的环境变量（默认值） |
 |------|:---:|----------|--------------------------|
-| `ap` | ✘ | 配置无线接入点（AP）：LAN 网关/DNS 指向主路由，可选关闭 DHCP | `BW_AP_LAN_IP`（CIDR 格式，如 `192.168.1.2/24`）、`BW_AP_GATEWAY`、`BW_AP_DNS`、`BW_AP_DISABLE_DHCP` |
+| `ap` | ✘ | 配置无线接入点（AP）：LAN 网关/DNS 指向主路由，可选关闭 DHCP | `BW_AP_LAN_IP`（CIDR 格式，如 `192.168.2.3/24`）、`BW_AP_GATEWAY`、`BW_AP_DNS`、`BW_AP_DISABLE_DHCP` |
 | `base` | ✔ | 提供 OpenWrt 系统基础软件包（LuCI Web 界面、`-dnsmasq`/`dnsmasq-full`、`-wpad-basic-mbedtls`/`wpad-mbedtls`、中文语言包等），并根据 OpenWrt 版本自动适配包列表 | 无 |
-| `bypass-router` | ✘ | 将设备配置为旁路由：LAN 网关/DNS 指向主路由，可选关闭 LAN DHCP | `BW_BYPASS_LAN_IP`（CIDR 格式，如 `10.0.10.3/24`）、`BW_BYPASS_GATEWAY`、`BW_BYPASS_DNS`、`BW_BYPASS_DISABLE_DHCP` |
+| `bypass-router` | ✘ | 将设备配置为旁路由：LAN 网关/DNS 指向主路由，可选关闭 LAN DHCP | `BW_BYPASS_LAN_IP`（CIDR 格式，如 `192.168.2.2/24`）、`BW_BYPASS_GATEWAY`、`BW_BYPASS_DNS`、`BW_BYPASS_DISABLE_DHCP` |
 | `disable-ipv6` | ✔ | 禁用 LAN/WAN 接口的 IPv6、RA（Router Advertisement）与 DHCPv6 | 无 |
 | `extras` | ✔ | 安装常用网络诊断与系统管理工具（tcpdump、curl、vim-full、conntrack 等） | 无 |
 | `main-router` | ✔ | 配置主路由 LAN 网络接口的 IP 地址 | `BW_MAIN_LAN_IP`（CIDR 格式，如 `192.168.2.1/24`） |

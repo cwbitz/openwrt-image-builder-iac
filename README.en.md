@@ -81,7 +81,7 @@ Module environment variables (such as `BW_MAIN_LAN_IP`, `BW_ROOT_PASSWORD`, `BW_
 
 ```bash
 # ✅ Correct: single quotes pass the value through verbatim
-BW_ROOT_PASSWORD='pa$$w@rd' BW_BYPASS_LAN_IP='10.0.10.3/24' ./run.sh ...
+BW_ROOT_PASSWORD='pa$$w@rd' BW_BYPASS_LAN_IP='192.168.2.3/24' ./run.sh ...
 
 # ❌ Wrong: double quotes let the shell expand $, command substitutions and backslashes
 BW_ROOT_PASSWORD="pa$$w@rd" ./run.sh ...
@@ -129,9 +129,9 @@ A reference table of all modules and the environment variables they support (for
 
 | Module | Enabled by default | Description | Supported environment variables (default) |
 |--------|:---:|-------------|-------------------------------------------|
-| `ap` | ✘ | Configures a wireless access point (AP): points the LAN gateway/DNS to the main router, optional DHCP disable. | `BW_AP_LAN_IP` (CIDR notation, e.g. `192.168.1.2/24`), `BW_AP_GATEWAY`, `BW_AP_DNS`, `BW_AP_DISABLE_DHCP` |
+| `ap` | ✘ | Configures a wireless access point (AP): points the LAN gateway/DNS to the main router, optional DHCP disable. | `BW_AP_LAN_IP` (CIDR notation, e.g. `192.168.2.3/24`), `BW_AP_GATEWAY`, `BW_AP_DNS`, `BW_AP_DISABLE_DHCP` |
 | `base` | ✔ | Provides the essential OpenWrt packages (LuCI Web UI, `-dnsmasq`/`dnsmasq-full`, `-wpad-basic-mbedtls`/`wpad-mbedtls`, Chinese language packs, etc.) and adapts the package list to the OpenWrt version. | none |
-| `bypass-router` | ✘ | Configures the device as a bypass router: points the LAN gateway/DNS to the main router, optional LAN DHCP disable. | `BW_BYPASS_LAN_IP` (CIDR notation, e.g. `10.0.10.3/24`), `BW_BYPASS_GATEWAY`, `BW_BYPASS_DNS`, `BW_BYPASS_DISABLE_DHCP` |
+| `bypass-router` | ✘ | Configures the device as a bypass router: points the LAN gateway/DNS to the main router, optional LAN DHCP disable. | `BW_BYPASS_LAN_IP` (CIDR notation, e.g. `192.168.2.2/24`), `BW_BYPASS_GATEWAY`, `BW_BYPASS_DNS`, `BW_BYPASS_DISABLE_DHCP` |
 | `disable-ipv6` | ✔ | Disables IPv6, RA (Router Advertisement), and DHCPv6 on LAN/WAN interfaces. | none |
 | `extras` | ✔ | Installs common network diagnostics and system management tools (tcpdump, curl, vim-full, conntrack, etc.). | none |
 | `main-router` | ✔ | Sets the LAN interface IP address for the main router. | `BW_MAIN_LAN_IP` (CIDR notation, e.g. `192.168.2.1/24`) |
