@@ -19,7 +19,7 @@ if [ -n "$BW_BYPASS_DNS" ]; then
 fi
 
 if [ "$BW_BYPASS_DISABLE_DHCP" = "1" ]; then
-    uci set network.lan.ignore='1'
+    uci set dhcp.lan.dhcpv4='disabled'
 fi
 
-uci commit network
+uci commit network dhcp
