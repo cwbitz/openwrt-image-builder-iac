@@ -20,7 +20,12 @@ version_ge() {
 
 target_ver="${VERSION_PATH##*/}"
 
-if version_ge "$target_ver" "24.10"; then
+is_numeric=1
+case "$target_ver" in
+    ''|*[!0-9.]*) is_numeric=0 ;;
+esac
+
+if [ "$is_numeric" -eq 0 ] || version_ge "$target_ver" "24.10"; then
     base="$base luci-i18n-package-manager-zh-cn"
 else
     base="$base luci-i18n-opkg-zh-cn"

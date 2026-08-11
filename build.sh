@@ -50,7 +50,8 @@ EXTRA_IMAGE_NAME="${BW_EXTRA_IMAGE_NAME:-}"
 ROOTFS_PARTSIZE="${BW_ROOTFS_PARTSIZE:-}"
 
 # Network mirror and package download acceleration configurations
-USE_MIRROR="${BW_USE_MIRROR:-0}"
+SETUP_USE_MIRROR="${BW_SETUP_USE_MIRROR:-0}"
+BUILD_USE_MIRROR="${BW_USE_MIRROR:-0}"
 MIRROR="${BW_MIRROR:-}"
 
 # Initialize and setup the ImageBuilder environment if core directories or Makefile are missing.
@@ -85,8 +86,10 @@ if [ ! -f ./Makefile ] || \
 
     setup_success=0
 
-    # 1. First Attempt: USTC Mirror (if USE_MIRROR is enabled)
-    if [ "$USE_MIRROR" == "1" ]; then
+    # Decide whether setup.sh's lazy tool-package download should use a mirror.
+    # Only when VERSION_PATH is "snapshots" and SETUP_USE_MIRROR is enabled do we
+    # fetch tool-packages from the USTC mirror; otherwise skip the mirror attempt.
+    if [[ "$VERSION_PATH" == "snapshots" && "$SETUP_USE_MIRROR" == "1" ]]; then
         export UPSTREAM_URL="https://mirrors.ustc.edu.cn/openwrt"
         log_info "Attempting to setup ImageBuilder using USTC mirror: $UPSTREAM_URL"
         
@@ -119,8 +122,8 @@ if [ ! -f ./Makefile ] || \
     fi
 fi
 
-# Apply mirror replacement to repositories/repositories.conf if USE_MIRROR is enabled
-if [ "$USE_MIRROR" == "1" ] && [ -n "${MIRROR:-}" ]; then
+# Apply mirror replacement to repositories/repositories.conf if BUILD_USE_MIRROR is enabled
+if [ "$BUILD_USE_MIRROR" == "1" ] && [ -n "${MIRROR:-}" ]; then
     repo_file=""
     if [ -f ./repositories.conf ]; then
         repo_file="./repositories.conf"

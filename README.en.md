@@ -63,8 +63,9 @@ CLI driven, Docker powered, and easy to extend with modules
 # Output, local custom modules, and mirror network configurations
 -o | --output-dir=...             Specify the output directory for build artifacts (default: ./artifacts)
 -c | --custom-modules-path=...    Specify the path to custom modules directory (default: ./custom_modules)
--u | --use-mirror                 Enable mirror usage (defaults to mirrors.tuna.tsinghua.edu.cn if -m / --mirror is not specified)
--m | --mirror=...                 Specify a custom mirror host, e.g. mirrors.ustc.edu.cn (do not include http:// or https://)
+-s | --setup-use-mirror           Enable mirror-accelerated downloads during the setup phase (used to fetch ImageBuilder tool-packages; defaults to mirrors.ustc.edu.cn)
+-b | --build-use-mirror           Enable mirror-accelerated downloads during the build phase (defaults to mirrors.ustc.edu.cn if -m / --mirror is not specified)
+-m | --mirror=...                 Specify a custom mirror host, e.g. mirrors.tuna.tsinghua.edu.cn (do not include http:// or https://)
 ```
 
 ### Environment Variable Configuration
@@ -178,6 +179,7 @@ Advanced features:
 **General:**
 - Slow build or limited bandwidth? Enable `--use-mirror` or set `--mirror=mirrors.ustc.edu.cn`
 - Build failed after enabling mirror sources? If the designated local mirror source (e.g. Tsinghua or USTC) is out of sync with official packages for a newly released version, package manager errors or build failures might occur. In such cases, it is recommended to **disable the mirror option** (omit the `-u | --use-mirror` flag) to fetch from official repositories directly, or wait until the local mirrors complete synchronization.
+- Building a **SNAPSHOT** firmware? Snapshot ImageBuilder tool-packages are only mirrored by a few mirrors (USTC being reliable). To force the USTC mirror for the `setup.sh` tool-package download only — without touching the runtime package repositories — pass `-U | --use-mirror-snapshot` (or set `BW_USE_MIRROR_SNAPSHOT=1`). Example: `BW_USE_MIRROR_SNAPSHOT=1 ./run.sh -i openwrt/imagebuilder:x86-64-SNAPSHOT -p generic`
 - Docker not installed? Install Docker Desktop (macOS) or Docker Engine (Linux)
 - Where are outputs? Default is `./artifacts`, firmware under `artifacts/targets/<target>/<subtarget>/` (change with `--output-dir`)
 - Docker not found? Ensure Docker Desktop is installed and running; try restarting the terminal

@@ -63,8 +63,9 @@
 # 输出目录、自定义模块路径与镜像加速配置
 -o | --output-dir=...             指定构建产物的输出目录（默认：./artifacts）
 -c | --custom-modules-path=...    指定自定义模块的物理路径（默认：./custom_modules）
--u | --use-mirror                 启用镜像加速下载（若未指定 -m / --mirror，默认使用 mirrors.tuna.tsinghua.edu.cn）
--m | --mirror=...                 指定自定义镜像加速域名，例如 mirrors.ustc.edu.cn（不要包含 http:// 或 https://）
+-s | --setup-use-mirror           在 setup 阶段启用镜像加速下载（用于下载 ImageBuilder 工具包，默认使用 mirrors.ustc.edu.cn）
+-b | --build-use-mirror           在 build 阶段启用镜像加速下载（若未指定 -m / --mirror，默认使用 mirrors.ustc.edu.cn）
+-m | --mirror=...                 指定自定义镜像加速域名，例如 mirrors.tuna.tsinghua.edu.cn（不要包含 http:// 或 https://）
 ```
 
 ### 环境变量配置说明
@@ -177,6 +178,7 @@ BW_ROOTFS_PARTSIZE="256"
 
 - 构建速度慢/网速受限？建议启用 `--use-mirror` 或指定 `--mirror=mirrors.ustc.edu.cn`
 - 启用镜像源后构建失败？若指定的国内镜像源（如清华源/中科大源）尚未完全同步官方发布的新版本仓库，会导致包管理器报错或构建失败。此时建议**不要启用镜像源**（去掉 `-u | --use-mirror` 参数）直接使用官方源，或等国内镜像源同步完毕后再试。
+- 构建**SNAPSHOT**固件？快照版 ImageBuilder 工具包仅少数镜像源（如中科大）同步。如需仅令 `setup.sh` 工具包下载走中科大镜像（不影响运行阶段的包仓库），请传入 `-U | --use-mirror-snapshot` 参数，或设置 `BW_SETUP_USE_MIRROR=1`。示例：`BW_SETUP_USE_MIRROR=1 ./run.sh -i openwrt/imagebuilder:x86-64-SNAPSHOT -p generic`
 - 没有安装 Docker？请先安装 Docker Desktop（macOS）或 Docker Engine（Linux）
 - 构建结果在哪？默认在 `./artifacts`，固件位于 `artifacts/targets/<target>/<subtarget>/`（可用 `--output-dir` 修改）
 - 找不到 Docker？请确认 Docker 已安装并启动，并重启终端

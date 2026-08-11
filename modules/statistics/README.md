@@ -15,7 +15,7 @@
 ## 包含的软件包
 
 ### 界面组件
-- `luci-app-temp-status` - 温度状态显示应用，在 LuCI 首页或状态页直观呈现系统温度
+- 系统温度显示通过 LuCI「状态 → 温度状态」页面呈现（由内置 `luci-mod-status` 提供，随基础 `luci` 包安装，无需额外包名）；传感器数据由 `collectd-mod-sensors` 采集
 - `luci-app-statistics` - 统计数据 Web 界面配置程序，用于在 LuCI 中管理 collectd
 
 ### 数据采集

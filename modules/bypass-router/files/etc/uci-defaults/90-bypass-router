@@ -19,6 +19,9 @@ if [ -n "$BW_BYPASS_DNS" ]; then
 fi
 
 if [ "$BW_BYPASS_DISABLE_DHCP" = "1" ]; then
+    # Ignore the whole interface (disables DHCPv4, DHCPv6 and RA), plus
+    # explicitly disable the DHCPv4 server on the LAN interface.
+    uci set dhcp.lan.ignore='1'
     uci set dhcp.lan.dhcpv4='disabled'
 fi
 

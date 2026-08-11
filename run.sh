@@ -60,7 +60,8 @@ usage()
     echo "  -c | --custom-modules-path  specify the path to custom modules directory (default: ./custom_modules)"
     echo "  -u | --use-mirror           enable mirror usage (defaults to mirrors.tuna.tsinghua.edu.cn if --mirror is not specified)"
     echo "  -m | --mirror               specify a custom mirror host, e.g. mirrors.ustc.edu.cn (do not include http:// or https://)"
-    echo ""
+        echo ""
+    echo "  -U | --use-mirror-snapshot  use USTC mirror for setup.sh tool-package download on SNAPSHOT images only"
     echo "Help:"
     echo "  -h | --help                 print this help message"
     exit 1
@@ -90,6 +91,7 @@ BW_OUTPUT_DIR="${BW_OUTPUT_DIR:-./artifacts}"
 BW_CUSTOM_MODULES_PATH="${BW_CUSTOM_MODULES_PATH:-./custom_modules}"
 BW_USE_MIRROR="${BW_USE_MIRROR:-0}"
 BW_MIRROR="${BW_MIRROR:-mirrors.tuna.tsinghua.edu.cn}"
+BW_USE_MIRROR_SNAPSHOT="${BW_USE_MIRROR_SNAPSHOT:-0}"
 
 # Check for help flags first
 HAS_HELP=0
@@ -327,8 +329,13 @@ while [ $# -gt 0 ]; do
             HAS_CONFLICTING_PARAM=1
             shift 1
             ;;
-        -m*)
+                -m*)
             BW_MIRROR="${1#-m}"
+            HAS_CONFLICTING_PARAM=1
+            shift 1
+            ;;
+        -U|--use-mirror-snapshot)
+            BW_USE_MIRROR_SNAPSHOT=1
             HAS_CONFLICTING_PARAM=1
             shift 1
             ;;
@@ -561,7 +568,7 @@ END
 
 for var in BW_ADJUST_MODULES BW_DEBUG BW_DISABLED_SERVICES BW_EXTRA_IMAGE_NAME BW_EXTRA_PACKAGES \
            BW_FORCE_PULL BW_FORCE_RECREATE BW_IMAGE BW_LOG_ENABLE BW_MIRROR BW_OVERRIDE_MODULES \
-           BW_PROFILE BW_ROOTFS_PARTSIZE BW_SHOW_INFO BW_USE_MIRROR HOST_GID HOST_UID; do
+                      BW_PROFILE BW_ROOTFS_PARTSIZE BW_SHOW_INFO BW_USE_MIRROR BW_USE_MIRROR_SNAPSHOT HOST_GID HOST_UID; do
     append_env_var "$var" "${!var:-}"
 done
 

@@ -15,7 +15,7 @@ This module adds system monitoring to OpenWrt, providing performance data collec
 ## Packages
 
 ### UI Components
-- `luci-app-temp-status` — temperature status display for the LuCI interface
+- Temperature status shown on the LuCI "Status → Temperature" page (provided by the built-in `luci-mod-status`, shipped with the base `luci` package — no extra package required); sensor metrics are collected by `collectd-mod-sensors`
 - `luci-app-statistics` — Web interface for configuring and viewing collectd graphs
 
 ### Data Collectors
