@@ -39,11 +39,11 @@
           fi
           return 1
         }
-        try_user "{{ ANS_USER }}" "{{ ANS_KEY }}" "{{ ANS_PW }}" && exit 0
-        if [ -n "{{ ADMIN_USER }}" ]; then
-          try_user "{{ ADMIN_USER }}" "{{ ADMIN_KEY }}" "{{ ADMIN_PW }}" && exit 0
+        try_user "${ANS_USER}" "${ANS_KEY}" "${ANS_PW}" && exit 0
+        if [ -n "${ADMIN_USER}" ]; then
+          try_user "${ADMIN_USER}" "${ADMIN_KEY}" "${ADMIN_PW}" && exit 0
         fi
-        try_user "root" "{{ ROOT_KEY }}" "{{ ROOT_PW }}" && exit 0
+        try_user "root" "${ROOT_KEY}" "${ROOT_PW}" && exit 0
         printf 'none\n'
       loop: "{{ groups['builder'] | default([]) }}"
       loop_control:
