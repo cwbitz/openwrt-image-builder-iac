@@ -125,6 +125,14 @@ openwrt_module_packages:
     - collectd-mod-irq
     - collectd-mod-sensors
 
+# --- Container limits --------------------------------------------------------
+# The ImageBuilder host tools use fakeroot, whose `faked` daemon closes every
+# file descriptor from 0 up to RLIMIT_NOFILE on startup. Docker inherits the
+# daemon's (often near-infinite) nofile limit, which turns that loop into a
+# billion-iteration spin that hangs the build. Pin a bounded limit.
+openwrt_container_ulimits:
+  - "nofile:65536:65536"
+
 # --- Image customisation -----------------------------------------------------
 openwrt_extra_image_name: ""
 openwrt_disabled_services: ""

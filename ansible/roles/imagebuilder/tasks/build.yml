@@ -21,6 +21,7 @@
     detach: false
     cleanup: true
     output_logs: true
+    ulimits: "{{ openwrt_container_ulimits }}"
     volumes:
       - "{{ openwrt_output_dir }}:/builder/bin"
       - "{{ openwrt_workdir }}/build.sh:/builder/build.sh"

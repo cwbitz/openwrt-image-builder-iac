@@ -17,6 +17,7 @@
     detach: false
     cleanup: true
     output_logs: true
+    ulimits: "{{ openwrt_container_ulimits }}"
   register: openwrt_info
 
 - name: Show the ImageBuilder information
