@@ -73,10 +73,11 @@ openwrt_fetch_artifacts: true
 
 # --- Mirrors -----------------------------------------------------------------
 # [OPTIONAL] rewrite package repositories to a mirror during the build phase.
+# Include the mirror's OpenWrt prefix (the repository path is appended as-is).
 openwrt_use_mirror: false
-openwrt_mirror: mirrors.tuna.tsinghua.edu.cn
-# [OPTIONAL] use the USTC mirror for setup.sh's tool-package download
-# (SNAPSHOT images only).
+openwrt_mirror: mirrors.tuna.tsinghua.edu.cn/openwrt
+# [OPTIONAL] use the USTC mirror for setup.sh's ImageBuilder tarball download
+# (works for both release and SNAPSHOT images).
 openwrt_setup_use_mirror: false
 
 # --- Module: main-router -----------------------------------------------------

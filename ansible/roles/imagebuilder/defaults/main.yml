@@ -139,11 +139,16 @@ openwrt_disabled_services: ""
 openwrt_rootfs_partsize: ""
 
 # --- Mirrors -----------------------------------------------------------------
-# Internal: USTC mirror used by setup.sh for SNAPSHOT tool-packages.
+# Internal: USTC mirror used by setup.sh to fetch the ImageBuilder tarball.
+# setup.sh builds "$UPSTREAM_URL/$VERSION_PATH/targets/...", and VERSION_PATH
+# already contains 'releases/<ver>' or 'snapshots', so this root works for both
+# release and SNAPSHOT images.
 openwrt_setup_mirror_url: "https://mirrors.ustc.edu.cn/openwrt"
 openwrt_setup_use_mirror: false
 openwrt_use_mirror: false
-openwrt_mirror: mirrors.tuna.tsinghua.edu.cn
+# Rewrites only the host of the repository URLs, which already carry the
+# 'releases/...' or 'snapshots/...' path; include the mirror's OpenWrt prefix.
+openwrt_mirror: mirrors.tuna.tsinghua.edu.cn/openwrt
 
 # --- Module variables (empty fallbacks; operator knobs per vars.yml.example) --
 openwrt_main_lan_ip: ""

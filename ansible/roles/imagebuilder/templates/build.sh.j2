@@ -32,8 +32,8 @@ if [ ! -f ./Makefile ] || \
 
     setup_success=0
 {% if openwrt_setup_use_mirror | bool %}
-    # SNAPSHOT tool-packages are fetched from the USTC mirror first, with a
-    # fallback to the official source.
+    # The ImageBuilder tarball is fetched from the mirror first, with a
+    # fallback to the official source. Works for release and SNAPSHOT images.
     export UPSTREAM_URL="{{ openwrt_setup_mirror_url }}"
     set +e
     ( . ./setup.sh )
