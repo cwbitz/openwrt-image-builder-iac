@@ -1,0 +1,59 @@
+---
+- name: Initialize the package accumulator
+  ansible.builtin.set_fact:
+    openwrt_packages: []
+
+- name: Add the base module packages
+  ansible.builtin.set_fact:
+    openwrt_packages: "{{ openwrt_packages + openwrt_base_packages }}"
+  when: "'base' in openwrt_modules_active"
+
+- name: Add the version-appropriate LuCI package-manager translation
+  ansible.builtin.set_fact:
+    openwrt_packages: >-
+      {{ openwrt_packages
+         + [ openwrt_base_package_manager_pkg if (openwrt_use_package_manager | bool)
+             else openwrt_base_opkg_pkg ] }}
+  when: "'base' in openwrt_modules_active"
+
+- name: Add each active module's package list
+  ansible.builtin.set_fact:
+    openwrt_packages: "{{ openwrt_packages + openwrt_module_packages[item] }}"
+  loop: "{{ openwrt_modules_active }}"
+  loop_control:
+    label: "{{ item }}"
+  when: item in openwrt_module_packages
+
+- name: Append the operator extra packages
+  ansible.builtin.set_fact:
+    openwrt_packages: "{{ openwrt_packages + openwrt_extra_packages }}"
+  when: openwrt_extra_packages | length > 0
+
+- name: Deduplicate the package list (order preserving)
+  ansible.builtin.set_fact:
+    openwrt_packages_final_list: "{{ openwrt_packages | unique }}"
+
+- name: Detect packages that are both added and removed
+  ansible.builtin.set_fact:
+    openwrt_package_conflicts: >-
+      {{ openwrt_packages_final_list
+         | select('match', '^-')
+         | map('regex_replace', '^-', '')
+         | select('in', openwrt_packages_final_list)
+         | list }}
+
+- name: Assert there are no package conflicts
+  ansible.builtin.assert:
+    that:
+      - openwrt_package_conflicts | length == 0
+    fail_msg: >-
+      Packages are both added and removed:
+      {{ openwrt_package_conflicts | join(', ') }}.
+
+- name: Render the final PACKAGES string
+  ansible.builtin.set_fact:
+    openwrt_packages_final: "{{ openwrt_packages_final_list | join(' ') }}"
+
+- name: Show the resolved package list
+  ansible.builtin.debug:
+    msg: "PACKAGES={{ openwrt_packages_final }}"

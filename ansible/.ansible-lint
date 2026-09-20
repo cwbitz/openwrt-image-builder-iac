@@ -1,0 +1,21 @@
+---
+exclude_paths:
+  - collections/
+  - inventory/
+  - .cache/
+  - .build/
+
+# Layout/style rules that false-positive on the Jinja/embedded shell here.
+skip_list:
+  - yaml[comments]
+  - yaml[braces]
+  # Operator-facing knobs live unprefixed in group_vars/builder/vars.yml; the
+  # role defaults mirror them as fallbacks, so the role-prefix rule is a false
+  # positive for this single-role project.
+  - var-naming[no-role-prefix]
+
+# Not a false-positive, but must stay non-fatal: encrypted vault files cannot
+# have a YAML `---` document start (their first line is the $ANSIBLE_VAULT
+# header). Downgrade to warning, matching .yamllint's document-start=warning.
+warn_list:
+  - yaml[document-start]

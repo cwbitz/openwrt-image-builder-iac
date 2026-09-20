@@ -1,0 +1,42 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["ansible", "github-actions", "asdf", "regex"],
+  "labels": ["dependencies"],
+  "rangeStrategy": "auto",
+  "minimumReleaseAge": "3 days",
+  "prConcurrentLimit": 1,
+  "prHourlyLimit": 2,
+  "schedule": ["before 7am on monday"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": ".tool-versions: ansible-core has no asdf plugin (mise pypi backend), so track it via PyPI",
+      "managerFilePatterns": ["/^\\.tool-versions$/"],
+      "matchStrings": ["^ansible-core (?<currentValue>\\S+)$"],
+      "datasourceTemplate": "pypi",
+      "packageNameTemplate": "ansible-core",
+      "versioningTemplate": "semver"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Pin GitHub Actions to immutable commit SHAs",
+      "matchManagers": ["github-actions"],
+      "pinDigests": true,
+      "groupName": "github actions"
+    },
+    {
+      "description": "Auto-merge low-risk updates after CI: minor/patch bumps and action SHA digest updates",
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "Never auto-merge major updates",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ]
+}

@@ -1,0 +1,113 @@
+---
+# Example per-host build configuration (operator entry point). This project's
+# build host is normally a SINGLE machine, so configuration is host-scoped:
+# copy this directory to host_vars/<your-host>/ (the name must match the
+# inventory host) and fill in real values. host_vars/<host>/ is gitignored;
+# only the example/ folder is committed.
+#
+# Secrets do NOT belong here: they live in the vault.yml next to this file
+# (copy vault.yml.example), referenced as {{ vault_* }}.
+
+# --- Build target (required) -------------------------------------------------
+# The official OpenWrt ImageBuilder Docker image. Find tags at
+# https://hub.docker.com/r/openwrt/imagebuilder/tags
+# [REQUIRED] the run fails when empty.
+openwrt_image: openwrt/imagebuilder:generic-arm64
+# [OPTIONAL] build profile; empty => the target's first profile.
+openwrt_profile: ""
+# [OPTIONAL] force a fresh pull of the ImageBuilder image before building.
+openwrt_force_pull: false
+
+# --- ansible automation user (preflight) -------------------------------------
+# [OPTIONAL] Provision an 'ansible' user on the build host during preflight, so
+# the control node can connect with a dedicated automation account. A password
+# is ALWAYS generated into vault.yml; when vault_host_ansible_ssh_pubkey_file is
+# set, its key is installed and key login is preferred (password stays as a
+# fallback). Passwordless sudo is granted. Privileged change: the first run must
+# connect as root or a sudo-capable user. Set false to skip.
+provision_ansible_user: true
+# [OPTIONAL] fixed UID for the automation user (kept stable across rebuilds).
+host_ansible_uid: 1001
+# [OPTIONAL] docker group to add the automation user to when it exists, so the
+# build host's Docker daemon is reachable without sudo.
+host_ansible_docker_group: docker
+
+# The connection probe (playbooks/connect.yml) tries 'ansible' first, then an
+# optional admin user, then 'root' (key then password). Configure those
+# credentials in vault.yml (vault_host_admin_*, vault_host_root_*).
+
+# --- Module selection --------------------------------------------------------
+# Default module set: base system root-password pppoe main-router disable-ipv6
+# extras. Adjust it (add/remove) here, or replace it entirely.
+# [OPTIONAL] adjustments to the default set; prefix with '-' to remove:
+#   openwrt_modules_adjust: [statistics, "-extras"]
+openwrt_modules_adjust: []
+# [OPTIONAL] complete module list, bypassing the default set and adjustments:
+#   openwrt_modules_override: [base, main-router, pppoe, extras]
+openwrt_modules_override: []
+
+# --- Packages / image customisation ------------------------------------------
+# [OPTIONAL] extra packages appended to the resolved module package list.
+# Prefix with '-' to remove a package (e.g. "-dnsmasq").
+openwrt_extra_packages: []
+# [OPTIONAL] string appended to the output image filename.
+openwrt_extra_image_name: ""
+# [OPTIONAL] DISABLED_SERVICES passed to ImageBuilder.
+openwrt_disabled_services: ""
+# [OPTIONAL] root partition size in MB (empty => target default).
+openwrt_rootfs_partsize: ""
+
+# --- Output ------------------------------------------------------------------
+# [OPTIONAL] where the builder writes the firmware (firmware lands under
+# targets/<target>/<subtarget>/). This is a path ON THE BUILD HOST; the default
+# is ~/.cache/openwrt-builder/artifacts.
+# openwrt_output_dir: "{{ openwrt_build_dir }}/artifacts"
+
+# [OPTIONAL] pull the built artifacts from the builder back to the control node
+# (default true). Disable to keep them only on the builder, e.g. for large
+# builds.
+openwrt_fetch_artifacts: true
+# [OPTIONAL] control-node destination for the fetched artifacts (a path on the
+# machine running make). Its contents are gitignored; the directory is tracked.
+# openwrt_artifacts_dir: "{{ project_root }}/artifacts"
+
+# --- Mirrors -----------------------------------------------------------------
+# [OPTIONAL] rewrite package repositories to a mirror during the build phase.
+openwrt_use_mirror: false
+openwrt_mirror: mirrors.tuna.tsinghua.edu.cn
+# [OPTIONAL] use the USTC mirror for setup.sh's tool-package download
+# (SNAPSHOT images only).
+openwrt_setup_use_mirror: false
+
+# --- Module: main-router -----------------------------------------------------
+# Static LAN IP of the main router, CIDR notation (e.g. 192.168.2.1/24).
+openwrt_main_lan_ip: ""
+
+# --- Module: pppoe -----------------------------------------------------------
+# WAN PPPoE credentials. Both must be set for the module to apply; the password
+# is a secret and lives in vault.yml.
+openwrt_pppoe_username: ""
+openwrt_pppoe_password: "{{ vault_openwrt_pppoe_password | default('') }}"
+
+# --- Module: root-password ---------------------------------------------------
+# Root login password baked into the image; a secret held in vault.yml.
+openwrt_root_password: "{{ vault_openwrt_root_password | default('') }}"
+
+# --- Module: ap --------------------------------------------------------------
+# Configure the device as a wireless access point (gateway/DNS point at the
+# main router). LAN IP uses CIDR notation.
+openwrt_ap_lan_ip: ""
+openwrt_ap_gateway: ""
+# [OPTIONAL] DNS servers for the LAN interface (list).
+openwrt_ap_dns: []
+# [OPTIONAL] true => disable the LAN DHCP server.
+openwrt_ap_disable_dhcp: false
+
+# --- Module: bypass-router ---------------------------------------------------
+# Configure the device as a bypass router. LAN IP uses CIDR notation.
+openwrt_bypass_lan_ip: ""
+openwrt_bypass_gateway: ""
+# [OPTIONAL] DNS servers for the LAN interface (list).
+openwrt_bypass_dns: []
+# [OPTIONAL] true => disable the LAN DHCP server.
+openwrt_bypass_disable_dhcp: false

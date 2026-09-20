@@ -1,0 +1,161 @@
+---
+# imagebuilder role internal defaults (fallback values). Operator-facing
+# settings live in ansible/inventory/host_vars/<host>/main.yml. The role
+# resolves the active module set, collects packages, renders the uci-defaults
+# overlay, and drives the openwrt/imagebuilder container.
+
+# --- Internal path bases -----------------------------------------------------
+# Derived from playbook_dir (ansible/playbooks) via `dirname` so no path ever
+# contains '..'.
+project_ansible_dir: "{{ playbook_dir | dirname }}"
+project_root: "{{ playbook_dir | dirname | dirname }}"
+
+# --- Build target ------------------------------------------------------------
+# [REQUIRED] openwrt_image (e.g. openwrt/imagebuilder:x86-64-v23.05.5) is set
+# in host_vars/<host>/main.yml; the empty fallback fails the preflight.
+openwrt_image: ""
+openwrt_profile: ""
+openwrt_force_pull: false
+
+# --- ansible automation user (preflight) -------------------------------------
+# The preflight provisions an 'ansible' account on the build host: a generated
+# password is ALWAYS set, an optional public key is installed (key login is
+# preferred, password stays as a fallback), and passwordless sudo is granted.
+# Mirrors the proxmox-iac users slice. This is a PRIVILEGED change and requires
+# the connection user to have sudo (or be root) on a fresh host; disable to skip.
+provision_ansible_user: true
+host_ansible_user: ansible
+host_ansible_uid: 1001
+# Path (on the CONTROL node) to the automation user's PUBLIC key. When empty the
+# user logs in with the generated password only. Comes from the vault.
+host_ansible_ssh_pubkey_file: "{{ vault_host_ansible_ssh_pubkey_file | default('') }}"
+# [OPTIONAL] add the automation user to this group when it exists, so the build
+# host's Docker daemon is reachable without an extra sudo.
+host_ansible_docker_group: docker
+
+# --- Fallback connection users (least privilege: ansible -> admin -> root) ----
+# The connection probe (playbooks/connect.yml) tries these users in order, key
+# first then password, and uses only those the operator configured. The admin
+# user is skipped when empty; root is always tried as the last resort.
+host_admin_user: "{{ vault_host_admin_user | default('') }}"
+host_admin_ssh_pubkey_file: "{{ vault_host_admin_ssh_pubkey_file | default('') }}"
+host_admin_password: "{{ vault_host_admin_password | default('') }}"
+host_root_ssh_pubkey_file: "{{ vault_host_root_ssh_pubkey_file | default('') }}"
+host_root_password: "{{ vault_host_root_password | default('') }}"
+
+# --- Per-host vault (secrets) -------------------------------------------------
+# Host-scoped because the build host is a single machine: host_vars/<inventory
+# host name>/vault.yml. Created/updated by the preflight (ensure_secrets).
+host_vault_file: "{{ project_ansible_dir }}/inventory/host_vars/{{ inventory_hostname }}/vault.yml"
+
+# --- Builder-side paths (on the managed build host) --------------------------
+# The build host is normally a SEPARATE LAN machine from the control node, so
+# these paths live on the builder. The overlay/script and the firmware images
+# are produced here; retrieval to the control node is a separate step below.
+openwrt_build_dir: "{{ ansible_facts.user_dir }}/.cache/openwrt-builder"
+# Internal: scratch space for the rendered overlay and the in-container script.
+openwrt_workdir: "{{ openwrt_build_dir }}/work"
+# Firmware output on the builder (mounted as /builder/bin in the container).
+openwrt_output_dir: "{{ openwrt_build_dir }}/artifacts"
+
+# --- Artifact retrieval (to the control node) --------------------------------
+# When enabled, the built artifacts are pulled from the builder into
+# openwrt_artifacts_dir on the CONTROL node (project-root artifacts/ by default).
+openwrt_fetch_artifacts: true
+openwrt_artifacts_dir: "{{ project_root }}/artifacts"
+
+# --- Module selection --------------------------------------------------------
+openwrt_default_modules:
+  - base
+  - system
+  - root-password
+  - pppoe
+  - main-router
+  - disable-ipv6
+  - extras
+openwrt_known_modules:
+  - ap
+  - base
+  - bypass-router
+  - disable-ipv6
+  - extras
+  - main-router
+  - pppoe
+  - prefer-ipv6
+  - python
+  - root-password
+  - ssh-permission
+  - statistics
+  - system
+openwrt_modules_adjust: []
+openwrt_modules_override: []
+
+# --- Packages ----------------------------------------------------------------
+openwrt_extra_packages: []
+openwrt_base_packages:
+  - luci
+  - "-dnsmasq"
+  - dnsmasq-full
+  - "-wpad-basic-mbedtls"
+  - wpad-mbedtls
+  - openssl-util
+  - openssh-sftp-server
+  - rsync
+  - luci-i18n-base-zh-cn
+  - luci-i18n-firewall-zh-cn
+# The LuCI package-manager translation package differs by OpenWrt release.
+openwrt_base_package_manager_pkg: luci-i18n-package-manager-zh-cn
+openwrt_base_opkg_pkg: luci-i18n-opkg-zh-cn
+openwrt_package_manager_min_version: "24.10"
+# Internal: static package lists per module (base is version-aware and handled
+# separately by packages.yml).
+openwrt_module_packages:
+  extras:
+    - curl
+    - vim-full
+    - diffutils
+    - bind-dig
+    - nping
+    - conntrack
+    - tcpdump
+  python:
+    - python3-light
+  statistics:
+    - luci-app-statistics
+    - collectd-mod-irq
+    - collectd-mod-sensors
+
+# --- Image customisation -----------------------------------------------------
+openwrt_extra_image_name: ""
+openwrt_disabled_services: ""
+openwrt_rootfs_partsize: ""
+
+# --- Mirrors -----------------------------------------------------------------
+# Internal: USTC mirror used by setup.sh for SNAPSHOT tool-packages.
+openwrt_setup_mirror_url: "https://mirrors.ustc.edu.cn/openwrt"
+openwrt_setup_use_mirror: false
+openwrt_use_mirror: false
+openwrt_mirror: mirrors.tuna.tsinghua.edu.cn
+
+# --- Module variables (empty fallbacks; operator knobs per vars.yml.example) --
+openwrt_main_lan_ip: ""
+openwrt_pppoe_username: ""
+openwrt_pppoe_password: ""
+openwrt_root_password: ""
+openwrt_ap_lan_ip: ""
+openwrt_ap_gateway: ""
+openwrt_ap_dns: []
+openwrt_ap_disable_dhcp: false
+openwrt_bypass_lan_ip: ""
+openwrt_bypass_gateway: ""
+openwrt_bypass_dns: []
+openwrt_bypass_disable_dhcp: false
+
+# --- Overlay file modes ------------------------------------------------------
+# Relative overlay paths that must be executable on the device (uci-defaults).
+# Every other overlay file is installed mode 0644.
+openwrt_overlay_executable:
+  - etc/uci-defaults/91-system
+  - etc/uci-defaults/92-system
+  - etc/uci-defaults/99-ssh
+  - etc/uci-defaults/99-statistics

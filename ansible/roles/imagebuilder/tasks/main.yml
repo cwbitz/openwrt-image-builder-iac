@@ -1,0 +1,29 @@
+---
+# Dispatcher for the ImageBuilder role. Run subsets with `--tags`:
+#   --tags preflight / modules / setup / packages / overlay / build
+# The role resolves the active module set, collects packages, renders the
+# uci-defaults overlay and drives the openwrt/imagebuilder container.
+
+- name: Check the build host prerequisites and required settings
+  ansible.builtin.import_tasks: preflight.yml
+  tags: [preflight]
+
+- name: Resolve the active module set
+  ansible.builtin.import_tasks: modules.yml
+  tags: [modules]
+
+- name: Ensure the ImageBuilder image and derive its version/target
+  ansible.builtin.import_tasks: setup.yml
+  tags: [setup]
+
+- name: Collect and validate the package list
+  ansible.builtin.import_tasks: packages.yml
+  tags: [packages]
+
+- name: Render the uci-defaults overlay
+  ansible.builtin.import_tasks: overlay.yml
+  tags: [overlay]
+
+- name: Build the firmware image
+  ansible.builtin.import_tasks: build.yml
+  tags: [build]

@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# Access Point (AP) first-boot configuration. Gateway and DNS usually point at
+# the main router's LAN IP address.
+
+{% if openwrt_ap_lan_ip | length > 0 %}
+uci set network.lan.ipaddr={{ openwrt_ap_lan_ip | quote }}
+{% endif %}
+
+{% if openwrt_ap_gateway | length > 0 %}
+uci set network.lan.gateway={{ openwrt_ap_gateway | quote }}
+{% endif %}
+
+{% if openwrt_ap_dns | length > 0 %}
+uci -q delete network.lan.dns
+{% for dns in openwrt_ap_dns %}
+uci -q add_list network.lan.dns={{ dns | quote }}
+{% endfor %}
+{% endif %}
+
+{% if openwrt_ap_disable_dhcp | bool %}
+# Ignore the whole interface (disables DHCPv4, DHCPv6 and RA), plus explicitly
+# disable the DHCPv4 server on the LAN interface.
+uci set dhcp.lan.ignore='1'
+uci set dhcp.lan.dhcpv4='disabled'
+{% endif %}
+
+uci commit network dhcp

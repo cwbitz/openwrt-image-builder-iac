@@ -1,8 +1,58 @@
-# Ignore local module-specific environment configs, but keep their examples
-modules/*/.env
-bin/
-.DS_Store
+# ===== Ansible =====
+# hosts.yml is local-only (contains your real build host); hosts.yml.example is committed.
+ansible/inventory/hosts.yml
+# host_vars/ is host-scoped and local-only; ONLY the example/ folder is
+# committed (its main.yml and vault.yml.example templates).
+ansible/inventory/host_vars/*
+!ansible/inventory/host_vars/example/
+ansible/collections/
+ansible/.cache/
+ansible/.ansible/
+*.retry
+*.log
 
-custom_modules
-docker-compose.yml
-artifacts
+# ===== Build artifacts / scratch =====
+# Keep the artifacts/ directory in the repo (tracked via .gitkeep); ignore the
+# fetched build artifacts inside it. Builder-side scratch lives under ~/.cache.
+artifacts/*
+!artifacts/.gitkeep
+bin/
+
+# ===== Secrets / keys =====
+*.pem
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+*.key
+*.p12
+*.pfx
+.env
+.env.*
+# All vault*.yml stay OUT of the repo (secrets are local-only, not committed).
+# Only *.example templates are committed (re-included below).
+**/*vault*.yml
+!**/*.example
+
+# ===== Python / tooling =====
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ===== tool managers (asdf/mise) =====
+# Per-machine tool overrides; the committed project config is `.tool-versions`.
+.mise.local.toml
+mise.local.toml
+.mise/
+
+# ===== OS / editor =====
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/

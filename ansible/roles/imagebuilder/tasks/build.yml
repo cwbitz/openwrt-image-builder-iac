@@ -1,0 +1,91 @@
+---
+- name: Ensure the artifact output directory exists
+  ansible.builtin.file:
+    path: "{{ openwrt_output_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Render the in-container build script
+  ansible.builtin.template:
+    src: build.sh.j2
+    dest: "{{ openwrt_workdir }}/build.sh"
+    mode: "0755"
+
+- name: Build the firmware image in the ImageBuilder container
+  community.docker.docker_container:
+    name: "{{ openwrt_container_name }}"
+    image: "{{ openwrt_image }}"
+    user: "0:0"
+    working_dir: /builder
+    command: ["/bin/bash", "/builder/build.sh"]
+    detach: false
+    cleanup: true
+    output_logs: true
+    volumes:
+      - "{{ openwrt_output_dir }}:/builder/bin"
+      - "{{ openwrt_workdir }}/build.sh:/builder/build.sh"
+      - "{{ openwrt_workdir }}/files:/builder/files"
+    env:
+      HOST_UID: "{{ ansible_user_uid | string }}"
+      HOST_GID: "{{ ansible_user_gid | string }}"
+      OPENWRT_PACKAGES: "{{ openwrt_packages_final }}"
+      OPENWRT_PROFILE: "{{ openwrt_profile }}"
+      OPENWRT_EXTRA_IMAGE_NAME: "{{ openwrt_extra_image_name }}"
+      OPENWRT_DISABLED_SERVICES: "{{ openwrt_disabled_services }}"
+      OPENWRT_ROOTFS_PARTSIZE: "{{ openwrt_rootfs_partsize }}"
+  register: openwrt_build
+
+- name: Show the ImageBuilder build log
+  ansible.builtin.debug:
+    msg: "{{ openwrt_build.container.Output | default('') | split('\n') }}"
+
+- name: Assert the build succeeded
+  ansible.builtin.assert:
+    that:
+      - openwrt_build.status | default(1) | int == 0
+    fail_msg: >-
+      The ImageBuilder container exited with a non-zero status; review the build
+      log above.
+
+- name: Locate the generated artifacts on the builder
+  ansible.builtin.find:
+    paths: "{{ openwrt_output_dir }}"
+    file_type: file
+    recurse: true
+  register: openwrt_artifacts
+
+- name: List the generated artifacts
+  ansible.builtin.debug:
+    msg: "{{ openwrt_artifacts.files | map(attribute='path') | list }}"
+
+- name: Compute the artifact paths relative to the builder output directory
+  ansible.builtin.set_fact:
+    openwrt_artifact_relpaths: >-
+      {{ openwrt_artifacts.files | map(attribute='path')
+         | map('relpath', openwrt_output_dir) | list }}
+  when: openwrt_fetch_artifacts | bool
+
+- name: Ensure the control-node artifact directories exist
+  ansible.builtin.file:
+    path: "{{ openwrt_artifacts_dir }}/{{ item }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ openwrt_artifact_relpaths | map('dirname') | unique | list }}"
+  delegate_to: localhost
+  become: false
+  when: openwrt_fetch_artifacts | bool
+
+- name: Fetch the generated artifacts to the control node
+  ansible.builtin.fetch:
+    src: "{{ openwrt_output_dir }}/{{ item }}"
+    dest: "{{ openwrt_artifacts_dir }}/{{ item }}"
+    flat: true
+  loop: "{{ openwrt_artifact_relpaths }}"
+  when: openwrt_fetch_artifacts | bool
+
+- name: Report where the artifacts were delivered
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'Artifacts fetched to ' ~ openwrt_artifacts_dir
+         if (openwrt_fetch_artifacts | bool)
+         else 'Artifacts left on the builder at ' ~ openwrt_output_dir }}

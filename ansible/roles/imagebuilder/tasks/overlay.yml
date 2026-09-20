@@ -1,0 +1,91 @@
+---
+- name: Ensure the overlay working directory exists
+  ansible.builtin.file:
+    path: "{{ openwrt_workdir }}/files"
+    state: directory
+    mode: "0755"
+
+- name: Inventory the committed static overlay files
+  ansible.builtin.find:
+    paths: "{{ role_path }}/files/overlay"
+    file_type: file
+    recurse: true
+  delegate_to: localhost
+  become: false
+  register: openwrt_overlay_static
+  failed_when: false
+
+- name: Inventory the committed templated overlay files
+  ansible.builtin.find:
+    paths: "{{ role_path }}/templates/overlay"
+    file_type: file
+    recurse: true
+  delegate_to: localhost
+  become: false
+  register: openwrt_overlay_templates
+  failed_when: false
+
+- name: Select the overlay files of the active modules
+  ansible.builtin.set_fact:
+    openwrt_overlay_static_active: >-
+      {{ openwrt_overlay_static.files | default([])
+         | selectattr('path', 'search', '/files/overlay/(' ~ openwrt_modules_active_re ~ ')/')
+         | list }}
+    openwrt_overlay_templates_active: >-
+      {{ openwrt_overlay_templates.files | default([])
+         | selectattr('path', 'search', '/templates/overlay/(' ~ openwrt_modules_active_re ~ ')/')
+         | list }}
+  vars:
+    openwrt_modules_active_re: "{{ openwrt_modules_active | join('|') }}"
+
+- name: Compute the overlay target names and directories
+  ansible.builtin.set_fact:
+    openwrt_overlay_targets: >-
+      {{ (openwrt_overlay_static_active | map(attribute='path')
+          | map('relpath', role_path ~ '/files/overlay') | map('regex_replace', '^[^/]+/', '') | list)
+         + (openwrt_overlay_templates_active | map(attribute='path')
+            | map('relpath', role_path ~ '/templates/overlay') | map('regex_replace', '^[^/]+/', '') | list) }}
+    openwrt_overlay_dirs: >-
+      {{ ((openwrt_overlay_static_active | map(attribute='path')
+           | map('relpath', role_path ~ '/files/overlay') | map('regex_replace', '^[^/]+/', '') | map('dirname') | list)
+          + (openwrt_overlay_templates_active | map(attribute='path')
+             | map('relpath', role_path ~ '/templates/overlay') | map('regex_replace', '^[^/]+/', '') | map('dirname') | list))
+         | unique }}
+
+- name: Assert no two active modules ship the same overlay file
+  ansible.builtin.assert:
+    that:
+      - openwrt_overlay_targets | length == openwrt_overlay_targets | unique | length
+    fail_msg: >-
+      Duplicate overlay target files across modules: {{ openwrt_overlay_targets }}.
+
+- name: Ensure the overlay target directories exist
+  ansible.builtin.file:
+    path: "{{ openwrt_workdir }}/files/{{ item }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ openwrt_overlay_dirs }}"
+
+- name: Install the static overlay files of the active modules
+  ansible.builtin.copy:
+    src: "{{ item.path | relpath(role_path ~ '/files') }}"
+    dest: "{{ openwrt_workdir }}/files/{{ openwrt_overlay_rel }}"
+    mode: "{{ '0755' if openwrt_overlay_rel in openwrt_overlay_executable else '0644' }}"
+  vars:
+    openwrt_overlay_rel: >-
+      {{ item.path | relpath(role_path ~ '/files/overlay') | regex_replace('^[^/]+/', '') }}
+  loop: "{{ openwrt_overlay_static_active }}"
+
+- name: Render the templated overlay files of the active modules
+  ansible.builtin.template:
+    src: "{{ item.path | relpath(role_path ~ '/templates') }}"
+    dest: "{{ openwrt_workdir }}/files/{{ openwrt_overlay_rel }}"
+    mode: "{{ '0755' if openwrt_overlay_rel in openwrt_overlay_executable else '0644' }}"
+  vars:
+    openwrt_overlay_rel: >-
+      {{ item.path | relpath(role_path ~ '/templates/overlay') | regex_replace('^[^/]+/', '') }}
+  loop: "{{ openwrt_overlay_templates_active }}"
+
+- name: Show the rendered overlay files
+  ansible.builtin.debug:
+    msg: "{{ openwrt_overlay_targets }}"

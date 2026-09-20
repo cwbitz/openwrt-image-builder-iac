@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  author: cwbitz
+  company: ""
+  license: MIT
+  description: >-
+    OpenWrt firmware builder role: resolves modules, collects packages, renders
+    the uci-defaults overlay and drives the official ImageBuilder container
+  min_ansible_version: "2.16"
+  galaxy_tags:
+    - openwrt
+    - imagebuilder
+    - firmware
+  platforms:
+    - name: GenericLinux
+      versions:
+        - all
+    - name: macOS
+      versions:
+        - all
+dependencies: []

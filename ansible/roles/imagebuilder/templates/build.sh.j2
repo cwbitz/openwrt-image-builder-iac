@@ -1,0 +1,85 @@
+#!/bin/bash
+set -euo pipefail
+
+# Rendered by the imagebuilder role and mounted into the container. The
+# resolved module/package set and overlay are prepared on the controller; this
+# script only initializes the ImageBuilder environment, optionally applies the
+# mirror and invokes make.
+
+# Use a large workspace directory for temporary files to avoid exhausting
+# tmpfs /tmp while assembling large images.
+mkdir -p /builder/tmp
+export TMPDIR=/builder/tmp
+
+# Restore ownership of the generated artifacts to the invoking host user on
+# exit (the container runs as root).
+cleanup() {
+    local exit_code=$?
+    if [ -d bin ] && [ -n "${HOST_UID:-}" ] && [ -n "${HOST_GID:-}" ]; then
+        chown -R "$HOST_UID:$HOST_GID" bin
+    fi
+    exit "$exit_code"
+}
+trap cleanup EXIT
+
+# Initialize the ImageBuilder environment when it is missing or incomplete.
+if [ ! -f ./Makefile ] || \
+   [ ! -d ./scripts ] || \
+   [ ! -d ./target ] || \
+   [ ! -d ./include ] || \
+   { [ ! -f ./repositories ] && [ ! -f ./repositories.conf ]; }; then
+    export VERSION_PATH="{{ openwrt_setup_version_path }}"
+
+    setup_success=0
+{% if openwrt_setup_use_mirror | bool %}
+    # SNAPSHOT tool-packages are fetched from the USTC mirror first, with a
+    # fallback to the official source.
+    export UPSTREAM_URL="{{ openwrt_setup_mirror_url }}"
+    set +e
+    ( . ./setup.sh )
+    setup_status=$?
+    set -e
+    if [ "$setup_status" -eq 0 ]; then
+        setup_success=1
+    fi
+{% endif %}
+    if [ "$setup_success" -eq 0 ]; then
+        unset UPSTREAM_URL || true
+        . ./setup.sh
+    fi
+fi
+
+# ImageBuilder needs the real release path (SNAPSHOT was rewritten above).
+export VERSION_PATH="{{ openwrt_version_path }}"
+
+{% if openwrt_use_mirror | bool %}
+# Replace the package repository host with the configured mirror.
+repo_file=""
+if [ -f ./repositories.conf ]; then
+    repo_file="./repositories.conf"
+elif [ -f ./repositories ]; then
+    repo_file="./repositories"
+fi
+if [ -n "$repo_file" ]; then
+    sed -i -E "s|https?://downloads.openwrt.org|https://{{ openwrt_mirror }}|g" "$repo_file"
+fi
+{% endif %}
+
+make info
+
+make_args=(PACKAGES="$OPENWRT_PACKAGES" FILES="files")
+if [ -n "$OPENWRT_EXTRA_IMAGE_NAME" ]; then
+    make_args+=(EXTRA_IMAGE_NAME="$OPENWRT_EXTRA_IMAGE_NAME")
+fi
+if [ -n "$OPENWRT_DISABLED_SERVICES" ]; then
+    make_args+=(DISABLED_SERVICES="$OPENWRT_DISABLED_SERVICES")
+fi
+if [ -n "$OPENWRT_ROOTFS_PARTSIZE" ]; then
+    make_args+=(ROOTFS_PARTSIZE="$OPENWRT_ROOTFS_PARTSIZE")
+fi
+
+if [ -n "$OPENWRT_PROFILE" ]; then
+    make PROFILE="$OPENWRT_PROFILE" image "${make_args[@]}" -S
+else
+    make image "${make_args[@]}" -S
+fi

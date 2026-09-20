@@ -1,0 +1,24 @@
+---
+# Query the ImageBuilder image and profile information without building. Run
+# via `make info` (role `tasks_from: info`).
+- name: Check the build host prerequisites and required settings
+  ansible.builtin.import_tasks: preflight.yml
+
+- name: Ensure the ImageBuilder image and derive its version/target
+  ansible.builtin.import_tasks: setup.yml
+
+- name: Query ImageBuilder image and profile information
+  community.docker.docker_container:
+    name: "{{ openwrt_container_name }}-info"
+    image: "{{ openwrt_image }}"
+    user: "0:0"
+    working_dir: /builder
+    command: ["make", "info"]
+    detach: false
+    cleanup: true
+    output_logs: true
+  register: openwrt_info
+
+- name: Show the ImageBuilder information
+  ansible.builtin.debug:
+    msg: "{{ openwrt_info.container.Output | default('') | split('\n') }}"

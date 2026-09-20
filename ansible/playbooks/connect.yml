@@ -1,0 +1,115 @@
+---
+# Probe connectivity and select the connection user for every builder host,
+# applying least privilege: try 'ansible' first (key, then password), then the
+# operator-configured admin user (if any), then 'root'. Only credentials the
+# operator configured are attempted; each is tried with a key first (explicit
+# -i, then the SSH agent) and a password second. The chosen connection vars are
+# injected with add_host, so the inventory itself sets no connection user.
+#
+# Imported at the top of build.yml and info.yml. No credentials are printed
+# (no_log); a host with no working credential fails the run loudly.
+
+- name: "Probe connectivity and select the connection user (per builder host)"
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars:
+    probe_ssh_opts: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -o BatchMode=yes"
+  tasks:
+    - name: "Probe every builder host (ansible -> admin -> root; key then password)"
+      ansible.builtin.shell: |
+        set -u
+        addr="{{ hostvars[item].ansible_host | default(item) }}"
+        opts="{{ probe_ssh_opts }}"
+        try_user() {
+          user="$1"; keyfile="$2"; password="$3"
+          [ -n "$user" ] || return 1
+          if [ -n "$keyfile" ] && [ -f "$keyfile" ] && \
+             ssh $opts -o IdentitiesOnly=yes -i "$keyfile" "$user@$addr" true 2>/dev/null; then
+            printf '%s:key:%s\n' "$user" "$keyfile"; return 0
+          fi
+          if ssh $opts -o PreferredAuthentications=publickey "$user@$addr" true 2>/dev/null; then
+            printf '%s:key:\n' "$user"; return 0
+          fi
+          if [ -n "$password" ] && command -v sshpass >/dev/null 2>&1 && \
+             SSHPASS="$password" sshpass -e ssh $opts \
+               -o PreferredAuthentications=password -o PubkeyAuthentication=no \
+               "$user@$addr" true 2>/dev/null; then
+            printf '%s:password:\n' "$user"; return 0
+          fi
+          return 1
+        }
+        try_user "{{ ANS_USER }}" "{{ ANS_KEY }}" "{{ ANS_PW }}" && exit 0
+        if [ -n "{{ ADMIN_USER }}" ]; then
+          try_user "{{ ADMIN_USER }}" "{{ ADMIN_KEY }}" "{{ ADMIN_PW }}" && exit 0
+        fi
+        try_user "root" "{{ ROOT_KEY }}" "{{ ROOT_PW }}" && exit 0
+        printf 'none\n'
+      loop: "{{ groups['builder'] | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
+      environment:
+        ANS_USER: "{{ hostvars[item].host_ansible_user | default('ansible') }}"
+        ANS_KEY: "{{ hostvars[item].vault_host_ansible_ssh_pubkey_file | default('') | regex_replace('\\.pub$', '') }}"
+        ANS_PW: "{{ hostvars[item].vault_host_ansible_password | default('') }}"
+        ADMIN_USER: "{{ hostvars[item].vault_host_admin_user | default('') }}"
+        ADMIN_KEY: "{{ hostvars[item].vault_host_admin_ssh_pubkey_file | default('') | regex_replace('\\.pub$', '') }}"
+        ADMIN_PW: "{{ hostvars[item].vault_host_admin_password | default('') }}"
+        ROOT_KEY: "{{ hostvars[item].vault_host_root_ssh_pubkey_file | default('') | regex_replace('\\.pub$', '') }}"
+        ROOT_PW: "{{ hostvars[item].vault_host_root_password | default('') }}"
+      changed_when: false
+      failed_when: false
+      no_log: true
+      register: builder_probe
+      # noqa: command-instead-of-shell (sshpass needs an inline SSHPASS env var)
+
+    - name: "Fail when a builder host has no usable credential"
+      ansible.builtin.assert:
+        that:
+          - (item.stdout | default('none') | trim) != 'none'
+        fail_msg: >-
+          Host '{{ item.item }}': no working SSH credential. Tried 'ansible'
+          (key, then password), then the configured admin user, then 'root'.
+          Load a key into the SSH agent, set vault_host_ansible_ssh_pubkey_file,
+          or set vault_host_root_password / vault_host_admin_* in
+          host_vars/<host>/vault.yml.
+        success_msg: "{{ item.item }}: connecting as {{ item.stdout | trim }}"
+      loop: "{{ builder_probe.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: "Build the selected connection profiles"
+      ansible.builtin.set_fact:
+        builder_conn: >-
+          {%- set ns = namespace(out={}) -%}
+          {%- for r in builder_probe.results -%}
+          {%-   set parts = (r.stdout | trim).split(':') -%}
+          {%-   set user = parts[0] | default('') -%}
+          {%-   set method = parts[1] | default('') -%}
+          {%-   set keyfile = parts[2] | default('') if method == 'key' else '' -%}
+          {%-   set hv = hostvars[r.item] -%}
+          {%-   set is_ans = (user == (hv.host_ansible_user | default('ansible'))) -%}
+          {%-   set is_admin = (user | length > 0) and (user == (hv.vault_host_admin_user | default(''))) -%}
+          {%-   set pw = (hv.vault_host_ansible_password | default('')) if is_ans
+                         else (hv.vault_host_admin_password | default('')) if is_admin
+                         else (hv.vault_host_root_password | default('')) -%}
+          {%-   set ns.out = ns.out | combine({ r.item: {
+                  'user': user,
+                  'key_file': keyfile,
+                  'password': (pw if method == 'password' else ''),
+                  'become_password': (pw if (method == 'password' and is_admin) else '')
+                } }) -%}
+          {%- endfor -%}
+          {{ ns.out }}
+      no_log: true
+
+    - name: "Select the connection profile per host"
+      ansible.builtin.add_host:
+        name: "{{ item.item }}"
+        ansible_user: "{{ builder_conn[item.item].user }}"
+        ansible_ssh_private_key_file: "{{ builder_conn[item.item].key_file if builder_conn[item.item].key_file | length > 0 else omit }}"
+        ansible_password: "{{ builder_conn[item.item].password if builder_conn[item.item].password | length > 0 else omit }}"
+        ansible_become_password: "{{ builder_conn[item.item].become_password if builder_conn[item.item].become_password | length > 0 else omit }}"
+      loop: "{{ builder_probe.results }}"
+      loop_control:
+        label: "{{ item.item }}"

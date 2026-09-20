@@ -1,0 +1,33 @@
+---
+# yamllint config. Rendered template files (*.tpl, *.j2) are excluded because
+# they contain directives that are only valid after rendering.
+extends: default
+
+rules:
+  # Settings required for compatibility with ansible-lint.
+  comments:
+    min-spaces-from-content: 1
+  # Long Jinja expressions / URLs are idiomatic in Ansible; raise the default 80.
+  line-length:
+    max: 160
+  comments-indentation: false
+  braces:
+    max-spaces-inside: 1
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+  # Handwritten Ansible YAML often omits the --- document start.
+  document-start:
+    present: true
+    level: warning
+
+ignore:
+  - "*.tpl"
+  - "*.j2"
+  # Installed collections / tool caches are third-party code.
+  - "ansible/collections/"
+  - "ansible/.ansible/"
+  - "ansible/.cache/"
+  # Encrypted vault files are not parseable YAML until decrypted.
+  - "**/vault.yml"
+  - ".build/"

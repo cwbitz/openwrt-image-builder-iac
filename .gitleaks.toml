@@ -1,0 +1,15 @@
+title = "openwrt-builder-wrapper gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Committed examples/placeholders only (no real secrets are committed)"
+paths = [
+  '''(^|/)example/''',
+  '''\.example$''',
+]
+regexes = [
+  '''CHANGE_ME_.*''',
+  '''dummy''',
+]
