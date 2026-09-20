@@ -158,9 +158,9 @@ make build
 
 ## 注意事项
 
-- **构建慢/网速受限**：启用 `openwrt_use_mirror: true`（构建阶段软件源镜像）
-  与/或 `openwrt_setup_use_mirror: true`（setup.sh 工具包，仅 SNAPSHOT）。
-  详见 `docs/runbooks.md`。
+- **构建慢/网速受限**：启用 `openwrt_use_mirror: true`（构建阶段软件源镜像，需带
+  OpenWrt 前缀，如 `mirrors.tuna.tsinghua.edu.cn/openwrt`）与/或
+  `openwrt_setup_use_mirror: true`（setup.sh 工具链下载）。详见 `docs/runbooks.md`。
 - **镜像同步滞后**：国内镜像尚未同步新版本时可能导致构建失败，此时关闭镜像源改用
   官方源。
 - **密钥特殊字符**：变量由 Jinja 模板化并自动做 shell 引用；请写入 vault，不要放在

@@ -173,8 +173,10 @@ appended (or removed with a `-` prefix) via `openwrt_extra_packages`.
 ## Notes & FAQ
 
 - **Slow downloads**: enable `openwrt_use_mirror: true` (build-phase package
-  repositories) and/or `openwrt_setup_use_mirror: true` (setup.sh tool packages,
-  SNAPSHOT only). See `docs/runbooks.md`.
+  repositories; include the mirror's OpenWrt prefix, e.g.
+  `mirrors.tuna.tsinghua.edu.cn/openwrt`) and/or
+  `openwrt_setup_use_mirror: true` (setup.sh ImageBuilder tarball). See
+  `docs/runbooks.md`.
 - **Mirror sync lag**: a domestic mirror that has not synced a new release can
   make the build fail; turn the mirror off and use the official source.
 - **Special characters in secrets**: values are Jinja-templated and shell-quoted

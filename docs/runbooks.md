@@ -159,8 +159,8 @@ Two independent knobs, both off by default (official OpenWrt sources):
 
 | Knob | Phase | Effect |
 |------|-------|--------|
-| `openwrt_use_mirror: true` (+ `openwrt_mirror`) | build | rewrites `repositories(.conf)` host to the mirror; package repos |
-| `openwrt_setup_use_mirror: true` (+ `openwrt_setup_mirror_url`) | setup | fetches `setup.sh` tool packages from the mirror; **SNAPSHOT only**, falls back to the official source |
+| `openwrt_use_mirror: true` (+ `openwrt_mirror`) | build | rewrites the `repositories(.conf)` host to the mirror; package repos. `openwrt_mirror` must include the mirror's OpenWrt prefix (e.g. `mirrors.tuna.tsinghua.edu.cn/openwrt`) |
+| `openwrt_setup_use_mirror: true` (+ `openwrt_setup_mirror_url`) | setup | fetches the ImageBuilder tarball via `setup.sh` from the mirror (release and SNAPSHOT), falls back to the official source |
 
 A domestic mirror that has not yet synced a new release can cause build
 failures: turn the mirror off and use the official source.
@@ -168,12 +168,15 @@ failures: turn the mirror off and use the official source.
 ## 6. SNAPSHOT images
 
 SNAPSHOT tool packages are mirrored by only a few providers. Use
-`openwrt_setup_use_mirror: true` (USTC by default) to speed up **setup.sh only**,
-without changing the package repositories:
+`openwrt_setup_use_mirror: true` (USTC by default) to speed up the ImageBuilder
+tarball download, without changing the package repositories:
 
 ```bash
 make build ANS_EXTRA='-e openwrt_setup_use_mirror=true'
 ```
+
+The same knob also works for release images; combined with
+`openwrt_use_mirror: true` it keeps every download off `downloads.openwrt.org`.
 
 ## 7. Secrets
 
@@ -219,7 +222,8 @@ make build ANS_EXTRA='-e openwrt_setup_use_mirror=true'
 | `Destination directory ... does not exist` | Should not occur; the overlay step creates directories. Report a bug. |
 | `Packages are both added and removed` | Remove the `-pkg`/`pkg` conflict in `openwrt_extra_packages` or module package lists |
 | `Duplicate overlay target files across modules` | Two active modules ship the same file path; rename or disable one |
-| Build fails after enabling a mirror | Mirror sync lag; disable `openwrt_use_mirror` |
+| Build fails after enabling a mirror | Mirror sync lag; disable `openwrt_use_mirror`. For 25.12+ (APK) the mirror path must include the OpenWrt prefix (e.g. `mirrors.tuna.tsinghua.edu.cn/openwrt`, `mirrors.ustc.edu.cn/openwrt`) |
+| Build hangs at "Building package index..." (25.12+, APK) | A near-infinite container `nofile` limit makes fakeroot's `faked` spin closing fds up to `RLIMIT_NOFILE`. The role pins `openwrt_container_ulimits` (`nofile:65536:65536`); keep it bounded |
 | Artifacts owned by root | The in-container `chown` needs `HOST_UID`/`HOST_GID`; they come from `gather_facts` |
 | Artifacts not in the control node's `artifacts/` | Check `openwrt_fetch_artifacts` (default true); artifacts are also kept on the builder at `openwrt_output_dir` |
 | Cannot reach the builder over SSH | Fix `ansible_host` in `hosts.yml`; credentials come from the vault via the probe (do not set `ansible_user`) |
