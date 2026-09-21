@@ -23,9 +23,18 @@ openwrt_force_pull: false
 # preferred, password stays as a fallback), and passwordless sudo is granted.
 # Mirrors the proxmox-iac users slice. This is a PRIVILEGED change and requires
 # the connection user to have sudo (or be root) on a fresh host; disable to skip.
+#
+# Service-account identity, part of the project-wide uid/gid scheme:
+#   0-999        system/OS accounts
+#   1000-2999    ordinary interactive logins
+#   3000-4999    managed appliances (never assigned here)
+#   5000-5999    shared data identity (e.g. the data/NFS owner)
+#   6000-6499    service / automation accounts (this role creates `ansible`)
+# Keep the automation account in the 6000 block, out of the shared-data block.
 provision_ansible_user: true
 host_ansible_user: ansible
-host_ansible_uid: 1001
+host_ansible_uid: 6000
+host_ansible_gid: 6000
 # Path (on the CONTROL node) to the automation user's PUBLIC key. When empty the
 # user logs in with the generated password only. Comes from the vault.
 host_ansible_ssh_pubkey_file: "{{ vault_host_ansible_ssh_pubkey_file | default('') }}"

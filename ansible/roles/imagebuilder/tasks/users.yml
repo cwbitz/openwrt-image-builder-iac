@@ -44,10 +44,17 @@
       to it (Docker commands will run through sudo/become).
   when: host_ansible_docker_group_lookup.rc != 0
 
+- name: Ensure the ansible automation group exists
+  ansible.builtin.group:
+    name: "{{ host_ansible_user }}"
+    gid: "{{ host_ansible_gid }}"
+  become: "{{ (ansible_facts.user_id | default('root')) != 'root' }}"
+
 - name: Create the ansible automation user (password always set)
   ansible.builtin.user:
     name: "{{ host_ansible_user }}"
     uid: "{{ host_ansible_uid }}"
+    group: "{{ host_ansible_user }}"
     shell: /bin/bash
     create_home: true
     home: "/home/{{ host_ansible_user }}"
@@ -56,6 +63,15 @@
     password: "{{ vault_host_ansible_password | password_hash('sha512', 65534 | random(seed=inventory_hostname + vault_host_ansible_password) | string) }}"
   become: "{{ (ansible_facts.user_id | default('root')) != 'root' }}"
   no_log: true
+
+- name: Align the ansible automation home ownership with its uid/gid
+  ansible.builtin.file:
+    path: "/home/{{ host_ansible_user }}"
+    state: directory
+    owner: "{{ host_ansible_user }}"
+    group: "{{ host_ansible_user }}"
+    recurse: true
+  become: "{{ (ansible_facts.user_id | default('root')) != 'root' }}"
 
 - name: Install the ansible user's public key (key login preferred)
   ansible.posix.authorized_key:
@@ -87,6 +103,6 @@
   ansible.builtin.debug:
     msg: >-
       Provisioned '{{ host_ansible_user }}' (uid {{ host_ansible_uid }},
-      groups {{ host_ansible_groups | join(',') | default('<none>', true) }},
+      gid {{ host_ansible_gid }}, groups {{ host_ansible_groups | join(',') | default('<none>', true) }},
       passwordless sudo). Key login: {{ 'yes' if host_ansible_ssh_pubkey_file | default('') | string | length > 0 else 'no (password only)' }}.
       Set `ansible_user: {{ host_ansible_user }}` in the inventory to use it.

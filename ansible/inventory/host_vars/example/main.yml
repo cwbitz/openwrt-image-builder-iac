@@ -26,8 +26,11 @@ openwrt_force_pull: false
 # fallback). Passwordless sudo is granted. Privileged change: the first run must
 # connect as root or a sudo-capable user. Set false to skip.
 provision_ansible_user: true
-# [OPTIONAL] fixed UID for the automation user (kept stable across rebuilds).
-host_ansible_uid: 1001
+# [OPTIONAL] fixed uid/gid for the automation user (kept stable across
+# rebuilds). Part of the project-wide scheme: shared data identity (5000-5999),
+# service/automation accounts (6000-6499).
+host_ansible_uid: 6000
+host_ansible_gid: 6000
 # [OPTIONAL] docker group to add the automation user to when it exists, so the
 # build host's Docker daemon is reachable without sudo.
 host_ansible_docker_group: docker

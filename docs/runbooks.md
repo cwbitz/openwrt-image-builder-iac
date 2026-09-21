@@ -57,8 +57,10 @@ proxmox-iac `ensure_secrets` + `users`):
 - When `vault_host_ansible_ssh_pubkey_file` is set, its key is installed and key
   login is preferred; the password remains a fallback. With no key the account
   is password-only.
-- Passwordless sudo via `/etc/sudoers.d/ansible`; fixed UID
-  (`host_ansible_uid`, default 1001).
+- Passwordless sudo via `/etc/sudoers.d/ansible`; fixed uid/gid
+  (`host_ansible_uid` / `host_ansible_gid`, default `6000:6000`). The
+  project-wide scheme reserves 5000-5999 for the shared data identity and
+  6000-6499 for service/automation accounts.
 - Added to the `docker` group when it exists (`host_ansible_docker_group`), so
   Docker commands run without an extra sudo.
 - The **first run** must connect as `root` or a sudo-capable user; later runs
