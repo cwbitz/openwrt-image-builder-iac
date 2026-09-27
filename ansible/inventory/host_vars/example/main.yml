@@ -36,8 +36,9 @@ host_ansible_gid: 6000
 host_ansible_docker_group: docker
 
 # The connection probe (playbooks/connect.yml) tries 'ansible' first, then an
-# optional admin user, then 'root' (key then password). Configure those
-# credentials in vault.yml (vault_host_admin_*, vault_host_root_*).
+# optional admin user, then 'root' (explicit private key, then password).
+# Configure those credentials in vault.yml
+# (vault_host_*_ssh_private_key_file, vault_host_*_password).
 
 # --- Module selection --------------------------------------------------------
 # Default module set: base system root-password pppoe main-router disable-ipv6

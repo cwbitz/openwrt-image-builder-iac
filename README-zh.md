@@ -61,7 +61,7 @@ openwrt-builder-wrapper/
 │   │   └── host_vars/
 │   │       └── example/                 # 已提交模板；真实主机目录 gitignore
 │   │           ├── main.yml             # 运维配置入口（构建配置）
-│   │           └── vault.yml.example    # 密钥模板（密码/公钥路径）
+│   │           └── vault.yml.example    # 密钥模板（密码/公私钥路径）
 │   ├── playbooks/
 │   │   ├── build.yml                    # 构建固件（make build）
 │   │   └── info.yml                     # 查询 ImageBuilder 信息（make info）
@@ -94,7 +94,7 @@ cp -r ansible/inventory/host_vars/example ansible/inventory/host_vars/openwrt-ib
 # 2) 密钥：创建 vault 口令（可选：加密 vault）
 make ans-deps           # 安装 collections + openssl/sshpass/passlib + docker SDK
 make ans-vault-init     # 一次性：生成 vault 口令（务必另行备份）
-make ans-vault-edit HOST=openwrt-ib-prod-1   # 填入公钥路径与固件密钥
+make ans-vault-edit HOST=openwrt-ib-prod-1   # 填入公钥/私钥路径与固件密钥
 
 # 3) preflight 会在构建机上创建 'ansible' 自动化用户（首次运行需以 root 或具备 sudo
 #    的用户连接）；每次运行都会探测并按 ansible → admin → root 的顺序选择连接用户。

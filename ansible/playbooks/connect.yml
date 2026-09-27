@@ -50,12 +50,12 @@
         label: "{{ item }}"
       environment:
         ANS_USER: "{{ hostvars[item].host_ansible_user | default('ansible') }}"
-        ANS_KEY: "{{ hostvars[item].vault_host_ansible_ssh_pubkey_file | default('') | regex_replace('\\.pub$', '') }}"
+        ANS_KEY: "{{ hostvars[item].vault_host_ansible_ssh_private_key_file | default('') }}"
         ANS_PW: "{{ hostvars[item].vault_host_ansible_password | default('') }}"
         ADMIN_USER: "{{ hostvars[item].vault_host_admin_user | default('') }}"
-        ADMIN_KEY: "{{ hostvars[item].vault_host_admin_ssh_pubkey_file | default('') | regex_replace('\\.pub$', '') }}"
+        ADMIN_KEY: "{{ hostvars[item].vault_host_admin_ssh_private_key_file | default('') }}"
         ADMIN_PW: "{{ hostvars[item].vault_host_admin_password | default('') }}"
-        ROOT_KEY: "{{ hostvars[item].vault_host_root_ssh_pubkey_file | default('') | regex_replace('\\.pub$', '') }}"
+        ROOT_KEY: "{{ hostvars[item].vault_host_root_ssh_private_key_file | default('') }}"
         ROOT_PW: "{{ hostvars[item].vault_host_root_password | default('') }}"
       changed_when: false
       failed_when: false
@@ -70,7 +70,7 @@
         fail_msg: >-
           Host '{{ item.item }}': no working SSH credential. Tried 'ansible'
           (key, then password), then the configured admin user, then 'root'.
-          Load a key into the SSH agent, set vault_host_ansible_ssh_pubkey_file,
+          Load a key into the SSH agent, set vault_host_ansible_ssh_private_key_file,
           or set vault_host_root_password / vault_host_admin_* in
           host_vars/<host>/vault.yml.
         success_msg: "{{ item.item }}: connecting as {{ item.stdout | trim }}"

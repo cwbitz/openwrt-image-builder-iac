@@ -47,9 +47,7 @@ host_ansible_docker_group: docker
 # first then password, and uses only those the operator configured. The admin
 # user is skipped when empty; root is always tried as the last resort.
 host_admin_user: "{{ vault_host_admin_user | default('') }}"
-host_admin_ssh_pubkey_file: "{{ vault_host_admin_ssh_pubkey_file | default('') }}"
 host_admin_password: "{{ vault_host_admin_password | default('') }}"
-host_root_ssh_pubkey_file: "{{ vault_host_root_ssh_pubkey_file | default('') }}"
 host_root_password: "{{ vault_host_root_password | default('') }}"
 
 # --- Per-host vault (secrets) -------------------------------------------------

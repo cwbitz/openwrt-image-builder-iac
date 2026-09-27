@@ -78,11 +78,11 @@ tries, in order:
 3. `root`.
 
 Each candidate is tried with a key first — explicit `-i` from the
-`vault_host_*_ssh_pubkey_file` (path minus `.pub`), then the running SSH agent —
-and then with a password (`vault_host_*_password`). Only configured credentials
-are attempted. The selected profile is injected with `add_host`; a host with no
-working credential fails the run loudly. `sshpass` is required on the control
-node for password attempts (`make check-deps`).
+`vault_host_*_ssh_private_key_file`, then the running SSH agent — and then with a
+password (`vault_host_*_password`). Only configured credentials are attempted.
+The selected profile is injected with `add_host`; a host with no working
+credential fails the run loudly. `sshpass` is required on the control node for
+password attempts (`make check-deps`).
 
 ## 3. Build
 
@@ -186,8 +186,8 @@ The same knob also works for release images; combined with
   (`ansible/inventory/host_vars/<host>/vault.yml`) as
   `vault_openwrt_root_password` / `vault_openwrt_pppoe_password`, referenced from
   `main.yml` as `{{ vault_* }}`. Connection credentials
-  (`vault_host_ansible_ssh_pubkey_file`, `vault_host_admin_*`,
-  `vault_host_root_*`) live there too.
+  (`vault_host_*_ssh_private_key_file`, `vault_host_*_password`, plus the
+  install key `vault_host_ansible_ssh_pubkey_file`) live there too.
 - The vault password file (`~/.config/projects/openwrt-builder-wrapper/ansible_vault_password`)
   is created by `make ans-vault-init` and **never** committed; back it up.
   `make ans-vault-encrypt HOST=<host>` encrypts a plaintext vault; without a
@@ -213,7 +213,7 @@ The same knob also works for release images; combined with
 
 | Symptom | Cause / fix |
 |---------|-------------|
-| Probe: "no working SSH credential" | Configure one of the vault entries: `vault_host_ansible_ssh_pubkey_file` / `vault_host_ansible_password` (generated), `vault_host_admin_*`, or `vault_host_root_*`; or load a key into the SSH agent |
+| Probe: "no working SSH credential" | Configure one of the vault entries: `vault_host_ansible_ssh_private_key_file` / `vault_host_ansible_password` (generated), `vault_host_admin_*`, or `vault_host_root_*`; or load a key into the SSH agent |
 | preflight: "vault password file is not configured" | Run `make ans-vault-init`, then invoke through `make build` (exports `ANSIBLE_VAULT_PASSWORD_FILE`) |
 | preflight: "host_ansible_ssh_pubkey_file is unset" (warning) | Not fatal: the automation user is password-only. Set `vault_host_ansible_ssh_pubkey_file` to prefer key login |
 | preflight user tasks fail (sudo/become) | The connection user needs sudo or root on the first run; alternatively set `provision_ansible_user: false` |

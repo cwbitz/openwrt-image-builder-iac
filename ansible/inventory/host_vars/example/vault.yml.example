@@ -15,6 +15,9 @@
 # 'ansible' automation user. When empty, the user logs in with the generated
 # password only. Key login is preferred when set.
 vault_host_ansible_ssh_pubkey_file: /home/example/.ssh/id_ed25519_ans.pub
+# Path on the CONTROL node to the PRIVATE key used to connect as the 'ansible'
+# user. This is set explicitly (never derived from the public key path above).
+vault_host_ansible_ssh_private_key_file: /home/example/.ssh/id_ed25519_ans
 # NOTE: vault_host_ansible_password is AUTO-GENERATED into vault.yml by the
 # preflight (never set it by hand; existing values are never rotated).
 
@@ -22,13 +25,13 @@ vault_host_ansible_ssh_pubkey_file: /home/example/.ssh/id_ed25519_ans.pub
 # Leave vault_host_admin_user empty to skip the admin fallback. When set, the
 # probe tries it (key then password) after 'ansible' and before 'root'.
 vault_host_admin_user: ""
-vault_host_admin_ssh_pubkey_file: ""
+vault_host_admin_ssh_private_key_file: ""
 vault_host_admin_password: ""
 
 # --- Fallback: root ----------------------------------------------------------
 # Tried last. A key is used by the SSH agent when loaded; the password lets a
 # fresh host be reached before the 'ansible' user exists.
-vault_host_root_ssh_pubkey_file: ""
+vault_host_root_ssh_private_key_file: ""
 vault_host_root_password: ""
 
 # --- Firmware secrets --------------------------------------------------------
