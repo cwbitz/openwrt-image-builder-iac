@@ -1,0 +1,16 @@
+---
+# Build a customized OpenWrt firmware image with the official ImageBuilder
+# container. Run via `make build`.
+#
+# Per-variant settings live in inventory/host_vars/<variant>/main.yml (copy the
+# .example); firmware secrets live in the encrypted vault.yml next to it, while
+# machine-wide connection settings/secrets live in inventory/group_vars/builder/.
+# The connection identity comes from host_vars (the `ansible` identity); run
+# `make host-bootstrap` once first to probe/provision it. Re-running converges
+# on the same output for the same inputs.
+- name: "OpenWrt firmware image build"
+  hosts: builder
+  gather_facts: true
+  become: false
+  roles:
+    - role: imagebuilder

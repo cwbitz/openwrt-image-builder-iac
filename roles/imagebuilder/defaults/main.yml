@@ -1,59 +1,31 @@
 ---
 # imagebuilder role internal defaults (fallback values). Operator-facing
-# settings live in ansible/inventory/host_vars/<host>/main.yml. The role
+# settings live in inventory/host_vars/<variant>/main.yml. The role
 # resolves the active module set, collects packages, renders the uci-defaults
 # overlay, and drives the openwrt/imagebuilder container.
 
 # --- Internal path bases -----------------------------------------------------
-# Derived from playbook_dir (ansible/playbooks) via `dirname` so no path ever
-# contains '..'.
-project_ansible_dir: "{{ playbook_dir | dirname }}"
-project_root: "{{ playbook_dir | dirname | dirname }}"
+# The repo root IS the Ansible root (flat layout). Derived from playbook_dir
+# (playbooks/) via `dirname` so no path ever contains '..'.
+project_root: "{{ playbook_dir | dirname }}"
 
 # --- Build target ------------------------------------------------------------
 # [REQUIRED] openwrt_image (e.g. openwrt/imagebuilder:x86-64-v23.05.5) is set
-# in host_vars/<host>/main.yml; the empty fallback fails the preflight.
+# in host_vars/<variant>/main.yml; the empty fallback fails the preflight.
 openwrt_image: ""
 openwrt_profile: ""
 openwrt_force_pull: false
 
-# --- ansible automation user (preflight) -------------------------------------
-# The preflight provisions an 'ansible' account on the build host: a generated
-# password is ALWAYS set, an optional public key is installed (key login is
-# preferred, password stays as a fallback), and passwordless sudo is granted.
-# Mirrors the proxmox-iac users slice. This is a PRIVILEGED change and requires
-# the connection user to have sudo (or be root) on a fresh host; disable to skip.
-#
-# Service-account identity, part of the project-wide uid/gid scheme:
-#   0-999        system/OS accounts
-#   1000-2999    ordinary interactive logins
-#   3000-4999    managed appliances (never assigned here)
-#   5000-5999    shared data identity (e.g. the data/NFS owner)
-#   6000-6499    service / automation accounts (this role creates `ansible`)
-# Keep the automation account in the 6000 block, out of the shared-data block.
-provision_ansible_user: true
-host_ansible_user: ansible
-host_ansible_uid: 6000
-host_ansible_gid: 6000
-# Path (on the CONTROL node) to the automation user's PUBLIC key. When empty the
-# user logs in with the generated password only. Comes from the vault.
-host_ansible_ssh_pubkey_file: "{{ vault_host_ansible_ssh_pubkey_file | default('') }}"
-# [OPTIONAL] add the automation user to this group when it exists, so the build
-# host's Docker daemon is reachable without an extra sudo.
-host_ansible_docker_group: docker
-
-# --- Fallback connection users (least privilege: ansible -> admin -> root) ----
-# The connection probe (playbooks/connect.yml) tries these users in order, key
-# first then password, and uses only those the operator configured. The admin
-# user is skipped when empty; root is always tried as the last resort.
-host_admin_user: "{{ vault_host_admin_user | default('') }}"
-host_admin_password: "{{ vault_host_admin_password | default('') }}"
-host_root_password: "{{ vault_host_root_password | default('') }}"
-
-# --- Per-host vault (secrets) -------------------------------------------------
-# Host-scoped because the build host is a single machine: host_vars/<inventory
-# host name>/vault.yml. Created/updated by the preflight (ensure_secrets).
-host_vault_file: "{{ project_ansible_dir }}/inventory/host_vars/{{ inventory_hostname }}/vault.yml"
+# --- Vaults (secrets) ---------------------------------------------------------
+# Fallback per-host vault paths. This project actually groups variants by
+# `builder` and overrides BOTH paths in inventory/group_vars/builder/main.yml so
+# the machine-wide connection vault is shared by every variant; per-variant
+# firmware secrets stay in host_vars/<variant>/vault.yml (auto-loaded by the
+# inventory). Operator vault: hand-edited. Managed vault: written by
+# `make host-bootstrap` (ensure_secrets) as encrypted "<var>_auto" values when
+# the operator value is empty.
+host_vault_file: "{{ project_root }}/inventory/host_vars/{{ inventory_hostname }}/vault.yml"
+host_vault_managed_file: "{{ project_root }}/inventory/host_vars/{{ inventory_hostname }}/vault_managed.yml"
 
 # --- Builder-side paths (on the managed build host) --------------------------
 # The build host is normally a SEPARATE LAN machine from the control node, so
@@ -61,15 +33,18 @@ host_vault_file: "{{ project_ansible_dir }}/inventory/host_vars/{{ inventory_hos
 # are produced here; retrieval to the control node is a separate step below.
 openwrt_build_dir: "{{ ansible_facts.user_dir }}/.cache/openwrt-builder"
 # Internal: scratch space for the rendered overlay and the in-container script.
-openwrt_workdir: "{{ openwrt_build_dir }}/work"
+# Paths are namespaced by inventory host (build variant) so multiple variants on
+# the same build host can build in parallel without clobbering each other.
+openwrt_workdir: "{{ openwrt_build_dir }}/work/{{ inventory_hostname }}"
 # Firmware output on the builder (mounted as /builder/bin in the container).
-openwrt_output_dir: "{{ openwrt_build_dir }}/artifacts"
+openwrt_output_dir: "{{ openwrt_build_dir }}/artifacts/{{ inventory_hostname }}"
 
 # --- Artifact retrieval (to the control node) --------------------------------
 # When enabled, the built artifacts are pulled from the builder into
-# openwrt_artifacts_dir on the CONTROL node (project-root artifacts/ by default).
+# openwrt_artifacts_dir on the CONTROL node, namespaced per variant under the
+# project-root artifacts/ directory.
 openwrt_fetch_artifacts: true
-openwrt_artifacts_dir: "{{ project_root }}/artifacts"
+openwrt_artifacts_dir: "{{ project_root }}/artifacts/{{ inventory_hostname }}"
 
 # --- Module selection --------------------------------------------------------
 openwrt_default_modules:

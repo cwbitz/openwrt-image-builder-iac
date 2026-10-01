@@ -1,0 +1,40 @@
+---
+# Example builder-group vault (inventory/group_vars/builder/vault.yml.example).
+#
+# The SSH connection identity is a property of the physical build MACHINE, so it
+# is shared by every build variant. Copy this to
+# inventory/group_vars/builder/vault.yml and fill in real values, then encrypt
+# it in place:
+#   make ans-vault-init                                    # one-time
+#   make ans-vault-encrypt VAULT_FILE=inventory/group_vars/builder/vault.yml
+#   make ans-vault-edit    VAULT_FILE=inventory/group_vars/builder/vault.yml
+# vault.yml is gitignored; only this *.example is committed.
+#
+# Per-variant FIRMWARE secrets (root/PPPoE passwords) do NOT belong here: put
+# them in inventory/host_vars/<variant>/vault.yml (see host_vars/example/).
+
+# --- SSH connection identity -------------------------------------------------
+# `make host-bootstrap` probes [ansible, admin, root] and uses the first that
+# works; normal runs (build/info) always connect as `ansible`. Each identity may
+# set a password AND/OR a private key file (SSH prefers the key, then the
+# password). `vault_host_<id>_ssh_privkey_file` is the control-node private key
+# used to log in as that identity; `vault_host_<id>_ssh_pubkey_file` is an
+# optional control-node path to the matching public key, authorized for that
+# account by host-bootstrap. Only paths are accepted, never raw key strings.
+vault_host_root_password: ""
+vault_host_root_ssh_privkey_file: ""
+vault_host_root_ssh_pubkey_file: ""
+vault_host_admin_user: "admin"
+vault_host_admin_password: ""
+vault_host_admin_ssh_privkey_file: ""
+vault_host_admin_ssh_pubkey_file: ""
+# The ansible identity is the service account host-bootstrap creates/repairs;
+# its public key (when set) also switches the account to key auth instead of a
+# generated password. Leave vault_host_ansible_password empty to have
+# host-bootstrap generate one into the encrypted managed vault next to this file
+# (vault_managed.yml) as vault_host_ansible_password_auto; an existing _auto
+# value is never rotated, and a non-empty value here always wins.
+vault_host_ansible_user: "ansible"
+vault_host_ansible_password: ""
+vault_host_ansible_ssh_privkey_file: /home/example/.ssh/id_ed25519_ansible
+vault_host_ansible_ssh_pubkey_file: /home/example/.ssh/id_ed25519_ansible.pub

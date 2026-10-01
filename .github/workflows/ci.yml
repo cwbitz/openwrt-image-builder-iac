@@ -13,10 +13,11 @@ jobs:
     name: Ansible lint / syntax
     runs-on: ubuntu-latest
     env:
-      # Point Ansible at the project config; collections are installed into
-      # ansible/collections (the path configured there). The vault password file
-      # is intentionally NOT referenced, so no secret is needed for lint/CI.
-      ANSIBLE_CONFIG: ansible/ansible.cfg
+      # Point Ansible at the project's canonical config (repo root). It sets
+      # `vault_password_file` outside the repo; the "Prepare Ansible vault
+      # password" step generates a throwaway file there so ansible-core does not
+      # hard-fail on a missing vault password file. No secret is used in CI.
+      ANSIBLE_CONFIG: ansible.cfg
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,19 +30,19 @@ jobs:
           cache: true
       - name: Install lint tooling
         run: pip install ansible-lint yamllint
-      - name: Install collections
-        run: ansible-galaxy collection install -r ansible/requirements.yml -p ansible/collections
+      # Same entry point as local: installs control-node prerequisites + collections.
+      - name: Install control-node prerequisites + collections
+        run: make install
+      - name: Prepare Ansible vault password (throwaway; CI has no secrets)
+        run: make vault-init
       - name: Prepare inventory from example
-        run: cp ansible/inventory/hosts.yml.example ansible/inventory/hosts.yml
-      - name: Syntax check
-        run: |
-          for p in ansible/playbooks/*.yml; do
-            ansible-playbook --syntax-check -i ansible/inventory/hosts.yml "$p"
-          done
-      - name: Ansible lint
-        run: ansible-lint -c ansible/.ansible-lint ansible
+        run: cp inventory/hosts.yml.example inventory/hosts.yml
+      - name: Lint (syntax check + ansible-lint)
+        run: make lint
       - name: YAML lint
-        run: yamllint -c .yamllint ansible .github renovate.json
+        run: yamllint -c .yamllint .ansible-lint requirements.yml playbooks roles inventory .github renovate.json
+      - name: Verify the pinned Keychain asset (SHA256)
+        run: make keychain-verify
 
   gitleaks:
     name: Secret scan (gitleaks)

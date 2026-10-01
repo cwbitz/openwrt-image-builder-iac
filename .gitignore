@@ -1,13 +1,13 @@
 # ===== Ansible =====
 # hosts.yml is local-only (contains your real build host); hosts.yml.example is committed.
-ansible/inventory/hosts.yml
+inventory/hosts.yml
 # host_vars/ is host-scoped and local-only; ONLY the example/ folder is
 # committed (its main.yml and vault.yml.example templates).
-ansible/inventory/host_vars/*
-!ansible/inventory/host_vars/example/
-ansible/collections/
-ansible/.cache/
-ansible/.ansible/
+inventory/host_vars/*
+!inventory/host_vars/example/
+collections/
+.cache/
+.ansible/
 *.retry
 *.log
 
@@ -55,4 +55,7 @@ Thumbs.db
 *.swp
 *~
 .idea/
-.vscode/
+# Commit the shared workspace settings + vendored YAML schemas; ignore the rest.
+.vscode/*
+!.vscode/settings.json
+!.vscode/schemas/

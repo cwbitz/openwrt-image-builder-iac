@@ -1,0 +1,21 @@
+---
+# Example per-variant firmware vault. Copy to host_vars/<variant>/vault.yml and
+# fill in real values, then encrypt in place:
+#   make ans-vault-init                                    # one-time
+#   make ans-vault-encrypt HOST=<variant>                  # encrypt the plaintext vault
+#   make ans-vault-edit HOST=<variant>                     # edit it afterwards
+# host_vars/<variant>/vault.yml is gitignored; only the example/ folder is
+# committed.
+#
+# Connection secrets do NOT belong here: the SSH connection identity is shared
+# by every variant and lives in inventory/group_vars/builder/vault.yml (see its
+# vault.yml.example).
+
+# --- Firmware secrets --------------------------------------------------------
+# Root login password baked into the generated image (module: root-password).
+# Leave empty to skip.
+vault_openwrt_root_password: CHANGE_ME_root_password
+
+# PPPoE WAN password baked into the generated image (module: pppoe). Leave empty
+# to skip.
+vault_openwrt_pppoe_password: CHANGE_ME_pppoe_password

@@ -10,93 +10,117 @@ Operational procedures for building OpenWrt firmware with
 |-------------|-------|
 | Control node | Where you run `make`; hosts the repo and the Ansible toolchain |
 | Build host | A SEPARATE LAN machine (by default) running Docker Engine; SSH-reachable from the control node as the connection user, who must be able to access the Docker daemon |
-| sudo (or root) on the build host | Required on the first run for the `ansible` user preflight (skip with `provision_ansible_user: false`) |
+| sudo (or root) on the build host | Required on the first `make host-bootstrap` run to create the `ansible` service account |
 | Docker Engine / Desktop | Must be running on the `builder` host |
 | python >= 3.8 | Control node; runs `ansible-core` and the `community.docker` modules |
 | `ansible-core` + `python` | Pinned in `.tool-versions` (`mise install` / `asdf install`) |
-| `community.docker` | Installed into `ansible/collections` by `make ans-deps` |
+| `community.docker` | Installed into `collections/` by `make install` |
 | `openssl` | Control node; generates secret values (`make check-deps`) |
-| `sshpass` | Control node; password SSH during the connection probe (`make check-deps`) |
+| `sshpass` | Control node; password SSH during `make host-bootstrap` (`make check-deps`) |
 | `passlib` | Control node; `password_hash` for the automation user (`make check-deps`) |
-| vault password | Created once by `make ans-vault-init`; required to store/read generated secrets |
+| Keychain 3 | Control node; pinned ssh-agent (`make agent-load` auto-downloads + verifies SHA256) |
+| vault password | Created once by `make vault-init`; required to store/read generated secrets |
 | docker Python SDK | On the **build host** (not the control node); checked by the role preflight |
 
-`make ans-deps` checks and, where safe, installs the control-node prerequisites
+`make install` checks and, where safe, installs the control-node prerequisites
 (`openssl`, `sshpass`, `passlib`, the `docker` SDK for a local build host). The
 Docker CLI, daemon and Python SDK are validated again at run time by the role's
-preflight tasks (actionable failure when missing).
+preflight tasks (actionable failure when missing). Keychain 3 is fetched from its
+pinned GitHub release and SHA256-verified by `make keychain-check`/`keychain-verify`.
 
 ## 2. First-time setup
 
 ```bash
 mise install
-cp ansible/inventory/hosts.yml.example ansible/inventory/hosts.yml
-# edit hosts.yml: set ansible_host for your LAN build host (ansible_user is
-# chosen automatically by the connection probe)
-cp -r ansible/inventory/host_vars/example ansible/inventory/host_vars/openwrt-ib-prod-1
-# edit openwrt-ib-prod-1/main.yml; mv openwrt-ib-prod-1/vault.yml.example -> vault.yml
-make ans-deps
-make ans-vault-init
-make ans-vault-edit HOST=openwrt-ib-prod-1   # encrypts a plaintext vault first
+# One variant per (target, profile, settings); all variants share one builder.
+make host-init HOST=ib-main               # scaffolds inventory/ + host_vars/<variant>/
+make host-init HOST=ib-side               # repeat for each variant
+# edit inventory/hosts.yml (all variants share ansible_host = the builder)
+# and each host_vars/<variant>/main.yml (build config) + vault.yml (firmware secrets)
+make install
+make vault-init
+make vault-edit VAULT_FILE=inventory/group_vars/builder/vault.yml  # shared SSH identity
+make vault-edit VARIANT=ib-main          # that variant's firmware secrets
+make host-bootstrap EXTRA='--limit ib-main'   # once; probe ansible -> admin -> root
 ```
 
-Configuration is **host-scoped** (single build host): `host_vars/<host>/main.yml`
-+ `host_vars/<host>/vault.yml`, where `<host>` matches the inventory host name.
-`hosts.yml` and every `host_vars/<host>/` directory are gitignored; only
-`host_vars/example/` is committed. A `vault.yml` may stay plaintext (mode 0600)
-until you encrypt it (`make ans-vault-encrypt HOST=<host>`); the preflight
-handles both formats.
+Configuration is split by scope:
 
-### ansible automation user
+- **Machine-wide** (shared by all variants): `inventory/group_vars/builder/main.yml`
+  (SSH identity, service account, shared vault paths, per-variant isolation) and
+  `inventory/group_vars/builder/vault.yml` (operator-owned connection secrets) +
+  `inventory/group_vars/builder/vault_managed.yml` (automation-owned, created on
+  first `host-bootstrap`).
+- **Per variant**: `host_vars/<variant>/main.yml` (build config) and
+  `host_vars/<variant>/vault.yml` (firmware secrets), where `<variant>` matches
+  the inventory host name.
 
-The preflight provisions an `ansible` account on the build host (mirroring
-proxmox-iac `ensure_secrets` + `users`):
+Vault files are auto-loaded by the inventory. `hosts.yml` and every
+`host_vars/<variant>/` directory are gitignored; only `host_vars/example/` and
+`group_vars/builder/` (except the real `vault*.yml`) are committed. An operator
+`vault.yml` may stay plaintext (mode 0600) until you encrypt it
+(`make vault-encrypt VARIANT=<variant>` or `VAULT_FILE=...`); `host-bootstrap`
+handles both formats, while the managed `vault_managed.yml` is always encrypted
+and never hand-edited.
 
-- A password is **always** generated into the host vault
-  (`vault_host_ansible_password`); existing values are never rotated.
-- When `vault_host_ansible_ssh_pubkey_file` is set, its key is installed and key
-  login is preferred; the password remains a fallback. With no key the account
-  is password-only.
-- Passwordless sudo via `/etc/sudoers.d/ansible`; fixed uid/gid
+### SSH identities and `host-bootstrap`
+
+The connection identity is explicit (netbird-iac model, machine-wide), defined
+by the `host_ssh_identities` map in `group_vars/builder/main.yml` (shared by
+every variant):
+
+- `root` (become off), `admin` (optional, become on) and `ansible` (the service
+  account, become off — the build runs via the `docker` group). Each resolves
+  `user`/`password`/`privkey`/`pubkey` from `vault_host_<id>_*`.
+- Normal runs (`build.yml` / `info.yml`) always connect as `ansible` (the
+  inventory sets no user).
+- `make host-bootstrap` probes `ansible -> admin -> root` over SSH and uses the
+  first identity that works. When that is not `ansible`, it (re)creates the
+  `ansible` service account; when it already is `ansible`, it only applies the
+  optional pubkey/sudo state. This self-heals a rotated/deleted credential.
+- Per-identity public keys: when `vault_host_<id>_ssh_pubkey_file` is set (a
+  control-node path), it is authorized for the matching account. Unset -> ignored
+  (keys are never auto-generated). Only paths, never raw key strings.
+- Service-account auth is key **or** password: with no
+  `vault_host_ansible_ssh_pubkey_file`, an empty `vault_host_ansible_password`
+  in `vault.yml` triggers generation into the encrypted managed vault
+  (`vault_managed.yml`) as `vault_host_ansible_password_auto`; a non-empty
+  `vault.yml` value always wins and an existing `_auto` value is never rotated.
+- Passwordless sudo via `/etc/sudoers.d/90-openwrt-builder-<user>`; fixed uid/gid
   (`host_ansible_uid` / `host_ansible_gid`, default `6000:6000`). The
   project-wide scheme reserves 5000-5999 for the shared data identity and
   6000-6499 for service/automation accounts.
 - Added to the `docker` group when it exists (`host_ansible_docker_group`), so
   Docker commands run without an extra sudo.
-- The **first run** must connect as `root` or a sudo-capable user; later runs
-  connect as `ansible` automatically (connection probe below).
-- Set `provision_ansible_user: false` in `host_vars/<host>/main.yml` to skip
-  provisioning.
-
-### Connection probe
-
-`playbooks/connect.yml` is imported by `build.yml` and `info.yml`. Per host it
-tries, in order:
-
-1. `ansible` (the automation user),
-2. the optional `admin` user (`vault_host_admin_user`),
-3. `root`.
-
-Each candidate is tried with a key first — explicit `-i` from the
-`vault_host_*_ssh_private_key_file`, then the running SSH agent — and then with a
-password (`vault_host_*_password`). Only configured credentials are attempted.
-The selected profile is injected with `add_host`; a host with no working
-credential fails the run loudly. `sshpass` is required on the control node for
-password attempts (`make check-deps`).
+- SSH prefers a key (explicit `vault_host_<id>_ssh_privkey_file`, else the
+  running SSH agent), then the password, capped at one prompt
+  (`host_ssh_common_args`). `sshpass` is required on the control node for password
+  attempts (`make check-deps`).
+- `build`/`info`/`host-bootstrap` depend on `agent-load`, which starts (or
+  reuses) a pinned **Keychain 3** ssh-agent and loads every configured
+  `vault_host_<id>_ssh_privkey_file` into it; the recipe re-exports the agent env
+  (`keychain agent start --eval`) before running the playbook. When OpenSSH
+  rejects a key's file permissions (e.g. the WSL `/mnt/c` mount), the key is
+  loaded via stdin (`ssh-add - < key`), i.e. the key content is read directly and
+  the permission check is skipped. `make agent-setup` initializes the agent in
+  every new shell (idempotent `~/.bashrc` block).
 
 ## 3. Build
 
 ```bash
-make build
+make build                            # build every variant, in parallel
+make build EXTRA='--limit ib-side' # single variant
 ```
+
+`make build` targets the `builder` group; every inventory host in it is one
+build variant on the same Docker machine, so Ansible builds them concurrently.
+See "Multi-variant builds" below for isolation and naming details.
 
 What happens (`roles/imagebuilder`):
 
-0. **connect** — the probe selects the connection user per host (`ansible` →
-   `admin` → `root`) and injects it.
-1. **preflight** — provisions the `ansible` automation user (unless
-   `provision_ansible_user` is false), then asserts `openwrt_image` is set, the
-   Docker CLI/daemon are reachable and the docker Python SDK is present.
+1. **preflight** — asserts `openwrt_image` is set, the Docker CLI/daemon are
+   reachable and the docker Python SDK is present. (The `ansible` service account
+   is created separately, once, by `make host-bootstrap`.)
 2. **modules** — resolves the active module set from the default +
    `openwrt_modules_adjust` / `openwrt_modules_override`; fails on unknown names.
 3. **setup** — pulls the image if needed, reads `VERSION_PATH` / `TARGET` from
@@ -115,18 +139,40 @@ What happens (`roles/imagebuilder`):
    `openwrt_artifacts_dir` (`<repo>/artifacts`), preserving the
    `targets/<target>/<subtarget>/` layout.
 
-The builder produces artifacts under
-`~/.cache/openwrt-builder/artifacts/targets/<target>/<subtarget>/`; the control
-node copy lands in `artifacts/targets/<target>/<subtarget>/`. Re-running with the
-same inputs converges on the same output.
+Each variant produces artifacts under
+`~/.cache/openwrt-builder/artifacts/<variant>/targets/<target>/<subtarget>/`; the
+control-node copy lands in
+`artifacts/<variant>/targets/<target>/<subtarget>/`. Re-running with the same
+inputs converges on the same output.
+
+### Multi-variant builds
+
+A variant is one inventory host in the `builder` group; all variants point at the
+same `ansible_host` (the physical builder). Isolation comes from
+`group_vars/builder/main.yml`, which derives per-variant paths from
+`inventory_hostname`:
+
+| Knob | Value |
+|------|-------|
+| `openwrt_workdir` | `{{ openwrt_build_dir }}/work/<variant>` (builder scratch) |
+| `openwrt_output_dir` | `{{ openwrt_build_dir }}/artifacts/<variant>` (builder output) |
+| `openwrt_artifacts_dir` | `<repo>/artifacts/<variant>` (control-node copy) |
+
+The container name is `openwrt-bw-<target>-<version>-<variant>` (see
+`roles/imagebuilder/tasks/setup.yml`), so two variants of the same target/version
+do not collide when built in parallel. `ansible.cfg` sets `forks = 25`, so
+`make build` runs all variants concurrently; bound it with `ANSIBLE_FORKS=1` (or
+`--limit`) on a resource-constrained builder. `make host-bootstrap` only needs to
+run once — `bootstrap.yml` acts on `groups['builder'][0]` and the connection
+credentials are shared.
 
 ### Artifact retrieval
 
 | Knob | Default | Effect |
 |------|---------|--------|
 | `openwrt_fetch_artifacts` | `true` | Pull built artifacts from the builder to the control node |
-| `openwrt_artifacts_dir` | `<repo>/artifacts` | Control-node destination (contents gitignored; the directory is tracked) |
-| `openwrt_output_dir` | `~/.cache/openwrt-builder/artifacts` | Builder-side output directory |
+| `openwrt_artifacts_dir` | `<repo>/artifacts/<variant>` | Control-node destination (contents gitignored; the directory is tracked) |
+| `openwrt_output_dir` | `~/.cache/openwrt-builder/artifacts/<variant>` | Builder-side output directory |
 
 The `artifacts/` directory itself is committed (via `.gitkeep`); everything
 inside it is gitignored. Disable retrieval for large builds or when the builder
@@ -136,7 +182,7 @@ is the control node and you do not need a second copy.
 
 ```bash
 ls -R artifacts
-sha256sum -c artifacts/targets/*/*/sha256sums 2>/dev/null || true
+sha256sum -c artifacts/*/targets/*/*/sha256sums 2>/dev/null || true
 ```
 
 ### Rollback / cleanup
@@ -174,7 +220,7 @@ SNAPSHOT tool packages are mirrored by only a few providers. Use
 tarball download, without changing the package repositories:
 
 ```bash
-make build ANS_EXTRA='-e openwrt_setup_use_mirror=true'
+make build EXTRA='-e openwrt_setup_use_mirror=true'
 ```
 
 The same knob also works for release images; combined with
@@ -182,15 +228,17 @@ The same knob also works for release images; combined with
 
 ## 7. Secrets
 
-- Root password and PPPoE password live in the host vault
-  (`ansible/inventory/host_vars/<host>/vault.yml`) as
+- Firmware secrets (root/PPPoE passwords) are **per variant** and live in
+  `inventory/host_vars/<variant>/vault.yml` as
   `vault_openwrt_root_password` / `vault_openwrt_pppoe_password`, referenced from
-  `main.yml` as `{{ vault_* }}`. Connection credentials
-  (`vault_host_*_ssh_private_key_file`, `vault_host_*_password`, plus the
-  install key `vault_host_ansible_ssh_pubkey_file`) live there too.
+  the variant's `main.yml` as `{{ vault_* }}`.
+- Connection credentials are **machine-wide** and live in the shared vault
+  `inventory/group_vars/builder/vault.yml`
+  (`vault_host_*_ssh_privkey_file`, `vault_host_*_password`, plus the install key
+  `vault_host_ansible_ssh_pubkey_file`).
 - The vault password file (`~/.config/projects/openwrt-builder-wrapper/ansible_vault_password`)
-  is created by `make ans-vault-init` and **never** committed; back it up.
-  `make ans-vault-encrypt HOST=<host>` encrypts a plaintext vault; without a
+  is created by `make vault-init` and **never** committed; back it up.
+  `make vault-encrypt VARIANT=<host>` encrypts a plaintext vault; without a
   vault password a plaintext vault keeps working (secrets are gitignored).
 - Values are Jinja-templated and shell-quoted automatically, so special
   characters (`$`, `'`, `\`, `"`) are safe. Leave a secret empty to skip its
@@ -200,23 +248,24 @@ The same knob also works for release images; combined with
 
 ## 8. Adding a module
 
-1. Add overlay files under `ansible/roles/imagebuilder/files/overlay/<name>/...`
+1. Add overlay files under `roles/imagebuilder/files/overlay/<name>/...`
    (static) or `templates/overlay/<name>/...` (Jinja, for variables).
 2. Add its packages to `openwrt_module_packages` in
-   `ansible/roles/imagebuilder/defaults/main.yml` (if any).
+   `roles/imagebuilder/defaults/main.yml` (if any).
 3. Add `<name>` to `openwrt_known_modules`.
 4. Reference any operator variables in `host_vars/example/main.yml`
    (with empty role defaults so the templates always resolve).
-5. Run `make ans-lint`, then build with the module active.
+5. Run `make lint`, then build with the module active.
 
 ## 9. Troubleshooting
 
 | Symptom | Cause / fix |
 |---------|-------------|
-| Probe: "no working SSH credential" | Configure one of the vault entries: `vault_host_ansible_ssh_private_key_file` / `vault_host_ansible_password` (generated), `vault_host_admin_*`, or `vault_host_root_*`; or load a key into the SSH agent |
-| preflight: "vault password file is not configured" | Run `make ans-vault-init`, then invoke through `make build` (exports `ANSIBLE_VAULT_PASSWORD_FILE`) |
-| preflight: "host_ansible_ssh_pubkey_file is unset" (warning) | Not fatal: the automation user is password-only. Set `vault_host_ansible_ssh_pubkey_file` to prefer key login |
-| preflight user tasks fail (sudo/become) | The connection user needs sudo or root on the first run; alternatively set `provision_ansible_user: false` |
+| `host-bootstrap`: "Could not log in as ansible, admin or root" | Configure one of the vault entries: `vault_host_ansible_*`, `vault_host_admin_*`, or `vault_host_root_*` (`password` / `ssh_privkey_file`); or load a key into the SSH agent. If your only usable account is root, set `vault_host_root_password` (or a root private key) |
+| `build`/`info` cannot connect as `ansible` | Run `make host-bootstrap` once (it creates/repairs the account); the effective password is `vault_host_ansible_password` (operator) or `vault_host_ansible_password_auto` in `vault_managed.yml`, else set `vault_host_ansible_ssh_privkey_file`/pubkey |
+| Need the auto-generated password | `make vault-view VAULT_FILE=inventory/group_vars/builder/vault_managed.yml` (it is also printed once by `host-bootstrap`) |
+| `build` fails: vault password file missing | Run `make vault-init` (the canonical ansible.cfg points at that file) |
+| `host-bootstrap` user tasks fail (sudo/become) | The probed identity needs sudo or root; the first run must reach the host as `root` or a sudo-capable `admin` user |
 | preflight fails: "Docker CLI not found" | Install Docker and ensure it is on PATH on the builder host |
 | preflight fails: "Cannot reach the Docker daemon" | Start Docker; ensure the connection user can access the socket (the `ansible` user is added to the `docker` group when it exists) |
 | preflight fails: "Docker Python SDK" | Install `docker` for the build host's Python: `<python> -m pip install docker` |
@@ -228,4 +277,4 @@ The same knob also works for release images; combined with
 | Build hangs at "Building package index..." (25.12+, APK) | A near-infinite container `nofile` limit makes fakeroot's `faked` spin closing fds up to `RLIMIT_NOFILE`. The role pins `openwrt_container_ulimits` (`nofile:65536:65536`); keep it bounded |
 | Artifacts owned by root | The in-container `chown` needs `HOST_UID`/`HOST_GID`; they come from `gather_facts` |
 | Artifacts not in the control node's `artifacts/` | Check `openwrt_fetch_artifacts` (default true); artifacts are also kept on the builder at `openwrt_output_dir` |
-| Cannot reach the builder over SSH | Fix `ansible_host` in `hosts.yml`; credentials come from the vault via the probe (do not set `ansible_user`) |
+| Cannot reach the builder over SSH | Fix `ansible_host` in `hosts.yml`; the connection identity comes from `group_vars/builder/main.yml` (`host_ssh_identities`) |

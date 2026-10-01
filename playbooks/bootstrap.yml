@@ -1,0 +1,336 @@
+---
+# ==============================================================================
+# Build-host bootstrap (`make host-bootstrap`). Ported from netbird-iac's
+# bootstrap logic and adapted to this project's SINGLE build host. Never part
+# of build.yml / info.yml (those connect as the `ansible` identity directly).
+#
+# It probes the SSH identities in order [ansible, admin, root] and uses the
+# first that works. If that identity is NOT `ansible`, it (re)creates the
+# least-privilege `ansible` service account; if it already IS `ansible` it only
+# applies the optional pubkey/sudo state. This self-heals a deleted/rotated
+# ansible password or key (ansible login fails -> falls back to root ->
+# recreates it).
+#
+# SSH public keys (per identity, opt-in) — for every identity whose
+#   vault_host_{root,admin,ansible}_ssh_pubkey_file is set, the key at that
+#   control-node path is authorized for the matching account on the target.
+#   Unset/empty -> skipped (keys are never auto-generated). Paths only, never
+#   raw key strings. The matching private keys the control node connects with
+#   live in vault.yml too (vault_host_<id>_ssh_privkey_file).
+#
+# Service account auth (ansible identity) — exactly one of:
+#   vault_host_ansible_ssh_pubkey_file   control-node path to the .pub (key auth)
+#   (neither)                            a password is set (password auth), stored
+#                                        as vault_host_ansible_password_auto in the
+#                                        encrypted managed host vault
+#                                        (vault_managed.yml) when the operator
+#                                        vault leaves vault_host_ansible_password
+#                                        empty.
+# ==============================================================================
+
+- name: Probe the SSH identities (ansible -> admin -> root)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  # keep the control-node SSH agent (Keychain) reachable: sudo would strip
+  # SSH_AUTH_SOCK, so keys loaded via stdin (bad perms) would be unusable.
+  become: false
+  vars:
+    builder_target: "{{ hostvars[groups['builder'][0]] }}"
+    probe_host: "{{ builder_target.ansible_host }}"
+    probe_port: "{{ builder_target.ansible_port | default(22) }}"
+  tasks:
+    - name: "[Probe] Try each identity over SSH"
+      ansible.builtin.shell: |
+        set -u
+        HOST="{{ probe_host }}"; PORT="{{ probe_port }}"
+        try_identity() {
+          id="$1"
+          user=$(eval echo "\$PROBE_${id}_USER")
+          pw=$(eval echo "\$PROBE_${id}_PW")
+          key=$(eval echo "\$PROBE_${id}_KEY")
+          [ -z "$user" ] && return 1
+          kopt=""; [ -n "$key" ] && kopt="-i $key"
+          base="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -o Port=$PORT"
+          base="$base -o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
+          if [ -n "$pw" ]; then
+            SSHPASS="$pw" sshpass -e ssh $base $kopt "$user@$HOST" true >/dev/null 2>&1 && return 0
+          else
+            ssh $base -o BatchMode=yes $kopt "$user@$HOST" true >/dev/null 2>&1 && return 0
+          fi
+          return 1
+        }
+        for id in ANSIBLE ADMIN ROOT; do
+          if try_identity "$id"; then echo "$id"; exit 0; fi
+        done
+        exit 1
+      args:
+        executable: /bin/bash
+      environment:
+        PROBE_ANSIBLE_USER: "{{ builder_target.host_ssh_identities.ansible.user }}"
+        PROBE_ANSIBLE_PW: "{{ builder_target.host_ssh_identities.ansible.password }}"
+        PROBE_ANSIBLE_KEY: "{{ builder_target.host_ssh_identities.ansible.privkey }}"
+        PROBE_ADMIN_USER: "{{ builder_target.host_ssh_identities.admin.user }}"
+        PROBE_ADMIN_PW: "{{ builder_target.host_ssh_identities.admin.password }}"
+        PROBE_ADMIN_KEY: "{{ builder_target.host_ssh_identities.admin.privkey }}"
+        PROBE_ROOT_USER: "{{ builder_target.host_ssh_identities.root.user }}"
+        PROBE_ROOT_PW: "{{ builder_target.host_ssh_identities.root.password }}"
+        PROBE_ROOT_KEY: "{{ builder_target.host_ssh_identities.root.privkey }}"
+      register: probe
+      changed_when: false
+      no_log: true
+      failed_when: false
+
+    - name: "[Probe] Fail if no identity can connect"
+      ansible.builtin.assert:
+        that:
+          - probe.rc == 0
+        fail_msg: >-
+          Could not log in as ansible, admin or root with the configured
+          credentials. Check inventory/group_vars/builder/vault.yml
+          (vault_host_{ansible,admin,root}_password / _ssh_privkey_file) and
+          the host.
+
+    - name: "[Probe] Record the working identity"
+      ansible.builtin.set_fact:
+        probe_identity: "{{ probe.stdout | trim }}"
+
+    - name: "[Probe] Resolve the chosen connection settings"
+      ansible.builtin.set_fact:
+        probe_chosen: "{{ builder_target.host_ssh_identities[probe_identity | lower] }}"
+
+    - name: "[Probe] Register the target in the bootstrap group"
+      ansible.builtin.add_host:
+        name: "{{ groups['builder'][0] }}"
+        groups: builder_bootstrap
+        probe_identity: "{{ probe.stdout | trim }}"
+
+    - name: "[Probe] Report the working identity"
+      ansible.builtin.debug:
+        msg: "Connected as '{{ probe_identity }}' ({{ probe_chosen.user }})."
+
+- name: Bootstrap the build host (service + admin accounts, keys, sudo)
+  hosts: builder_bootstrap
+  gather_facts: true
+  # The probed identity's connection vars are applied as PLAY vars (add_host
+  # vars rank below inventory host_vars, so they would not take effect there).
+  vars:
+    ansible_user: "{{ hostvars['localhost'].probe_chosen.user }}"
+    ansible_password: "{{ hostvars['localhost'].probe_chosen.password }}"
+    ansible_ssh_private_key_file: "{{ hostvars['localhost'].probe_chosen.privkey }}"
+    # root needs no escalation; admin/ansible do (NOPASSWD sudo). The play var
+    # overrides the steady-state ansible_become=false from host_vars/main.yml.
+    bootstrap_become: "{{ (hostvars['localhost'].probe_identity | lower) != 'root' }}"
+    ansible_become: "{{ bootstrap_become }}"
+  become: "{{ bootstrap_become }}"
+  tasks:
+    # --------------------------------------------------------------------------
+    # Service account: create/repair only when we did NOT connect as ansible.
+    # --------------------------------------------------------------------------
+    - name: "[Bootstrap] Resolve the service account settings"
+      ansible.builtin.set_fact:
+        bootstrap_service_user: "{{ host_ansible_user | default('ansible') }}"
+        bootstrap_use_key: "{{ vault_host_ansible_ssh_pubkey_file | default('') | length > 0 }}"
+
+    - name: "[Bootstrap] Generate the service-account password (no key supplied)"
+      ansible.builtin.include_role:
+        name: imagebuilder
+        tasks_from: ensure_secrets
+      vars:
+        ensure_secrets_component: bootstrap
+        ensure_secrets_vault_file: "{{ host_vault_file }}"
+        ensure_secrets_managed_file: "{{ host_vault_managed_file }}"
+        ensure_secrets_per_host: true
+        ensure_secrets_list:
+          - var: vault_host_ansible_password
+            type: hex
+            length: 24
+      when: not (bootstrap_use_key | bool)
+
+    - name: "[Bootstrap] Resolve the effective service-account password"
+      ansible.builtin.set_fact:
+        bootstrap_service_password: >-
+          {{ vault_host_ansible_password
+             | default(vault_host_ansible_password_auto | default(''), true) }}
+      no_log: true
+      when: not (bootstrap_use_key | bool)
+
+    - name: "[Bootstrap] Check whether the docker group exists"
+      ansible.builtin.command: "getent group {{ host_ansible_docker_group | default('docker') }}"
+      register: bootstrap_docker_group
+      changed_when: false
+      failed_when: false
+
+    - name: "[Bootstrap] Resolve the service account's supplementary groups"
+      ansible.builtin.set_fact:
+        bootstrap_service_groups: >-
+          {{ [host_ansible_docker_group | default('docker')]
+             if bootstrap_docker_group.rc == 0 else [] }}
+
+    - name: "[Bootstrap] Ensure the service account's group exists"
+      ansible.builtin.group:
+        name: "{{ bootstrap_service_user }}"
+        gid: "{{ host_ansible_gid | default(6000) }}"
+
+    - name: "[Bootstrap] Create/repair the service account"
+      ansible.builtin.user:
+        name: "{{ bootstrap_service_user }}"
+        uid: "{{ host_ansible_uid | default(6000) }}"
+        group: "{{ bootstrap_service_user }}"
+        groups: "{{ bootstrap_service_groups }}"
+        append: true
+        shell: /bin/bash
+        create_home: true
+        home: "/home/{{ bootstrap_service_user }}"
+      when: hostvars['localhost'].probe_identity | lower != 'ansible'
+
+    - name: "[Bootstrap] Set the service-account password (password-auth mode)"
+      ansible.builtin.user:
+        name: "{{ bootstrap_service_user }}"
+        password: "{{ bootstrap_service_password | password_hash('sha512', 65534 | random(seed=inventory_hostname + bootstrap_service_password) | string) }}"
+        update_password: always
+      no_log: true
+      when:
+        - hostvars['localhost'].probe_identity | lower != 'ansible'
+        - not (bootstrap_use_key | bool)
+
+    # --------------------------------------------------------------------------
+    # Admin identity (optional): when the operator defines admin credentials
+    # and/or a public key, create/repair the account and set its password.
+    # Root always exists and is never created.
+    # --------------------------------------------------------------------------
+    - name: "[Bootstrap] Resolve the admin identity settings"
+      ansible.builtin.set_fact:
+        bootstrap_admin: "{{ host_ssh_identities.admin }}"
+        bootstrap_admin_defined: >-
+          {{ (host_ssh_identities.admin.password | default('') | length > 0)
+             or (host_ssh_identities.admin.pubkey | default('') | length > 0) }}
+
+    - name: "[Bootstrap] Create/repair the admin account"
+      ansible.builtin.user:
+        name: "{{ bootstrap_admin.user }}"
+        groups: "{{ bootstrap_service_groups }}"
+        append: true
+        shell: /bin/bash
+        create_home: true
+        state: present
+      when:
+        - bootstrap_admin_defined | bool
+        - bootstrap_admin.user != 'root'
+        - bootstrap_admin.user != bootstrap_service_user
+
+    - name: "[Bootstrap] Set the admin account password"
+      ansible.builtin.user:
+        name: "{{ bootstrap_admin.user }}"
+        password: "{{ bootstrap_admin.password | password_hash('sha512', 65534 | random(seed=inventory_hostname + bootstrap_admin.password) | string) }}"
+        update_password: always
+      no_log: true
+      when:
+        - bootstrap_admin_defined | bool
+        - bootstrap_admin.user != 'root'
+        - bootstrap_admin.password | default('') | length > 0
+
+    # --------------------------------------------------------------------------
+    # SSH public keys (per identity, opt-in): authorize every explicitly
+    # supplied vault_host_<id>_ssh_pubkey_file for its account. Empty/unset ->
+    # ignored (never generated).
+    # --------------------------------------------------------------------------
+    - name: "[Bootstrap] Resolve the explicitly supplied public keys"
+      ansible.builtin.set_fact:
+        bootstrap_pubkey_specs: >-
+          {%- set ns = namespace(specs=[]) -%}
+          {%- for id, ident in host_ssh_identities.items() -%}
+          {%-   if (ident.pubkey | default('') | string | trim) | length > 0 -%}
+          {%-     set ns.specs = ns.specs + [{'id': id, 'user': ident.user, 'path': ident.pubkey}] -%}
+          {%-   endif -%}
+          {%- endfor -%}
+          {{ ns.specs }}
+
+    - name: "[Bootstrap] Read the supplied public key files"
+      ansible.builtin.slurp:
+        src: "{{ item.path }}"
+      register: bootstrap_pubkey_files
+      delegate_to: localhost
+      become: false
+      loop: "{{ bootstrap_pubkey_specs }}"
+      loop_control:
+        label: "{{ item.id }}"
+
+    - name: "[Bootstrap] Check that each public-key account exists"
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ item.user }}"
+      register: bootstrap_pubkey_users
+      failed_when: false
+      loop: "{{ bootstrap_pubkey_specs }}"
+      loop_control:
+        label: "{{ item.id }}"
+
+    - name: "[Bootstrap] Fail if a public key targets a missing account"
+      ansible.builtin.assert:
+        that:
+          - bootstrap_pubkey_users.results | default([])
+            | selectattr('msg', 'defined') | selectattr('msg', 'ne', '') | list | length == 0
+        fail_msg: >-
+          vault_host_<id>_ssh_pubkey_file is set for account(s) that are not
+          managed by this bootstrap and do not exist on {{ inventory_hostname }}:
+          {{ bootstrap_pubkey_users.results | default([])
+             | selectattr('msg', 'defined') | selectattr('msg', 'ne', '')
+             | map(attribute='item.user') | join(', ') }}.
+          Only the root, service (ansible) and explicitly configured admin
+          accounts are provisioned; clear the pubkey path(s) or create the
+          account(s) first.
+      when: bootstrap_pubkey_specs | length > 0
+
+    - name: "[Bootstrap] Ensure each account's .ssh directory exists"
+      ansible.builtin.file:
+        path: "{{ ('/root' if item.item.user == 'root' else '/home/' ~ item.item.user) }}/.ssh"
+        state: directory
+        owner: "{{ item.item.user }}"
+        group: "{{ item.item.user }}"
+        mode: "0700"
+      loop: "{{ bootstrap_pubkey_files.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.id }}"
+
+    - name: "[Bootstrap] Authorize each supplied public key for its account"
+      ansible.posix.authorized_key:
+        user: "{{ item.item.user }}"
+        key: "{{ item.content | b64decode | trim }}"
+        state: present
+      loop: "{{ bootstrap_pubkey_files.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.id }}"
+
+    # --------------------------------------------------------------------------
+    # Passwordless sudo for the managed accounts.
+    # --------------------------------------------------------------------------
+    - name: "[Bootstrap] Resolve the passwordless-sudo accounts"
+      ansible.builtin.set_fact:
+        bootstrap_sudo_users: >-
+          {{ ([bootstrap_service_user]
+              + ([bootstrap_admin.user]
+                 if (bootstrap_admin_defined | default(false) | bool
+                     and bootstrap_admin.user | default('') != 'root')
+                 else []))
+             | unique }}
+
+    - name: "[Bootstrap] Grant passwordless sudo"
+      ansible.builtin.copy:
+        content: "{{ item }} ALL=(ALL) NOPASSWD: ALL\n"
+        dest: "/etc/sudoers.d/90-openwrt-builder-{{ item }}"
+        owner: root
+        group: root
+        mode: "0440"
+        validate: "visudo -cf %s"
+      loop: "{{ bootstrap_sudo_users }}"
+      when: host_bootstrap_sudo_nopasswd | default(true) | bool
+
+    - name: "[Bootstrap] Report the outcome"
+      ansible.builtin.debug:
+        msg: >-
+          Probed as '{{ hostvars['localhost'].probe_identity }}'. Service
+          account '{{ bootstrap_service_user }}'{{ " and admin account '" ~
+          bootstrap_admin.user ~ "'" if bootstrap_admin_defined | bool else "" }}
+          should exist; subsequent runs connect via vault_host_{ansible,admin,root}_*
+          in inventory/host_vars/{{ inventory_hostname }}/vault.yml.

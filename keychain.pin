@@ -1,0 +1,7 @@
+# Keychain 3 pin: <version> sha256:<release-asset digest>
+#
+# Updated automatically by Renovate (datasource: github-release-attachments,
+# configured in renovate.json). Do NOT edit by hand: bump via the Renovate PR,
+# which updates the version AND the digest together, then let `make
+# verify-keychain-pin` (CI) confirm the checksum.
+3.0.4 sha256:a33f929caa66b78b576613715e163f01c0d1cb346195f86e3a7044549bf8fb98

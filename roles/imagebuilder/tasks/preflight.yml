@@ -1,16 +1,11 @@
 ---
-- name: Provision the 'ansible' automation user on the build host
-  ansible.builtin.import_tasks: users.yml
-  tags: [users]
-  when: provision_ansible_user | bool
-
 - name: Assert an ImageBuilder image is configured
   ansible.builtin.assert:
     that:
       - openwrt_image | length > 0
     fail_msg: >-
       openwrt_image is not set. Configure it in
-      ansible/inventory/host_vars/<host>/main.yml (copy host_vars/example/),
+      inventory/host_vars/<variant>/main.yml (copy host_vars/example/),
       e.g. openwrt/imagebuilder:x86-64-v23.05.5.
 
 - name: Check the Docker CLI is available on the build host

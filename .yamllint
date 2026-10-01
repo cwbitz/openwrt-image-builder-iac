@@ -25,9 +25,9 @@ ignore:
   - "*.tpl"
   - "*.j2"
   # Installed collections / tool caches are third-party code.
-  - "ansible/collections/"
-  - "ansible/.ansible/"
-  - "ansible/.cache/"
+  - "collections/"
+  - ".ansible/"
+  - ".cache/"
   # Encrypted vault files are not parseable YAML until decrypted.
   - "**/vault.yml"
   - ".build/"

@@ -17,6 +17,14 @@
       "datasourceTemplate": "pypi",
       "packageNameTemplate": "ansible-core",
       "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "description": "Keychain 3 pin (version + sha256) via GitHub release attachments",
+      "managerFilePatterns": ["/^keychain\\.pin$/"],
+      "matchStrings": ["(?<currentValue>\\d+\\.\\d+\\.\\d+)\\s+sha256:(?<currentDigest>[a-f0-9]{64})"],
+      "datasourceTemplate": "github-release-attachments",
+      "packageNameTemplate": "danielrobbins/keychain"
     }
   ],
   "packageRules": [
@@ -36,6 +44,13 @@
     {
       "description": "Never auto-merge major updates",
       "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
+      "description": "Keychain (credential tool): major/minor require manual review",
+      "matchDatasources": ["github-release-attachments"],
+      "matchPackageNames": ["danielrobbins/keychain"],
+      "matchUpdateTypes": ["minor", "major"],
       "automerge": false
     }
   ]

@@ -1,9 +1,7 @@
 ---
 # Query the ImageBuilder image and profile information without building. Run
-# via `make info`.
-- name: "Select the connection user (probe, per builder host)"
-  ansible.builtin.import_playbook: connect.yml
-
+# via `make info`. Connects as the `ansible` identity from host_vars (run
+# `make host-bootstrap` once first).
 - name: "OpenWrt ImageBuilder information"
   hosts: builder
   gather_facts: true

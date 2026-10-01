@@ -1,0 +1,97 @@
+---
+# ==============================================================================
+# Load the control-node private keys into the running SSH agent
+# (playbooks/ssh_agent_load.yml)
+# ==============================================================================
+# The SSH agent is key-based, not path-based: it holds private keys and the
+# target's authorized_keys decides which is accepted. This playbook loads the
+# private-key paths recorded per identity in the vault
+# (vault_host_<id>_ssh_privkey_file), so the operator does not have to remember
+# them.
+#
+# Run via `make agent-load`, which starts/reuses the pinned Keychain agent
+# (`keychain agent start --eval`) in the current shell first. Keys that OpenSSH
+# rejects due to file permissions (e.g. on the WSL /mnt/c mount) are loaded via
+# stdin (`ssh-add - < key`), which reads the key content directly and skips the
+# permission check. This is why key loading lives here rather than in Keychain.
+# ==============================================================================
+
+- name: Load the control-node private keys into the running SSH agent
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars:
+    agent_load_hosts: "{{ groups['builder'] | default([]) }}"
+  tasks:
+    - name: "[SSHAgent] Assert the Keychain ssh-agent is reachable in this shell"
+      ansible.builtin.assert:
+        that:
+          - lookup('ansible.builtin.env', 'SSH_AUTH_SOCK') | length > 0
+        fail_msg: >-
+          SSH_AUTH_SOCK is not set. Run `make agent-load` (starts/reuses the
+          Keychain agent and loads the connection keys), or `make agent-setup` to
+          initialize the agent in every new shell.
+
+    - name: "[SSHAgent] Collect the configured private-key file paths (per identity)"
+      ansible.builtin.set_fact:
+        agent_private_key_files: >-
+          {{ (agent_private_key_files | default([])) +
+             [ hostvars[item].host_ssh_identities.ansible.privkey | default(''),
+               hostvars[item].host_ssh_identities.admin.privkey | default(''),
+               hostvars[item].host_ssh_identities.root.privkey | default('') ] }}
+      loop: "{{ agent_load_hosts }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: "[SSHAgent] Deduplicate the configured private-key paths"
+      ansible.builtin.set_fact:
+        agent_private_keys: >-
+          {{ agent_private_key_files | select | unique | list }}
+
+    - name: "[SSHAgent] Warn when no private-key paths are configured"
+      ansible.builtin.debug:
+        msg: >-
+          No vault_host_<id>_ssh_privkey_file values found (no hosts, or empty
+          vaults). Nothing to load.
+      when: agent_private_keys | length == 0
+
+    - name: "[SSHAgent] Load each private key into the SSH agent"
+      ansible.builtin.shell: |
+        set -u
+        key="${KEY/#\~/$HOME}"
+        if [ ! -f "$key" ]; then
+          echo "SKIP (missing): $key"
+          exit 0
+        fi
+        if ssh-add "$key" >/dev/null 2>&1; then
+          echo "ADDED: $key"
+        elif ssh-add - < "$key" >/dev/null 2>&1; then
+          echo "ADDED (via stdin, permissions): $key"
+        else
+          echo "FAILED: $key"
+          exit 1
+        fi
+      args:
+        executable: /bin/bash
+      environment:
+        KEY: "{{ item }}"
+      loop: "{{ agent_private_keys }}"
+      loop_control:
+        label: "{{ item }}"
+      changed_when: false
+      register: agent_load
+
+    - name: "[SSHAgent] Show what was loaded"
+      ansible.builtin.debug:
+        msg: "{{ agent_load.results | map(attribute='stdout') | list }}"
+      when: agent_load.results | length > 0
+
+    - name: "[SSHAgent] List the identities currently held by the agent"
+      ansible.builtin.command: ssh-add -l
+      changed_when: false
+      failed_when: false
+      register: agent_identities
+
+    - name: "[SSHAgent] Agent identities"
+      ansible.builtin.debug:
+        msg: "{{ agent_identities.stdout_lines | default(['<none>']) }}"
