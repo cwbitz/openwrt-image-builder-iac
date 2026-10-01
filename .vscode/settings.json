@@ -1,0 +1,11 @@
+{
+  "files.associations": {
+    "*.j2": "jinja"
+  },
+  "yaml.schemas": {
+    ".vscode/schemas/ansible-vars.json": [
+      "inventory/host_vars/**/*.yml",
+      "inventory/group_vars/**/*.yml"
+    ]
+  }
+}
