@@ -22,4 +22,4 @@
 
 - name: Show the ImageBuilder information
   ansible.builtin.debug:
-    msg: "{{ openwrt_info.container.Output | default('') | split('\n') }}"
+    msg: "{{ openwrt_info.container.Output | default('', true) | split('\n') }}"

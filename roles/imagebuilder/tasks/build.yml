@@ -38,7 +38,7 @@
 
 - name: Show the ImageBuilder build log
   ansible.builtin.debug:
-    msg: "{{ openwrt_build.container.Output | default('') | split('\n') }}"
+    msg: "{{ openwrt_build.container.Output | default('', true) | split('\n') }}"
 
 - name: Assert the build succeeded
   ansible.builtin.assert:

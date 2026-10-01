@@ -130,7 +130,7 @@
     - name: "[Bootstrap] Resolve the service account settings"
       ansible.builtin.set_fact:
         bootstrap_service_user: "{{ host_ansible_user | default('ansible') }}"
-        bootstrap_use_key: "{{ vault_host_ansible_ssh_pubkey_file | default('') | length > 0 }}"
+        bootstrap_use_key: "{{ vault_host_ansible_ssh_pubkey_file | default('', true) | length > 0 }}"
 
     - name: "[Bootstrap] Generate the service-account password (no key supplied)"
       ansible.builtin.include_role:
@@ -203,8 +203,8 @@
       ansible.builtin.set_fact:
         bootstrap_admin: "{{ host_ssh_identities.admin }}"
         bootstrap_admin_defined: >-
-          {{ (host_ssh_identities.admin.password | default('') | length > 0)
-             or (host_ssh_identities.admin.pubkey | default('') | length > 0) }}
+          {{ (host_ssh_identities.admin.password | default('', true) | length > 0)
+             or (host_ssh_identities.admin.pubkey | default('', true) | length > 0) }}
 
     - name: "[Bootstrap] Create/repair the admin account"
       ansible.builtin.user:
@@ -228,7 +228,7 @@
       when:
         - bootstrap_admin_defined | bool
         - bootstrap_admin.user != 'root'
-        - bootstrap_admin.password | default('') | length > 0
+        - bootstrap_admin.password | default('', true) | length > 0
 
     # --------------------------------------------------------------------------
     # SSH public keys (per identity, opt-in): authorize every explicitly
@@ -311,7 +311,7 @@
           {{ ([bootstrap_service_user]
               + ([bootstrap_admin.user]
                  if (bootstrap_admin_defined | default(false) | bool
-                     and bootstrap_admin.user | default('') != 'root')
+                     and bootstrap_admin.user | default('', true) != 'root')
                  else []))
              | unique }}
 

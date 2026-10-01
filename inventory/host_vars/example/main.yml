@@ -74,11 +74,11 @@ openwrt_main_lan_ip: ""
 # WAN PPPoE credentials. Both must be set for the module to apply; the password
 # is a secret and lives in vault.yml.
 openwrt_pppoe_username: ""
-openwrt_pppoe_password: "{{ vault_openwrt_pppoe_password | default('') }}"
+openwrt_pppoe_password: "{{ vault_openwrt_pppoe_password | default('', true) }}"
 
 # --- Module: root-password ---------------------------------------------------
 # Root login password baked into the image; a secret held in vault.yml.
-openwrt_root_password: "{{ vault_openwrt_root_password | default('') }}"
+openwrt_root_password: "{{ vault_openwrt_root_password | default('', true) }}"
 
 # --- Module: ap --------------------------------------------------------------
 # Configure the device as a wireless access point (gateway/DNS point at the
