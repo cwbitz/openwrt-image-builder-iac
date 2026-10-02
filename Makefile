@@ -14,11 +14,11 @@ EXTRA ?=
 # missing, so the ansible-running targets depend on `vault-init` (which
 # generates it), and CI generates a throwaway one before lint/syntax-check.
 ANSIBLE_VAULT_PASSWORD := $(HOME)/.config/projects/openwrt-builder-wrapper/ansible_vault_password
-# Per-variant vault: override with VARIANT=<name> or VAULT_FILE=<path>.
-# (The shared connection vault lives in group_vars/builder/; target it with
-# VAULT_FILE=inventory/group_vars/builder/vault.yml.) VAULT_FILE wins over VARIANT.
-VARIANT    ?= ib-main
-VAULT_FILE ?= inventory/host_vars/$(VARIANT)/vault.yml
+# HOST names the variant to operate on (its inventory host / host_vars dir).
+# Override with HOST=<name>, or point VAULT_FILE at another vault path (e.g. the
+# shared connection vault in group_vars/builder/). VAULT_FILE wins over HOST.
+HOST       ?= ib-main
+VAULT_FILE ?= inventory/host_vars/$(HOST)/vault.yml
 
 # sshpass is a control-node prerequisite (`make host-bootstrap` password SSH).
 # When passwordless sudo is unavailable, fall back to a rootless install into
@@ -55,11 +55,12 @@ ANSIBLE_PYTHON ?= $(shell \
 	  if [ -f "$$f" ] && head -c 2 "$$f" | grep -q '#!'; then head -1 "$$f" | sed -n 's|^#! *||; s| .*||p'; fi; fi)
 
 # Public interface (documented by `make help`).
-.PHONY: help install lint host-init host-bootstrap build info \
-        vault-init vault-edit vault-view agent-setup agent-load agent-check
+.PHONY: help install agent-setup vault-init host-init vault-edit vault-view \
+        host-bootstrap lint info build
 # Internal helpers (not listed in help; not part of the public interface).
 .PHONY: ensure-toolchain ensure-sshpass ensure-keychain ensure-collections \
-        ensure-passlib keychain-fetch keychain-verify run-playbook
+        ensure-passlib keychain-fetch keychain-verify run-playbook \
+        agent-load agent-check
 
 help: ## Show targets and overridable variables
 	@printf '\nUsage: make <target> [VAR=value ...]\n'
@@ -68,13 +69,9 @@ help: ## Show targets and overridable variables
 		$(MAKEFILE_LIST)
 	@printf '\n\033[1mVariables (override on the command line)\033[0m\n'
 	@printf '  \033[36m%-25s\033[0m %s\n' \
-		'HOST'           'variant to scaffold with host-init (e.g. HOST=ib-main)' \
-		'VARIANT'        'variant whose vault vault-* operates on (default: ib-main)' \
-		'VAULT_FILE'     'explicit vault path for vault-* (overrides VARIANT)' \
-		'EXTRA'          'extra Ansible args, e.g. -e openwrt_modules_adjust=["statistics"]' \
-		'KEYCHAIN_BIN'   'Keychain install path (default: ~/.local/bin/keychain)' \
-		'KEYCHAIN_CACHE' 'Keychain download cache (default: ~/.cache/openwrt-builder-wrapper)' \
-		'SSHPASS_BIN'    'rootless sshpass install path (default: ~/.local/bin/sshpass)'
+		'HOST'       'variant to operate on (inventory host / host_vars name, default: ib-main)' \
+		'VAULT_FILE' 'explicit vault path for vault-* (overrides HOST)' \
+		'EXTRA'      'extra Ansible args, e.g. -e openwrt_modules_adjust=["statistics"]'
 	@printf '\n'
 
 # ==============================================================================
@@ -85,68 +82,6 @@ help: ## Show targets and overridable variables
 # place. The `ensure-*` helpers below are internal and fail loudly.
 
 install: ensure-toolchain ensure-sshpass ensure-keychain ensure-collections ensure-passlib ## Install the control-node toolchain, collections, sshpass, passlib, Keychain
-
-lint: install vault-init ## Syntax check + ansible-lint
-	@for p in playbooks/*.yml; do \
-		$(ANS_PLAY) --syntax-check -i $(INV) "$$p" || exit 1; \
-	done
-	@if command -v ansible-lint >/dev/null 2>&1; then \
-		ansible-lint -c .ansible-lint .; \
-	else \
-		echo "WARN: ansible-lint not installed, skipped"; \
-	fi
-
-host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the example (vault encrypted)
-	@test -n "$(HOST)" || { echo "ERROR: HOST is required, e.g. make host-init HOST=ib-main"; exit 1; }
-	@[ -e $(INV) ] || { cp $(INV).example $(INV); echo "created $(INV)"; }
-	@install -d -m 0700 inventory/host_vars/$(HOST)
-	@[ -e inventory/host_vars/$(HOST)/main.yml ] || cp inventory/host_vars/example/main.yml inventory/host_vars/$(HOST)/main.yml
-	@[ -e inventory/host_vars/$(HOST)/vault.yml ] || cp inventory/host_vars/example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml
-	@if ! grep -q 'ANSIBLE_VAULT' inventory/host_vars/$(HOST)/vault.yml; then \
-		echo "encrypting inventory/host_vars/$(HOST)/vault.yml"; \
-		ansible-vault encrypt inventory/host_vars/$(HOST)/vault.yml; \
-	fi
-	@chmod 0600 inventory/host_vars/$(HOST)/vault.yml
-	@echo "scaffolded inventory/host_vars/$(HOST)/ (edit main.yml; make vault-edit VARIANT=$(HOST) for vault.yml)"
-
-host-bootstrap: ## Probe/provision the build host (ansible account, keys, sudo)
-	@test -f $(INV) || { \
-		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
-	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/bootstrap.yml
-
-build: ## Build a customized OpenWrt firmware image (run host-bootstrap first)
-	@test -f $(INV) || { \
-		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
-	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/build.yml
-
-info: ## Query ImageBuilder image/profile info (no build)
-	@test -f $(INV) || { \
-		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
-	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/info.yml
-
-vault-init: ## One-time: generate the vault password (idempotent)
-	@mkdir -p $(dir $(ANSIBLE_VAULT_PASSWORD))
-	@if [ ! -s $(ANSIBLE_VAULT_PASSWORD) ]; then \
-		openssl rand -base64 32 > $(ANSIBLE_VAULT_PASSWORD); \
-		chmod 600 $(ANSIBLE_VAULT_PASSWORD); \
-		echo "vault password generated: $(ANSIBLE_VAULT_PASSWORD) (BACK IT UP in a password manager)"; \
-	else \
-		echo "vault password exists: $(ANSIBLE_VAULT_PASSWORD)"; \
-	fi
-	@test "$$(wc -c < $(ANSIBLE_VAULT_PASSWORD))" -ge 44 || { echo "ERROR: vault password too weak"; exit 1; }
-
-vault-edit: ## Edit a host vault (vi; encrypts a plaintext vault first) (VARIANT=<name> or VAULT_FILE=<path>)
-	@test -s $(ANSIBLE_VAULT_PASSWORD) || { echo "ERROR: run 'make vault-init' first"; exit 1; }
-	@test -f $(VAULT_FILE) || { echo "ERROR: $(VAULT_FILE) not found"; exit 1; }
-	@if ! head -c 16 $(VAULT_FILE) | grep -q '$$ANSIBLE_VAULT'; then \
-		echo "vault is plaintext — encrypting $(VAULT_FILE) first"; \
-		ansible-vault encrypt $(VAULT_FILE); \
-	fi
-	ansible-vault edit $(VAULT_FILE)
-
-vault-view: ## View a host vault (read-only) (VARIANT=<name> or VAULT_FILE=<path>)
-	@test -s $(ANSIBLE_VAULT_PASSWORD) || { echo "ERROR: run 'make vault-init' first"; exit 1; }
-	ansible-vault view $(VAULT_FILE)
 
 agent-setup: install ## Append Keychain agent startup to ~/.bashrc (idempotent)
 	@set -e; \
@@ -167,11 +102,82 @@ agent-setup: install ## Append Keychain agent startup to ~/.bashrc (idempotent)
 	} >> "$$rc"; \
 	echo "agent-setup: appended Keychain block to $$rc (run: source $$rc)"
 
-agent-load: install vault-init ## Start/reuse the Keychain ssh-agent and load the vault keys
+vault-init: ## One-time: generate the vault password (idempotent)
+	@mkdir -p $(dir $(ANSIBLE_VAULT_PASSWORD))
+	@if [ ! -s $(ANSIBLE_VAULT_PASSWORD) ]; then \
+		openssl rand -base64 32 > $(ANSIBLE_VAULT_PASSWORD); \
+		chmod 600 $(ANSIBLE_VAULT_PASSWORD); \
+		echo "vault password generated: $(ANSIBLE_VAULT_PASSWORD) (BACK IT UP in a password manager)"; \
+	else \
+		echo "vault password exists: $(ANSIBLE_VAULT_PASSWORD)"; \
+	fi
+	@test "$$(wc -c < $(ANSIBLE_VAULT_PASSWORD))" -ge 44 || { echo "ERROR: vault password too weak"; exit 1; }
+
+host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the example (vault encrypted)
+	@test -n "$(HOST)" || { echo "ERROR: HOST is required, e.g. make host-init HOST=ib-main"; exit 1; }
+	@[ -e $(INV) ] || { cp $(INV).example $(INV); echo "created $(INV)"; }
+	@install -d -m 0700 inventory/host_vars/$(HOST)
+	@[ -e inventory/host_vars/$(HOST)/main.yml ] || cp inventory/host_vars/example/main.yml inventory/host_vars/$(HOST)/main.yml
+	@[ -e inventory/host_vars/$(HOST)/vault.yml ] || cp inventory/host_vars/example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml
+	@if ! grep -q 'ANSIBLE_VAULT' inventory/host_vars/$(HOST)/vault.yml; then \
+		echo "encrypting inventory/host_vars/$(HOST)/vault.yml"; \
+		ansible-vault encrypt inventory/host_vars/$(HOST)/vault.yml; \
+	fi
+	@chmod 0600 inventory/host_vars/$(HOST)/vault.yml
+	@echo "scaffolded inventory/host_vars/$(HOST)/ (edit main.yml; make vault-edit HOST=$(HOST) for vault.yml)"
+
+vault-edit: ## Edit a host vault (vi; encrypts a plaintext vault first) (HOST=<name> or VAULT_FILE=<path>)
+	@test -s $(ANSIBLE_VAULT_PASSWORD) || { echo "ERROR: run 'make vault-init' first"; exit 1; }
+	@test -f $(VAULT_FILE) || { echo "ERROR: $(VAULT_FILE) not found"; exit 1; }
+	@if ! head -c 16 $(VAULT_FILE) | grep -q '$$ANSIBLE_VAULT'; then \
+		echo "vault is plaintext — encrypting $(VAULT_FILE) first"; \
+		ansible-vault encrypt $(VAULT_FILE); \
+	fi
+	ansible-vault edit $(VAULT_FILE)
+
+vault-view: ## View a host vault (read-only) (HOST=<name> or VAULT_FILE=<path>)
+	@test -s $(ANSIBLE_VAULT_PASSWORD) || { echo "ERROR: run 'make vault-init' first"; exit 1; }
+	ansible-vault view $(VAULT_FILE)
+
+host-bootstrap: ## Probe/provision the build host (ansible account, keys, sudo)
+	@test -f $(INV) || { \
+		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
+	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/bootstrap.yml
+
+lint: install vault-init ## Syntax check + ansible-lint
+	@for p in playbooks/*.yml; do \
+		$(ANS_PLAY) --syntax-check -i $(INV) "$$p" || exit 1; \
+	done
+	@if command -v ansible-lint >/dev/null 2>&1; then \
+		ansible-lint -c .ansible-lint .; \
+	else \
+		echo "WARN: ansible-lint not installed, skipped"; \
+	fi
+
+info: ## Query ImageBuilder image/profile info (no build)
+	@test -f $(INV) || { \
+		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
+	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/info.yml
+
+build: ## Build a customized OpenWrt firmware image (run host-bootstrap first)
+	@test -f $(INV) || { \
+		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
+	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/build.yml
+
+# ==============================================================================
+# Internal helpers (not part of the public interface)
+# ==============================================================================
+
+# (internal) Start/reuse the Keychain ssh-agent and load the vault keys. Only
+# used as an explicit convenience; `run-playbook` performs the same fallback
+# automatically when OpenSSH refuses a key file's permissions.
+agent-load: install vault-init
 	@$(KEYCHAIN_AGENT); \
 	$(ANS_PLAY) playbooks/ssh_agent_load.yml
 
-agent-check: install vault-init ## Ensure the Keychain is installed and the agent has identities loaded
+# (internal) Diagnostic: ensure the Keychain is installed and the agent has
+# identities loaded. `run-playbook` already starts it on demand.
+agent-check: install vault-init
 	@$(KEYCHAIN_AGENT); \
 	if ssh-add -l >/dev/null 2>&1; then \
 		echo "ssh-agent: identities loaded"; \
@@ -180,10 +186,6 @@ agent-check: install vault-init ## Ensure the Keychain is installed and the agen
 		echo "Load the connection keys with: make agent-load"; \
 		exit 1; \
 	fi
-
-# ==============================================================================
-# Internal helpers (not part of the public interface)
-# ==============================================================================
 
 # (internal) Ensure the control-node toolchain: python >= 3.8 + openssl.
 ensure-toolchain:

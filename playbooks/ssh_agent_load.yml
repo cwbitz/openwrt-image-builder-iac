@@ -9,8 +9,9 @@
 # (vault_host_<id>_ssh_privkey_file), so the operator does not have to remember
 # them.
 #
-# Run via `make agent-load`, which starts/reuses the pinned Keychain agent
-# (`keychain agent start --eval`) in the current shell first. Keys that OpenSSH
+# Run via the internal `make agent-load`, or automatically by `run-playbook`
+# after it starts/reuses the pinned Keychain agent (`keychain agent start
+# --eval`) in the current shell. Keys that OpenSSH
 # rejects due to file permissions (e.g. on the WSL /mnt/c mount) are loaded via
 # stdin (`ssh-add - < key`), which reads the key content directly and skips the
 # permission check. This is why key loading lives here rather than in Keychain.
@@ -28,9 +29,9 @@
         that:
           - lookup('ansible.builtin.env', 'SSH_AUTH_SOCK') | length > 0
         fail_msg: >-
-          SSH_AUTH_SOCK is not set. Run `make agent-load` (starts/reuses the
-          Keychain agent and loads the connection keys), or `make agent-setup` to
-          initialize the agent in every new shell.
+          SSH_AUTH_SOCK is not set. Run `make agent-setup` to initialize the
+          Keychain agent in every new shell (or the internal `make agent-load` to
+          start it and load the connection keys now).
 
     - name: "[SSHAgent] Collect the configured private-key file paths (per identity)"
       ansible.builtin.set_fact:

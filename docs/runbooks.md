@@ -44,7 +44,7 @@ make host-init HOST=ib-side               # repeat for each variant
 make install
 make vault-init
 make vault-edit VAULT_FILE=inventory/group_vars/builder/vault.yml  # shared SSH identity
-make vault-edit VARIANT=ib-main          # that variant's firmware secrets
+make vault-edit HOST=ib-main             # that variant's firmware secrets
 make host-bootstrap EXTRA='--limit ib-main'   # once; probe ansible -> admin -> root
 ```
 
@@ -63,7 +63,7 @@ Vault files are auto-loaded by the inventory. `hosts.yml` and every
 `host_vars/<variant>/` directory are gitignored; only `host_vars/example/` and
 `group_vars/builder/` (except the real `vault*.yml`) are committed. An operator
 `vault.yml` may stay plaintext (mode 0600) until you encrypt it
-(`make vault-edit VARIANT=<variant>` or `VAULT_FILE=...`, which encrypts a
+(`make vault-edit HOST=<variant>` or `VAULT_FILE=...`, which encrypts a
 plaintext file before editing; `make host-init` encrypts at scaffold time), while
 the managed `vault_managed.yml` is always encrypted and never hand-edited.
 
@@ -106,9 +106,10 @@ every variant):
   mount), the target starts a pinned **Keychain 3** ssh-agent, loads every
   configured `vault_host_<id>_ssh_privkey_file` (via stdin, `ssh-add - < key`,
   which reads the key content directly and skips the permission check), and
-  retries once. `make agent-load` starts/reuses the agent explicitly;
-  `make agent-check` verifies it has identities; `make agent-setup` initializes
-  the agent in every new shell (idempotent `~/.bashrc` block).
+  retries once. `make agent-setup` initializes the agent in every new shell
+  (idempotent `~/.bashrc` block); `make agent-load` (start/reuse the agent and
+  load the keys) and `make agent-check` (verify identities) are internal
+  helpers — `run-playbook` already performs the fallback on demand.
 
 ## 3. Build
 
@@ -244,7 +245,7 @@ The same knob also works for release images; combined with
   `vault_host_ansible_ssh_pubkey_file`).
 - The vault password file (`~/.config/projects/openwrt-builder-wrapper/ansible_vault_password`)
   is created by `make vault-init` and **never** committed; back it up.
-  `make vault-edit VARIANT=<host>` encrypts a plaintext vault before editing;
+  `make vault-edit HOST=<host>` encrypts a plaintext vault before editing;
   without a vault password a plaintext vault keeps working (secrets are
   gitignored).
 - Values are Jinja-templated and shell-quoted automatically, so special

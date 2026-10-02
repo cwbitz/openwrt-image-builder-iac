@@ -52,9 +52,8 @@ build logic lives in `roles/imagebuilder/`.
 
 ## Commands
 
-- `make help` — flat target list + overridable variables (`HOST`, `VARIANT`,
-  `VAULT_FILE`, `EXTRA`, `KEYCHAIN_BIN`, `KEYCHAIN_CACHE`, `SSHPASS_BIN`).
-  `VAULT_FILE` overrides `VARIANT`.
+- `make help` — flat target list + overridable variables (`HOST`,
+  `VAULT_FILE`, `EXTRA`). `VAULT_FILE` overrides `HOST`.
 - `make install` — the sole dependency entry (see above).
 - `make lint` — `ansible-playbook --syntax-check` for every playbook +
   `ansible-lint`.
@@ -66,10 +65,13 @@ build logic lives in `roles/imagebuilder/`.
 - `make build` / `make info` — build every variant in parallel / query
   ImageBuilder info. Non-`ansible` runs are unsupported.
 - `make vault-init` — generate the vault password file (outside the repo).
-- `make vault-edit` / `make vault-view` — edit/view a vault; `vault-edit`
-  encrypts a plaintext vault first.
-- `make agent-setup` / `make agent-load` / `make agent-check` — explicit
-  Keychain lifecycle: init in every new shell / start+load keys / verify loaded.
+- `make vault-edit` / `make vault-view` — edit/view a vault (`HOST=<name>`,
+  default `ib-main`, or `VAULT_FILE=<path>`); `vault-edit` encrypts a plaintext
+  vault first.
+- `make agent-setup` — init the Keychain agent in every new shell (the only
+  public agent convenience). `agent-load` (start+load keys) and `agent-check`
+  (verify loaded) are internal: `run-playbook` already falls back to Keychain
+  on a permission failure.
 - `EXTRA` is appended to every `ansible-playbook` invocation, e.g.
   `make build EXTRA='--limit ib-side'`.
 
