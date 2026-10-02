@@ -6,6 +6,8 @@
   hosts: builder
   gather_facts: true
   become: false
-  roles:
-    - role: imagebuilder
-      tasks_from: info
+  tasks:
+    - name: Query ImageBuilder image and profile information
+      ansible.builtin.include_role:
+        name: imagebuilder
+        tasks_from: info
