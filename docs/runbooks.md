@@ -16,14 +16,17 @@ Operational procedures for building OpenWrt firmware with
 | `ansible-core` + `python` | Pinned in `.tool-versions` (`mise install` / `asdf install`) |
 | `community.docker` | Installed into `collections/` by `make install` |
 | `openssl` | Control node; generates secret values (`make check-deps`) |
-| `sshpass` | Control node; password SSH during `make host-bootstrap` (`make check-deps`) |
+| `sshpass` | Control node; password SSH during `make host-bootstrap` (`make host-bootstrap` auto-runs `make check-deps`, which installs it) |
 | `passlib` | Control node; `password_hash` for the automation user (`make check-deps`) |
 | Keychain 3 | Control node; pinned ssh-agent (`make agent-load` auto-downloads + verifies SHA256) |
 | vault password | Created once by `make vault-init`; required to store/read generated secrets |
 | docker Python SDK | On the **build host** (not the control node); checked by the role preflight |
 
 `make install` checks and, where safe, installs the control-node prerequisites
-(`openssl`, `sshpass`, `passlib`, the `docker` SDK for a local build host). The
+(`openssl`, `sshpass`, `passlib`, the `docker` SDK for a local build host).
+`make host-bootstrap` depends on `make check-deps`, so `sshpass` is installed
+automatically (passwordless `apt-get`, else rootless into `~/.local/bin`) before
+the probe runs. The
 Docker CLI, daemon and Python SDK are validated again at run time by the role's
 preflight tasks (actionable failure when missing). Keychain 3 is fetched from its
 pinned GitHub release and SHA256-verified by `make keychain-check`/`keychain-verify`.

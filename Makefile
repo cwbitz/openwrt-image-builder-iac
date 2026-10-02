@@ -155,6 +155,11 @@ check-deps:
 # Install sshpass into ~/.local without root. Internal.
 install-sshpass-local:
 	@set -e; \
+	if ! command -v apt-get >/dev/null 2>&1 || ! command -v dpkg-deb >/dev/null 2>&1; then \
+		echo "ERROR: cannot auto-install sshpass (apt-get/dpkg-deb not found on the control node)." >&2; \
+		echo "  Install sshpass manually, or use key-only bootstrap credentials (vault_host_ansible_ssh_pubkey_file / _ssh_privkey_file)." >&2; \
+		exit 1; \
+	fi; \
 	tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
 	cd "$$tmp"; \
@@ -274,7 +279,7 @@ host-init: ## Scaffold inventory + host_vars/<HOST> from the example (HOST=<name
 	@cp -n inventory/host_vars/example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml || true
 	@echo "scaffolded inventory/host_vars/$(HOST)/ (edit main.yml + vault.yml, then: make vault-edit VARIANT=$(HOST))"
 
-host-bootstrap: check-collections vault-init agent-load ## Probe/provision the build host (ansible account, keys, sudo)
+host-bootstrap: check-deps check-collections vault-init agent-load ## Probe/provision the build host (ansible account, keys, sudo)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@$(KEYCHAIN_AGENT); \

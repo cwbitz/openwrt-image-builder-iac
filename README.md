@@ -188,7 +188,7 @@ Notes:
 | Command | Purpose |
 |---------|---------|
 | `make host-init HOST=<name>` | Scaffold `inventory/` + `host_vars/<name>/` from the example |
-| `make host-bootstrap` | Probe ansible → admin → root and provision the service account |
+| `make host-bootstrap` | Probe ansible → admin → root and provision the service account (auto-installs `sshpass` via `check-deps`, `keychain` via `agent-load`) |
 | `make build` | Build a customized firmware image (ImageBuilder container) |
 | `make info` | Query image/profile information (no build) |
 | `make install` | Install control-node prerequisites + collections |

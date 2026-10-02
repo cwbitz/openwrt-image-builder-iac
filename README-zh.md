@@ -171,7 +171,7 @@ make build EXTRA='--limit ib-side'   # 或只构建某个变体
 | 命令 | 用途 |
 |------|------|
 | `make host-init HOST=<name>` | 从模板生成 `inventory/` 与 `host_vars/<name>/` |
-| `make host-bootstrap` | 探测 ansible → admin → root 并创建服务账号 |
+| `make host-bootstrap` | 探测 ansible → admin → root 并创建服务账号（经 `check-deps` 自动安装 `sshpass`，经 `agent-load` 自动安装 `keychain`） |
 | `make build` | 构建自定义固件镜像（ImageBuilder 容器） |
 | `make info` | 查询镜像/Profile 信息（不构建） |
 | `make install` | 安装控制端依赖 + collections |
