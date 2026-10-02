@@ -116,7 +116,7 @@ make host-init HOST=ib-main
 #    -> 对其它变体重复：make host-init HOST=ib-side 等
 
 # 2) 密钥：连接密钥放共享 vault（每台构建机一次），固件密钥放各变体 vault
-make install           # 安装 collections + openssl/sshpass/passlib + docker SDK
+make install           # 工具链 + collections + sshpass/passlib + Keychain
 make vault-init     # 一次性：生成 vault 口令（务必另行备份）
 make vault-edit VAULT_FILE=inventory/group_vars/builder/vault.yml  # SSH 连接身份
 make vault-edit VARIANT=ib-main   # 该变体的固件密钥
@@ -170,19 +170,23 @@ make build EXTRA='--limit ib-side'   # 或只构建某个变体
 
 | 命令 | 用途 |
 |------|------|
-| `make host-init HOST=<name>` | 从模板生成 `inventory/` 与 `host_vars/<name>/` |
-| `make host-bootstrap` | 探测 ansible → admin → root 并创建服务账号（经 `check-deps` 自动安装 `sshpass`，经 `agent-load` 自动安装 `keychain`） |
+| `make install` | **唯一依赖入口**：确保控制端工具链、collections、`sshpass`、`passlib` 与 Keychain |
+| `make lint` | `ansible-playbook --syntax-check` + `ansible-lint` |
+| `make host-init HOST=<name>` | 从模板生成 `inventory/` 与 `host_vars/<name>/`（vault 立即加密） |
+| `make host-bootstrap` | 探测 ansible → admin → root 并创建服务账号 |
 | `make build` | 构建自定义固件镜像（ImageBuilder 容器） |
 | `make info` | 查询镜像/Profile 信息（不构建） |
-| `make install` | 安装控制端依赖 + collections |
-| `make lint` | `ansible-playbook --syntax-check` + `ansible-lint` |
 | `make vault-init` | 一次性：生成 vault 口令 |
 | `make vault-edit` / `vault-view` | 编辑 / 查看 vault 文件（`VAULT_FILE=...` 或 `VARIANT=...`） |
-| `make agent-load` | 启动/复用 Keychain ssh-agent 并加载 vault 中的密钥 |
-| `make agent-check` | 确认 Keychain ssh-agent 已加载身份 |
 | `make agent-setup` | 将 Keychain agent 启动写入 `~/.bashrc`（幂等） |
-| `make keychain-verify` | 校验固定版本 Keychain 资产的 SHA256（不安装） |
-| `make clean` | 清理缓存、collections 与构建临时目录 |
+| `make agent-load` | 启动/复用 Keychain ssh-agent 并加载 vault 中的密钥 |
+| `make agent-check` | 确认 Keychain 已安装且 agent 已加载身份 |
+
+已移除：`make clean`（请自行删除 `.cache`/`collections`/`.ansible`）、
+`make vault-encrypt`（`host-init` 即加密；`vault-edit` 会先加密明文 vault），
+以及公开的 `check-*` / `keychain-*` 辅助目标（已转为内部，由 `install` 驱动）。
+docker Python SDK 是**构建机**依赖，由 role preflight 断言，因此 `install`
+有意不在控制端安装它。
 
 ## 模块一览
 
@@ -238,11 +242,13 @@ make build EXTRA='--limit ib-side'   # 或只构建某个变体
 - **控制机用哪个私钥？** 各身份可在 vault 中设置私钥路径
   （`vault_host_<id>_ssh_privkey_file`）；未设置时回退到本机 ssh-agent，再回退到
   vault 密码。vault 中只存路径，绝不存私钥内容。
-- **ssh-agent + Keychain**：`build`/`info`/`host-bootstrap` 会启动（或复用）固定版本的
-  **Keychain 3** agent，并把所有已配置的 `vault_host_<id>_ssh_privkey_file` 加载进去
-  （`make agent-load`）；探测顺序为 `ansible → admin → root`。当私钥文件权限过宽
-  （如 WSL `/mnt/c` 挂载）时，改用 stdin 加载（`ssh-add - < key`），直接读取私钥内容、
-  绕过权限检查。可执行一次 `make agent-setup` 让每个新 shell 自动初始化 agent。
+- **Keychain 仅作兜底，不是前置条件**：私钥权限正确（或使用密码）时，
+  `build`/`info`/`host-bootstrap` 直接连接。仅当 OpenSSH 因私钥文件权限无法修复
+  （如 WSL `/mnt/c` 挂载的 `0777`）而拒绝时，才启动固定版本的 **Keychain 3** agent，
+  把所有已配置的 `vault_host_<id>_ssh_privkey_file` 经 stdin 加载进去
+  （`ssh-add - < key`，直接读取私钥内容、绕过权限检查），并重试一次。
+  `make install` 保证 Keychain 能装上；`make agent-load`/`agent-check`/`agent-setup`
+  仍是显式的 agent 生命周期动作。探测顺序为 `ansible → admin → root`。
 - **构建产物位置**：每个变体先在构建机的 `openwrt_output_dir`
   （默认 `~/.cache/openwrt-builder/artifacts/<variant>`）生成，再回传到控制机的
   `artifacts/<variant>/targets/<target>/<subtarget>/`。将 `openwrt_fetch_artifacts`

@@ -8,6 +8,6 @@
 # (an isolated venv). Collections are pinned separately in
 # requirements.yml. Lint tools (ansible-lint / yamllint) are
 # intentionally NOT pinned here — they are "latest"-tracked and installed via
-# pip/pipx by `make check-deps` / CI.
+# pip/pipx by the operator / CI (outside `make install`).
 python 3.11.15
 ansible-core 2.19.11

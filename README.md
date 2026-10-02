@@ -128,7 +128,7 @@ make host-init HOST=ib-main
 
 # 2) Secrets: connection secrets go in the shared vault (once per builder);
 #    firmware secrets go in each variant's vault.
-make install           # collections + openssl/sshpass/passlib + docker SDK
+make install           # toolchain + collections + sshpass/passlib + Keychain
 make vault-init     # one-time: vault password (back it up)
 make vault-edit VAULT_FILE=inventory/group_vars/builder/vault.yml  # SSH identity
 make vault-edit VARIANT=ib-main   # that variant's firmware secrets
@@ -187,19 +187,24 @@ Notes:
 
 | Command | Purpose |
 |---------|---------|
-| `make host-init HOST=<name>` | Scaffold `inventory/` + `host_vars/<name>/` from the example |
-| `make host-bootstrap` | Probe ansible → admin → root and provision the service account (auto-installs `sshpass` via `check-deps`, `keychain` via `agent-load`) |
+| `make install` | **Sole dependency entry**: ensures the control-node toolchain, collections, `sshpass`, `passlib` and Keychain |
+| `make lint` | `ansible-playbook --syntax-check` + `ansible-lint` |
+| `make host-init HOST=<name>` | Scaffold `inventory/` + `host_vars/<name>/` from the example (vault encrypted) |
+| `make host-bootstrap` | Probe ansible → admin → root and provision the service account |
 | `make build` | Build a customized firmware image (ImageBuilder container) |
 | `make info` | Query image/profile information (no build) |
-| `make install` | Install control-node prerequisites + collections |
-| `make lint` | `ansible-playbook --syntax-check` + `ansible-lint` |
 | `make vault-init` | One-time: generate the vault password |
 | `make vault-edit` / `vault-view` | Edit / view a vault file (`VAULT_FILE=...` or `VARIANT=...`) |
-| `make agent-load` | Start/reuse the Keychain ssh-agent and load the vault keys |
-| `make agent-check` | Ensure the Keychain ssh-agent has identities loaded |
 | `make agent-setup` | Append Keychain agent startup to `~/.bashrc` (idempotent) |
-| `make keychain-verify` | Verify the pinned Keychain asset SHA256 (no install) |
-| `make clean` | Remove caches, collections and build scratch |
+| `make agent-load` | Start/reuse the Keychain ssh-agent and load the vault keys |
+| `make agent-check` | Ensure Keychain is installed and the agent has identities loaded |
+
+Removed: `make clean` (delete `.cache`/`collections`/`.ansible` yourself),
+`make vault-encrypt` (`host-init` encrypts; `vault-edit` encrypts a plaintext
+vault first), and the public `check-*` / `keychain-*` helpers (now internal;
+`install` drives them). The docker Python SDK is a **build-host** dependency,
+asserted by the role preflight, so it is intentionally not installed by
+`install` on the control node.
 
 ## Modules
 
@@ -262,13 +267,15 @@ appended (or removed with a `-` prefix) via `openwrt_extra_packages`.
   path in the vault (`vault_host_<id>_ssh_privkey_file`); when unset, SSH
   falls back to your running ssh-agent, then to the vault password. The private
   key is never stored as a value in the vault — only its path.
-- **ssh-agent + Keychain**: `build`/`info`/`host-bootstrap` start (or reuse) a
-  pinned **Keychain 3** agent and load every configured `vault_host_<id>_ssh_privkey_file`
-  into it (`make agent-load`). The probe order is `ansible → admin → root`.
-  When a key's file permissions are too open (e.g. the WSL `/mnt/c` mount), it is
-  loaded via stdin (`ssh-add - < key`), which reads the key content directly and
-  bypasses the permission check. Run `make agent-setup` once to initialize the
-  agent in every new shell.
+- **Keychain is a fallback, not a prerequisite**: `build`/`info`/`host-bootstrap`
+  connect directly when their key permissions are correct (or via password). Only
+  when OpenSSH refuses a key whose file permissions cannot be fixed (e.g. `0777`
+  on the WSL `/mnt/c` mount) do they start the pinned **Keychain 3** agent, load
+  every configured `vault_host_<id>_ssh_privkey_file` into it (via stdin,
+  `ssh-add - < key`, which reads the key content directly and skips the permission
+  check), and retry once. `make install` guarantees Keychain can be installed;
+  `make agent-load`/`agent-check`/`agent-setup` remain the explicit agent-lifecycle
+  actions. The probe order is `ansible → admin → root`.
 - **Where do the images go?** Each variant is built on the builder under
   `openwrt_output_dir` (`~/.cache/openwrt-builder/artifacts/<variant>` by
   default), then fetched to the control node's

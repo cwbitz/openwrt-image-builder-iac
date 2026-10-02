@@ -15,21 +15,22 @@ Operational procedures for building OpenWrt firmware with
 | python >= 3.8 | Control node; runs `ansible-core` and the `community.docker` modules |
 | `ansible-core` + `python` | Pinned in `.tool-versions` (`mise install` / `asdf install`) |
 | `community.docker` | Installed into `collections/` by `make install` |
-| `openssl` | Control node; generates secret values (`make check-deps`) |
-| `sshpass` | Control node; password SSH during `make host-bootstrap` (`make host-bootstrap` auto-runs `make check-deps`, which installs it) |
-| `passlib` | Control node; `password_hash` for the automation user (`make check-deps`) |
-| Keychain 3 | Control node; pinned ssh-agent (`make agent-load` auto-downloads + verifies SHA256) |
+| `openssl` | Control node; generates secret values (`make install`) |
+| `sshpass` | Control node; password SSH during `make host-bootstrap` (ensured by `make install`) |
+| `passlib` | Control node; `password_hash` for the automation user (`make install`) |
+| Keychain 3 | Control node; **fallback** ssh-agent, ensured by `make install`; started automatically only when OpenSSH refuses a key's file permissions |
 | vault password | Created once by `make vault-init`; required to store/read generated secrets |
 | docker Python SDK | On the **build host** (not the control node); checked by the role preflight |
 
-`make install` checks and, where safe, installs the control-node prerequisites
-(`openssl`, `sshpass`, `passlib`, the `docker` SDK for a local build host).
-`make host-bootstrap` depends on `make check-deps`, so `sshpass` is installed
-automatically (passwordless `apt-get`, else rootless into `~/.local/bin`) before
-the probe runs. The
-Docker CLI, daemon and Python SDK are validated again at run time by the role's
-preflight tasks (actionable failure when missing). Keychain 3 is fetched from its
-pinned GitHub release and SHA256-verified by `make keychain-check`/`keychain-verify`.
+`make install` is the sole dependency entry point: it ensures the control-node
+toolchain (`python` >= 3.8, `openssl`), the Galaxy collections, `sshpass`
+(passwordless `apt-get`, else rootless into `~/.local/bin`; a failure is fatal)
+and `passlib`, and installs the pinned Keychain 3 (fetched from its GitHub
+release and SHA256-verified against `keychain.pin`). Every other target depends
+on `install`, so `sshpass`/`passlib`/Keychain are ready before a playbook runs.
+The Docker CLI, daemon and Python SDK are validated at run time by the role's
+preflight tasks on the **build host** (actionable failure when missing); the
+control node does not need the docker SDK.
 
 ## 2. First-time setup
 
@@ -62,9 +63,9 @@ Vault files are auto-loaded by the inventory. `hosts.yml` and every
 `host_vars/<variant>/` directory are gitignored; only `host_vars/example/` and
 `group_vars/builder/` (except the real `vault*.yml`) are committed. An operator
 `vault.yml` may stay plaintext (mode 0600) until you encrypt it
-(`make vault-encrypt VARIANT=<variant>` or `VAULT_FILE=...`); `host-bootstrap`
-handles both formats, while the managed `vault_managed.yml` is always encrypted
-and never hand-edited.
+(`make vault-edit VARIANT=<variant>` or `VAULT_FILE=...`, which encrypts a
+plaintext file before editing; `make host-init` encrypts at scaffold time), while
+the managed `vault_managed.yml` is always encrypted and never hand-edited.
 
 ### SSH identities and `host-bootstrap`
 
@@ -98,15 +99,16 @@ every variant):
 - SSH prefers a key (explicit `vault_host_<id>_ssh_privkey_file`, else the
   running SSH agent), then the password, capped at one prompt
   (`host_ssh_common_args`). `sshpass` is required on the control node for password
-  attempts (`make check-deps`).
-- `build`/`info`/`host-bootstrap` depend on `agent-load`, which starts (or
-  reuses) a pinned **Keychain 3** ssh-agent and loads every configured
-  `vault_host_<id>_ssh_privkey_file` into it; the recipe re-exports the agent env
-  (`keychain agent start --eval`) before running the playbook. When OpenSSH
-  rejects a key's file permissions (e.g. the WSL `/mnt/c` mount), the key is
-  loaded via stdin (`ssh-add - < key`), i.e. the key content is read directly and
-  the permission check is skipped. `make agent-setup` initializes the agent in
-  every new shell (idempotent `~/.bashrc` block).
+  attempts (ensured by `make install`).
+- `build`/`info`/`host-bootstrap` connect directly when key permissions are
+  correct (or via password). Keychain is a **fallback**: when OpenSSH refuses a
+  key whose file permissions cannot be fixed (e.g. `0777` on the WSL `/mnt/c`
+  mount), the target starts a pinned **Keychain 3** ssh-agent, loads every
+  configured `vault_host_<id>_ssh_privkey_file` (via stdin, `ssh-add - < key`,
+  which reads the key content directly and skips the permission check), and
+  retries once. `make agent-load` starts/reuses the agent explicitly;
+  `make agent-check` verifies it has identities; `make agent-setup` initializes
+  the agent in every new shell (idempotent `~/.bashrc` block).
 
 ## 3. Build
 
@@ -192,8 +194,9 @@ sha256sum -c artifacts/*/targets/*/*/sha256sums 2>/dev/null || true
 
 The build writes only to the builder's `~/.cache/openwrt-builder` and (when
 fetching) the control node's `artifacts/`. Both are scratch/output locations:
-`artifacts/` contents are gitignored and can be removed freely, and `make clean`
-drops caches and collections. Nothing else on either host is modified.
+`artifacts/` contents are gitignored and can be removed freely; remove the
+control-node caches (`.cache`, `collections`, `.ansible`) yourself. Nothing else
+on either host is modified.
 
 ## 4. Query image/profile info
 
@@ -241,8 +244,9 @@ The same knob also works for release images; combined with
   `vault_host_ansible_ssh_pubkey_file`).
 - The vault password file (`~/.config/projects/openwrt-builder-wrapper/ansible_vault_password`)
   is created by `make vault-init` and **never** committed; back it up.
-  `make vault-encrypt VARIANT=<host>` encrypts a plaintext vault; without a
-  vault password a plaintext vault keeps working (secrets are gitignored).
+  `make vault-edit VARIANT=<host>` encrypts a plaintext vault before editing;
+  without a vault password a plaintext vault keeps working (secrets are
+  gitignored).
 - Values are Jinja-templated and shell-quoted automatically, so special
   characters (`$`, `'`, `\`, `"`) are safe. Leave a secret empty to skip its
   module.
