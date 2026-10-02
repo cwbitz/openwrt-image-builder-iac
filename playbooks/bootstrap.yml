@@ -122,6 +122,11 @@
     # overrides the steady-state ansible_become=false from host_vars/main.yml.
     bootstrap_become: "{{ (hostvars['localhost'].probe_identity | lower) != 'root' }}"
     ansible_become: "{{ bootstrap_become }}"
+    # The admin identity may log in by key (empty SSH password) while its sudo
+    # still requires the account password; reuse the identity's password for
+    # become so escalation works. A wrong/empty value only matters when sudo is
+    # not passwordless, in which case bootstrap fails loudly.
+    ansible_become_password: "{{ hostvars['localhost'].probe_chosen.password | default('', true) }}"
   become: "{{ bootstrap_become }}"
   tasks:
     # --------------------------------------------------------------------------
