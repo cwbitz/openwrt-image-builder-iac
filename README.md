@@ -16,6 +16,8 @@ OpenWrt ImageBuilder** running in a Docker container.
 ## Architecture Overview
 
 ```
+make deploy                                   # one-click: 'make host-bootstrap' then 'make build'
+
 make host-bootstrap                           # once: probe ansible/admin/root, provision the service account
   └── ansible-playbook playbooks/bootstrap.yml
                 probe (localhost) → create/repair 'ansible' (+ optional admin) → authorize keys → sudo
@@ -140,6 +142,9 @@ make host-bootstrap EXTRA='--limit ib-main'   # one host (same machine)
 # 4) Build every variant in parallel (connects as the shared 'ansible' identity)
 make build
 make build EXTRA='--limit ib-side'   # or just one variant
+
+# One-shot alternative to steps 3-4: bootstrap the host, then build
+make deploy
 ```
 
 The builder produces each variant's image on the build host (under
@@ -191,6 +196,7 @@ Notes:
 | `make lint` | `ansible-playbook --syntax-check` + `ansible-lint` |
 | `make host-init HOST=<name>` | Scaffold `inventory/` + `host_vars/<name>/` from the example (vault encrypted) |
 | `make host-bootstrap` | Probe ansible → admin → root and provision the service account |
+| `make deploy` | One-click first build: `host-bootstrap` then `build` |
 | `make build` | Build a customized firmware image (ImageBuilder container) |
 | `make info` | Query image/profile information (no build) |
 | `make vault-init` | One-time: generate the vault password |

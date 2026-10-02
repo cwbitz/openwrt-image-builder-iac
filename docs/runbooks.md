@@ -46,6 +46,8 @@ make vault-init
 make vault-edit VAULT_FILE=inventory/group_vars/builder/vault.yml  # shared SSH identity
 make vault-edit HOST=ib-main             # that variant's firmware secrets
 make host-bootstrap EXTRA='--limit ib-main'   # once; probe ansible -> admin -> root
+# or, to bootstrap and then build every variant in one shot:
+make deploy
 ```
 
 Configuration is split by scope:
@@ -116,6 +118,7 @@ every variant):
 ```bash
 make build                            # build every variant, in parallel
 make build EXTRA='--limit ib-side' # single variant
+make deploy                           # host-bootstrap, then build (fresh host to image)
 ```
 
 `make build` targets the `builder` group; every inventory host in it is one

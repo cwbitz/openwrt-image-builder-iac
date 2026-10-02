@@ -16,6 +16,8 @@ Ansible IaC 项目。
 ## 架构概览
 
 ```
+make deploy                                   # 一键：先 'make host-bootstrap' 再 'make build'
+
 make host-bootstrap                           # 一次性：探测 ansible/admin/root 并创建服务账号
   └── ansible-playbook playbooks/bootstrap.yml
                 探测（localhost）→ 创建/修复 'ansible'（可选 admin）→ 授权公钥 → sudo
@@ -127,6 +129,9 @@ make host-bootstrap EXTRA='--limit ib-main'   # 只对首个变体（同一台�
 # 4) 构建全部变体（并行；以共享 vault 中的 'ansible' 身份连接）
 make build
 make build EXTRA='--limit ib-side'   # 或只构建某个变体
+
+# 步骤 3-4 的一键替代：先引导构建机，再构建
+make deploy
 ```
 
 构建产物先在构建机上生成（每个变体独占
@@ -174,6 +179,7 @@ make build EXTRA='--limit ib-side'   # 或只构建某个变体
 | `make lint` | `ansible-playbook --syntax-check` + `ansible-lint` |
 | `make host-init HOST=<name>` | 从模板生成 `inventory/` 与 `host_vars/<name>/`（vault 立即加密） |
 | `make host-bootstrap` | 探测 ansible → admin → root 并创建服务账号 |
+| `make deploy` | 一键首次构建：先 `host-bootstrap` 再 `build` |
 | `make build` | 构建自定义固件镜像（ImageBuilder 容器） |
 | `make info` | 查询镜像/Profile 信息（不构建） |
 | `make vault-init` | 一次性：生成 vault 口令 |

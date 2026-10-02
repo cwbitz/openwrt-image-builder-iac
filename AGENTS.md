@@ -62,6 +62,7 @@ build logic lives in `roles/imagebuilder/`.
   `0700`, file `0600`). Re-running does not overwrite existing files.
 - `make host-bootstrap` — once: probe `ansible → admin → root` and create/repair
   the `ansible` service account (keys, NOPASSWD sudo, `docker` group).
+- `make deploy` — one-click: `host-bootstrap` then `build` (fresh host to image).
 - `make build` / `make info` — build every variant in parallel / query
   ImageBuilder info. Non-`ansible` runs are unsupported.
 - `make vault-init` — generate the vault password file (outside the repo).

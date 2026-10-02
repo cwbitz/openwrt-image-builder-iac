@@ -56,7 +56,7 @@ ANSIBLE_PYTHON ?= $(shell \
 
 # Public interface (documented by `make help`).
 .PHONY: help install agent-setup vault-init host-init vault-edit vault-view \
-        host-bootstrap lint info build
+        host-bootstrap lint info build deploy
 # Internal helpers (not listed in help; not part of the public interface).
 .PHONY: ensure-toolchain ensure-sshpass ensure-keychain ensure-collections \
         ensure-passlib keychain-fetch keychain-verify run-playbook \
@@ -163,6 +163,8 @@ build: ## Build a customized OpenWrt firmware image (run host-bootstrap first)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/build.yml
+
+deploy: host-bootstrap build ## One-click: bootstrap the build host, then build every variant
 
 # ==============================================================================
 # Internal helpers (not part of the public interface)
