@@ -17,9 +17,28 @@ jobs:
     name: Release please
     runs-on: ubuntu-latest
     steps:
-      - name: Run release-please
-        uses: googleapis/release-please-action@v4
+      # A PAT or GitHub App token is required (not the default GITHUB_TOKEN):
+      # release-please must be able to create tags/releases and have its own
+      # PR-triggered workflows run. GITHUB_TOKEN cannot, which leaves merged
+      # release PRs untagged ("There are untagged, merged release PRs
+      # outstanding").
+      #
+      # Prefer a GitHub App (short-lived, per-repo, recommended) when its Client
+      # ID is configured (falls back to the legacy numeric App ID variable, which
+      # GitHub also accepts as the JWT issuer); otherwise fall back to a PAT
+      # (RELEASE_PLEASE_TOKEN), then to GITHUB_TOKEN so a fresh fork still runs.
+      # Gate only on variables (secrets are not allowed in step-level `if`).
+      - name: Mint a GitHub App token
+        id: app-token
+        if: ${{ vars.RELEASE_PLEASE_APP_CLIENT_ID != '' || vars.RELEASE_PLEASE_APP_ID != '' }}
+        uses: actions/create-github-app-token@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          client-id: ${{ vars.RELEASE_PLEASE_APP_CLIENT_ID || vars.RELEASE_PLEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
+
+      - name: Run release-please
+        uses: googleapis/release-please-action@v5
+        with:
+          token: ${{ steps.app-token.outputs.token || secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
