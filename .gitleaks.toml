@@ -1,4 +1,4 @@
-title = "openwrt-builder-wrapper gitleaks config"
+title = "openwrt-image-builder-iac gitleaks config"
 
 [extend]
 useDefault = true

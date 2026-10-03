@@ -1,4 +1,4 @@
-# openwrt-builder-wrapper
+# openwrt-image-builder-iac
 
 基于 **官方 OpenWrt ImageBuilder**（Docker 容器）构建自定义 OpenWrt 固件的
 Ansible IaC 项目。
@@ -75,7 +75,7 @@ make build
 ## 目录结构
 
 ```
-openwrt-builder-wrapper/
+openwrt-image-builder-iac/
 ├── ansible.cfg                        # 规范 Ansible 配置（仓库根即 Ansible 根）
 ├── inventory/
 │   ├── hosts.yml.example              # 构建变体（同一台构建机，多个 variant 主机）

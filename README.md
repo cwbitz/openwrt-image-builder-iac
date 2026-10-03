@@ -1,4 +1,4 @@
-# openwrt-builder-wrapper
+# openwrt-image-builder-iac
 
 Ansible IaC that builds customized OpenWrt firmware images with the **official
 OpenWrt ImageBuilder** running in a Docker container.
@@ -84,7 +84,7 @@ Core design decisions:
 ## Directory Layout
 
 ```
-openwrt-builder-wrapper/
+openwrt-image-builder-iac/
 ├── ansible.cfg                        # canonical Ansible config (repo root == Ansible root)
 ├── inventory/
 │   ├── hosts.yml.example              # build variants (same builder, many hosts)

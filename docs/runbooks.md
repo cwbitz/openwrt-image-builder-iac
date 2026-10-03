@@ -1,7 +1,7 @@
 # Runbooks
 
 Operational procedures for building OpenWrt firmware with
-`openwrt-builder-wrapper`. Read the repo-level
+`openwrt-image-builder-iac`. Read the repo-level
 [README](../README.md) first for the architecture and layout.
 
 ## 1. Prerequisites
@@ -246,7 +246,7 @@ The same knob also works for release images; combined with
   `inventory/group_vars/builder/vault.yml`
   (`vault_host_*_ssh_privkey_file`, `vault_host_*_password`, plus the install key
   `vault_host_ansible_ssh_pubkey_file`).
-- The vault password file (`~/.config/projects/openwrt-builder-wrapper/ansible_vault_password`)
+- The vault password file (`~/.config/projects/openwrt-image-builder-iac/ansible_vault_password`)
   is created by `make vault-init` and **never** committed; back it up.
   `make vault-edit HOST=<host>` encrypts a plaintext vault before editing;
   without a vault password a plaintext vault keeps working (secrets are

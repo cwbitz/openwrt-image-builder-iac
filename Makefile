@@ -15,7 +15,7 @@ EXTRA ?=
 # generates it), and CI generates a throwaway one before lint/syntax-check.
 # Ansible Vault password file (outside the repo), exported under Ansible's own
 # env-var name so every ansible-* invocation picks it up.
-export ANSIBLE_VAULT_PASSWORD_FILE := $(HOME)/.config/projects/openwrt-builder-wrapper/ansible_vault_password
+export ANSIBLE_VAULT_PASSWORD_FILE := $(HOME)/.config/projects/openwrt-image-builder-iac/ansible_vault_password
 # HOST names the variant to operate on (its inventory host / host_vars dir).
 # VAULT_FILE is the operator vault (edited by `vault-edit`); MANAGED_VAULT_FILE
 # is the role-generated shared vault. `vault-view` shows both (missing skipped).
@@ -44,7 +44,7 @@ KEYCHAIN_VERSION := $(shell awk '!/^#/ && NF {print $$1; exit}' $(KEYCHAIN_PIN))
 KEYCHAIN_SHA256  := $(shell awk '!/^#/ && NF {print $$2; exit}' $(KEYCHAIN_PIN) | sed 's/^sha256://')
 KEYCHAIN_URL     := https://github.com/danielrobbins/keychain/releases/download/$(KEYCHAIN_VERSION)/keychain-$(KEYCHAIN_VERSION).pyz
 KEYCHAIN_BIN     ?= $(HOME)/.local/bin/keychain
-KEYCHAIN_CACHE   ?= $(HOME)/.cache/openwrt-builder-wrapper
+KEYCHAIN_CACHE   ?= $(HOME)/.cache/openwrt-image-builder-iac
 KEYCHAIN_ASSET   := $(KEYCHAIN_CACHE)/keychain-$(KEYCHAIN_VERSION).pyz
 # Start (or reuse) the Keychain agent in the CURRENT shell; --eval prints the
 # SSH_AUTH_SOCK / SSH_AGENT_PID exports on stdout (banner goes to stderr).
@@ -94,8 +94,8 @@ install: ensure-toolchain ensure-sshpass ensure-keychain ensure-collections ensu
 agent-setup: install ## Append Keychain agent startup to ~/.bashrc (idempotent)
 	@set -e; \
 	rc="$$HOME/.bashrc"; \
-	begin="# >>> openwrt-builder-wrapper keychain >>>"; \
-	end="# <<< openwrt-builder-wrapper keychain <<<"; \
+	begin="# >>> openwrt-image-builder-iac keychain >>>"; \
+	end="# <<< openwrt-image-builder-iac keychain <<<"; \
 	touch "$$rc"; \
 	if grep -qF "$$begin" "$$rc"; then \
 		echo "agent-setup: block already present in $$rc"; exit 0; \
