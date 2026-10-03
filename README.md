@@ -3,7 +3,7 @@
 Ansible IaC that builds customized OpenWrt firmware images with the **official
 OpenWrt ImageBuilder** running in a Docker container.
 
-> Chinese version: [README-zh.md](./README-zh.md)
+> Chinese version: [README.zh-CN.md](./README.zh-CN.md)
 
 ## Tooling Split & Boundaries
 
@@ -110,7 +110,7 @@ openwrt-image-builder-iac/
 ├── docs/runbooks.md
 ├── .tool-versions                     # pinned control-node toolchain (asdf/mise)
 ├── Makefile                           # unified orchestration
-└── README.md / README-zh.md
+└── README.md / README.zh-CN.md
 ```
 
 ## Quick Start
@@ -201,11 +201,11 @@ Notes:
 | `make info` | Query image/profile information (no build) |
 | `make vault-init` | One-time: generate the vault password |
 | `make vault-edit` / `vault-view` | Edit / view a vault file (`HOST=...` or `VAULT_FILE=...`) |
-| `make agent-setup` | Append Keychain agent startup to `~/.bashrc` (idempotent) |
 
-Removed: `make clean` (delete `.cache`/`collections`/`.ansible` yourself),
-`make vault-encrypt` (`host-init` encrypts; `vault-edit` encrypts a plaintext
-vault first), and the public `check-*` / `keychain-*` / `agent-load` /
+Removed: `make agent-setup` (start the agent yourself, or let `run-playbook`
+fall back to it), `make clean` (delete `.cache`/`collections`/`.ansible`
+yourself), `make vault-encrypt` (`host-init` encrypts; `vault-edit` encrypts a
+plaintext vault first), and the public `check-*` / `keychain-*` / `agent-load` /
 `agent-check` helpers (now internal — `install` drives the `ensure-*` helpers,
 and `run-playbook` falls back to Keychain on a key-permission failure). The
 docker Python SDK is a **build-host** dependency, asserted by the role
@@ -280,8 +280,8 @@ appended (or removed with a `-` prefix) via `openwrt_extra_packages`.
   every configured `vault_host_<id>_ssh_privkey_file` into it (via stdin,
   `ssh-add - < key`, which reads the key content directly and skips the permission
   check), and retry once. `make install` guarantees Keychain can be installed;
-  `make agent-setup` initializes the agent in every new shell, while `agent-load`
-  / `agent-check` stay available as internal helpers. The probe order is
+  `agent-load` (start/reuse the agent and load the keys) and `agent-check`
+  (verify identities) stay available as internal helpers. The probe order is
   `ansible → admin → root`.
 - **Where do the images go?** Each variant is built on the builder under
   `openwrt_output_dir` (`~/.cache/openwrt-builder/artifacts/<variant>` by

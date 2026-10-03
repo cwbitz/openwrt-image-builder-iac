@@ -101,7 +101,7 @@ openwrt-image-builder-iac/
 ├── docs/runbooks.md
 ├── .tool-versions                     # 控制端工具链版本（asdf/mise）
 ├── Makefile                           # 统一编排
-└── README.md / README-zh.md
+└── README.md / README.zh-CN.md
 ```
 
 ## 快速开始
@@ -184,9 +184,9 @@ make deploy
 | `make info` | 查询镜像/Profile 信息（不构建） |
 | `make vault-init` | 一次性：生成 vault 口令 |
 | `make vault-edit` / `vault-view` | 编辑 / 查看 vault 文件（`HOST=...` 或 `VAULT_FILE=...`） |
-| `make agent-setup` | 将 Keychain agent 启动写入 `~/.bashrc`（幂等） |
 
-已移除：`make clean`（请自行删除 `.cache`/`collections`/`.ansible`）、
+已移除：`make agent-setup`（请自行启动 agent，或让 `run-playbook` 自动兜底）、
+`make clean`（请自行删除 `.cache`/`collections`/`.ansible`）、
 `make vault-encrypt`（`host-init` 即加密；`vault-edit` 会先加密明文 vault），
 以及公开的 `check-*` / `keychain-*` / `agent-load` / `agent-check` 辅助目标
 （已转为内部：`install` 驱动 `ensure-*`，`run-playbook` 在私钥权限失败时自动兜底）。
@@ -252,8 +252,8 @@ docker Python SDK 是**构建机**依赖，由 role preflight 断言，因此 `i
   （如 WSL `/mnt/c` 挂载的 `0777`）而拒绝时，才启动固定版本的 **Keychain 3** agent，
   把所有已配置的 `vault_host_<id>_ssh_privkey_file` 经 stdin 加载进去
   （`ssh-add - < key`，直接读取私钥内容、绕过权限检查），并重试一次。
-  `make install` 保证 Keychain 能装上；`make agent-setup` 会在每个新 shell 初始化
-  agent，`agent-load` / `agent-check` 仍作为内部辅助目标保留。探测顺序为
+  `make install` 保证 Keychain 能装上；`agent-load`（启动/复用 agent 并加载私钥）
+  与 `agent-check`（验证身份）仍作为内部辅助目标保留。探测顺序为
   `ansible → admin → root`。
 - **构建产物位置**：每个变体先在构建机的 `openwrt_output_dir`
   （默认 `~/.cache/openwrt-builder/artifacts/<variant>`）生成，再回传到控制机的
