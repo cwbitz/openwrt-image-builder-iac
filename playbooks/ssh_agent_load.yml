@@ -29,9 +29,9 @@
         that:
           - lookup('ansible.builtin.env', 'SSH_AUTH_SOCK') | length > 0
         fail_msg: >-
-          SSH_AUTH_SOCK is not set. Run `make agent-setup` to initialize the
-          Keychain agent in every new shell (or the internal `make agent-load` to
-          start it and load the connection keys now).
+          SSH_AUTH_SOCK is not set. Start the Keychain agent in this shell, or
+          run the internal `make agent-load` to start it and load the connection
+          keys now.
 
     - name: "[SSHAgent] Collect the configured private-key file paths (per identity)"
       ansible.builtin.set_fact:

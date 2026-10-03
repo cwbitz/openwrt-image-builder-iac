@@ -108,10 +108,9 @@ every variant):
   mount), the target starts a pinned **Keychain 3** ssh-agent, loads every
   configured `vault_host_<id>_ssh_privkey_file` (via stdin, `ssh-add - < key`,
   which reads the key content directly and skips the permission check), and
-  retries once. `make agent-setup` initializes the agent in every new shell
-  (idempotent `~/.bashrc` block); `make agent-load` (start/reuse the agent and
-  load the keys) and `make agent-check` (verify identities) are internal
-  helpers — `run-playbook` already performs the fallback on demand.
+  retries once. The internal `make agent-load` (start/reuse the agent and load
+  the keys) and `make agent-check` (verify identities) helpers remain available
+  — `run-playbook` already performs the fallback on demand.
 
 ## 3. Build
 

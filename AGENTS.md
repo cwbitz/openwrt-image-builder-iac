@@ -52,8 +52,9 @@ build logic lives in `roles/imagebuilder/`.
 
 ## Commands
 
-- `make help` — flat target list + overridable variables (`HOST`,
-  `VAULT_FILE`, `EXTRA`). `VAULT_FILE` overrides `HOST`.
+- `make help` — target list, with each target's overridable variables
+  (`HOST`, `VAULT_FILE`, `EXTRA`) listed beneath it. `VAULT_FILE` overrides
+  `HOST`.
 - `make install` — the sole dependency entry (see above).
 - `make lint` — `ansible-playbook --syntax-check` for every playbook +
   `ansible-lint`.
@@ -69,18 +70,17 @@ build logic lives in `roles/imagebuilder/`.
 - `make vault-edit` / `make vault-view` — edit/view a vault (`HOST=<name>`,
   default `ib-main`, or `VAULT_FILE=<path>`); `vault-edit` encrypts a plaintext
   vault first.
-- `make agent-setup` — init the Keychain agent in every new shell (the only
-  public agent convenience). `agent-load` (start+load keys) and `agent-check`
-  (verify loaded) are internal: `run-playbook` already falls back to Keychain
-  on a permission failure.
+- `agent-load` (start+load keys) and `agent-check` (verify loaded) are internal:
+  `run-playbook` already falls back to Keychain on a permission failure.
 - `EXTRA` is appended to every `ansible-playbook` invocation, e.g.
   `make build EXTRA='--limit ib-side'`.
 
-Removed — do not reintroduce: `clean`, `vault-encrypt`, the public `check-*`
-(`check-deps`/`check-collections`) and `keychain-*` helpers, `install-sshpass-local`
-/ `install-passlib-local`, and the `KEYCHAIN_PYZ` local-asset override. The
-control-node caches (`.cache`, `collections`, `.ansible`) are the operator's to
-delete. Keychain's asset URL is a fixed constant.
+Removed — do not reintroduce: `agent-setup`, `clean`, `vault-encrypt`, the
+public `check-*` (`check-deps`/`check-collections`) and `keychain-*` helpers,
+`install-sshpass-local` / `install-passlib-local`, and the `KEYCHAIN_PYZ`
+local-asset override. The control-node caches (`.cache`, `collections`,
+`.ansible`) are the operator's to delete. Keychain's asset URL is a fixed
+constant.
 
 ## Secrets and local-only files
 
