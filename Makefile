@@ -13,12 +13,19 @@ EXTRA ?=
 # the project root auto-loads it. ansible-core 2.19 hard-fails when the file is
 # missing, so the ansible-running targets depend on `vault-init` (which
 # generates it), and CI generates a throwaway one before lint/syntax-check.
-ANSIBLE_VAULT_PASSWORD := $(HOME)/.config/projects/openwrt-builder-wrapper/ansible_vault_password
+# Ansible Vault password file (outside the repo), exported under Ansible's own
+# env-var name so every ansible-* invocation picks it up.
+export ANSIBLE_VAULT_PASSWORD_FILE := $(HOME)/.config/projects/openwrt-builder-wrapper/ansible_vault_password
 # HOST names the variant to operate on (its inventory host / host_vars dir).
-# Override with HOST=<name>, or point VAULT_FILE at another vault path (e.g. the
-# shared connection vault in group_vars/builder/). VAULT_FILE wins over HOST.
-HOST       ?= ib-main
-VAULT_FILE ?= inventory/host_vars/$(HOST)/vault.yml
+# VAULT_FILE is the operator vault (edited by `vault-edit`); MANAGED_VAULT_FILE
+# is the role-generated shared vault. `vault-view` shows both (missing skipped).
+HOST              ?= ib-main
+VAULT_FILE        ?= inventory/host_vars/$(HOST)/vault.yml
+MANAGED_VAULT_FILE ?= inventory/group_vars/builder/vault_managed.yml
+
+# Unified operator hint, printed only when a vault command cannot decrypt a
+# file (the vault password is missing or does not match).
+VAULT_PASSWORD_HINT := ERROR: Ansible Vault cannot decrypt this file - the password in $(ANSIBLE_VAULT_PASSWORD_FILE) is missing or incorrect. Restore the original password, or re-encrypt the vault file with the current one.
 
 # sshpass is a control-node prerequisite (`make host-bootstrap` password SSH).
 # When passwordless sudo is unavailable, fall back to a rootless install into
@@ -69,9 +76,10 @@ help: ## Show targets and overridable variables
 		$(MAKEFILE_LIST)
 	@printf '\n\033[1mVariables (override on the command line)\033[0m\n'
 	@printf '  \033[36m%-25s\033[0m %s\n' \
-		'HOST'       'variant to operate on (inventory host / host_vars name, default: ib-main)' \
-		'VAULT_FILE' 'explicit vault path for vault-* (overrides HOST)' \
-		'EXTRA'      'extra Ansible args, e.g. -e openwrt_modules_adjust=["statistics"]'
+		'HOST'              'variant to operate on (inventory host / host_vars name, default: ib-main)' \
+		'VAULT_FILE'        'operator vault path (edited by vault-edit; shown by vault-view)' \
+		'MANAGED_VAULT_FILE' 'shared managed vault path (shown by vault-view)' \
+		'EXTRA'             'extra Ansible args, e.g. -e openwrt_modules_adjust=["statistics"]'
 	@printf '\n'
 
 # ==============================================================================
@@ -103,15 +111,21 @@ agent-setup: install ## Append Keychain agent startup to ~/.bashrc (idempotent)
 	echo "agent-setup: appended Keychain block to $$rc (run: source $$rc)"
 
 vault-init: ## One-time: generate the vault password (idempotent)
-	@mkdir -p $(dir $(ANSIBLE_VAULT_PASSWORD))
-	@if [ ! -s $(ANSIBLE_VAULT_PASSWORD) ]; then \
-		openssl rand -base64 32 > $(ANSIBLE_VAULT_PASSWORD); \
-		chmod 600 $(ANSIBLE_VAULT_PASSWORD); \
-		echo "vault password generated: $(ANSIBLE_VAULT_PASSWORD) (BACK IT UP in a password manager)"; \
-	else \
-		echo "vault password exists: $(ANSIBLE_VAULT_PASSWORD)"; \
+	@mkdir -p $(dir $(ANSIBLE_VAULT_PASSWORD_FILE))
+	@if [ ! -s $(ANSIBLE_VAULT_PASSWORD_FILE) ]; then \
+		openssl rand -base64 32 > $(ANSIBLE_VAULT_PASSWORD_FILE); \
+		chmod 600 $(ANSIBLE_VAULT_PASSWORD_FILE); \
+		echo "vault password generated: $(ANSIBLE_VAULT_PASSWORD_FILE) (BACK IT UP in a password manager)"; \
 	fi
-	@test "$$(wc -c < $(ANSIBLE_VAULT_PASSWORD))" -ge 44 || { echo "ERROR: vault password too weak"; exit 1; }
+	@test "$$(wc -c < $(ANSIBLE_VAULT_PASSWORD_FILE))" -ge 44 || { echo "ERROR: vault password too weak"; exit 1; }
+	@f=""; \
+	for c in $$(find inventory -type f -name 'vault*.yml' 2>/dev/null); do \
+		if head -c 16 "$$c" | grep -q 'ANSIBLE_VAULT'; then f="$$c"; break; fi; \
+	done; \
+	if [ -n "$$f" ] && command -v ansible-vault >/dev/null 2>&1; then \
+		ansible-vault view "$$f" >/dev/null 2>&1 \
+			|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
+	fi
 
 host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the example (vault encrypted)
 	@test -n "$(HOST)" || { echo "ERROR: HOST is required, e.g. make host-init HOST=ib-main"; exit 1; }
@@ -126,18 +140,23 @@ host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the example 
 	@chmod 0600 inventory/host_vars/$(HOST)/vault.yml
 	@echo "scaffolded inventory/host_vars/$(HOST)/ (edit main.yml; make vault-edit HOST=$(HOST) for vault.yml)"
 
-vault-edit: ## Edit a host vault (vi; encrypts a plaintext vault first) (HOST=<name> or VAULT_FILE=<path>)
-	@test -s $(ANSIBLE_VAULT_PASSWORD) || { echo "ERROR: run 'make vault-init' first"; exit 1; }
-	@test -f $(VAULT_FILE) || { echo "ERROR: $(VAULT_FILE) not found"; exit 1; }
-	@if ! head -c 16 $(VAULT_FILE) | grep -q '$$ANSIBLE_VAULT'; then \
-		echo "vault is plaintext — encrypting $(VAULT_FILE) first"; \
+vault-edit: vault-init ## Edit a host vault (vi; encrypts a plaintext vault first) (HOST=<name> or VAULT_FILE=<path>)
+	@test -f $(VAULT_FILE) || { echo "No such vault file: $(VAULT_FILE)" >&2; exit 1; }
+	@if grep -q 'ANSIBLE_VAULT' $(VAULT_FILE); then :; else \
+		echo "Encrypting plaintext $(VAULT_FILE) before editing..."; \
 		ansible-vault encrypt $(VAULT_FILE); \
 	fi
 	ansible-vault edit $(VAULT_FILE)
 
-vault-view: ## View a host vault (read-only) (HOST=<name> or VAULT_FILE=<path>)
-	@test -s $(ANSIBLE_VAULT_PASSWORD) || { echo "ERROR: run 'make vault-init' first"; exit 1; }
-	ansible-vault view $(VAULT_FILE)
+vault-view: vault-init ## View the host vault + shared managed vault (HOST=<name>)
+	@for p in $$(printf '%s\n' "$(VAULT_FILE)" "$(MANAGED_VAULT_FILE)" | awk '!seen[$$0]++'); do \
+		printf '\n\033[1m== %s ==\033[0m\n' "$$p"; \
+		if [ ! -f "$$p" ]; then echo "(missing)"; continue; fi; \
+		if grep -q 'ANSIBLE_VAULT' "$$p"; then \
+			ansible-vault view "$$p" 2>/dev/null \
+				|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
+		else cat "$$p"; fi; \
+	done
 
 host-bootstrap: ## Probe/provision the build host (ansible account, keys, sudo)
 	@test -f $(INV) || { \
