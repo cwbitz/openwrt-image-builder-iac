@@ -44,7 +44,7 @@ jobs:
       - name: YAML lint
         run: yamllint -c .yamllint .ansible-lint requirements.yml playbooks roles inventory .github renovate.json
       - name: Verify the pinned Keychain asset (SHA256)
-        run: make keychain-verify
+        run: make verify-keychain-pin
 
   gitleaks:
     name: Secret scan (gitleaks)

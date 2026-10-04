@@ -49,7 +49,7 @@ SSHPASS_BIN ?= $(HOME)/.local/bin/sshpass
 KEYCHAIN_PIN     := $(CURDIR)/keychain.pin
 KEYCHAIN_VERSION := $(shell awk '!/^#/ && NF {print $$1; exit}' $(KEYCHAIN_PIN))
 KEYCHAIN_SHA256  := $(shell awk '!/^#/ && NF {print $$2; exit}' $(KEYCHAIN_PIN) | sed 's/^sha256://')
-KEYCHAIN_URL     := https://github.com/danielrobbins/keychain/releases/download/$(KEYCHAIN_VERSION)/keychain-$(KEYCHAIN_VERSION).pyz
+KEYCHAIN_URL     ?= https://github.com/danielrobbins/keychain/releases/download/$(KEYCHAIN_VERSION)/keychain-$(KEYCHAIN_VERSION).pyz
 KEYCHAIN_BIN     ?= $(HOME)/.local/bin/keychain
 KEYCHAIN_CACHE   ?= $(HOME)/.cache/openwrt-image-builder-iac
 KEYCHAIN_ASSET   := $(KEYCHAIN_CACHE)/keychain-$(KEYCHAIN_VERSION).pyz
@@ -73,7 +73,7 @@ ANSIBLE_PYTHON ?= $(shell \
         host-bootstrap info build deploy
 # Internal helpers (not listed in help; not part of the public interface).
 .PHONY: ensure-toolchain ensure-sshpass ensure-keychain ensure-collections \
-        ensure-passlib keychain-fetch keychain-verify run-playbook \
+        ensure-passlib keychain-fetch verify-keychain-pin run-playbook \
         agent-load agent-check vault-edit-file lint hostkey-init
 
 help: ## Show this help
@@ -317,7 +317,10 @@ ensure-collections:
 keychain-fetch:
 	@set -e; \
 	mkdir -p "$(KEYCHAIN_CACHE)"; \
-	if [ -f "$(KEYCHAIN_ASSET)" ]; then exit 0; fi; \
+	if [ -f "$(KEYCHAIN_ASSET)" ] \
+	   && printf '%s  %s\n' "$(KEYCHAIN_SHA256)" "$(KEYCHAIN_ASSET)" | sha256sum -c - >/dev/null 2>&1; then \
+		exit 0; \
+	fi; \
 	echo "downloading keychain $(KEYCHAIN_VERSION)..."; \
 	if ! curl -fsSL -o "$(KEYCHAIN_ASSET).tmp" "$(KEYCHAIN_URL)"; then \
 		rm -f "$(KEYCHAIN_ASSET).tmp"; \
@@ -330,7 +333,7 @@ keychain-fetch:
 	mv "$(KEYCHAIN_ASSET).tmp" "$(KEYCHAIN_ASSET)"
 
 # (internal) Verify the cached Keychain asset against the pin.
-keychain-verify: keychain-fetch
+verify-keychain-pin: keychain-fetch
 	@set -e; \
 	printf '%s  %s\n' "$(KEYCHAIN_SHA256)" "$(KEYCHAIN_ASSET)" | sha256sum -c - >/dev/null \
 		|| { echo "ERROR: keychain asset checksum mismatch: $(KEYCHAIN_ASSET)" >&2; \
@@ -339,11 +342,11 @@ keychain-verify: keychain-fetch
 	echo "keychain pin OK: v$(KEYCHAIN_VERSION)"
 
 # (internal) Ensure the pinned Keychain is installed (used only as a fallback).
-ensure-keychain: keychain-verify
+ensure-keychain: verify-keychain-pin
 	@set -e; \
 	if [ -f "$(KEYCHAIN_BIN)" ] \
 	   && printf '%s  %s\n' "$(KEYCHAIN_SHA256)" "$(KEYCHAIN_BIN)" | sha256sum -c - >/dev/null 2>&1; then \
-		echo "keychain: v$(KEYCHAIN_VERSION) ($(KEYCHAIN_BIN))"; \
+		echo "keychain:  present (v$(KEYCHAIN_VERSION), $(KEYCHAIN_BIN))"; \
 	else \
 		mkdir -p "$$(dirname "$(KEYCHAIN_BIN)")"; \
 		install -m 0755 "$(KEYCHAIN_ASSET)" "$(KEYCHAIN_BIN)"; \
