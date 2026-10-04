@@ -22,6 +22,14 @@ export ANSIBLE_VAULT_PASSWORD_FILE := $(HOME)/.config/projects/openwrt-image-bui
 # the shared connection vault.
 VARIANT           ?= ib-main
 
+# Refresh SSH host keys before connecting (HOST_KEY=1). Useful after the build
+# host is rebuilt: its new host key would otherwise fail the "host key changed"
+# check. hostkey-init scans every inventory host and (re)writes its key into
+# the control node's known_hosts. deploy/host-bootstrap call it when set.
+HOST_KEY ?=
+# known_hosts file to write (control node). Defaults to OpenSSH's user file.
+KNOWN_HOSTS ?= $(HOME)/.ssh/known_hosts
+
 # Unified operator hint, printed only when a vault command cannot decrypt a
 # file (the vault password is missing or does not match).
 VAULT_PASSWORD_HINT := ERROR: Ansible Vault cannot decrypt this file - the password in $(ANSIBLE_VAULT_PASSWORD_FILE) is missing or incorrect. Restore the original password, or re-encrypt the vault file with the current one.
@@ -66,7 +74,7 @@ ANSIBLE_PYTHON ?= $(shell \
 # Internal helpers (not listed in help; not part of the public interface).
 .PHONY: ensure-toolchain ensure-sshpass ensure-keychain ensure-collections \
         ensure-passlib keychain-fetch keychain-verify run-playbook \
-        agent-load agent-check vault-edit-file lint
+        agent-load agent-check vault-edit-file lint hostkey-init
 
 help: ## Show this help
 	@printf '\nUsage: make <target> [VAR=value ...]\n\n'
@@ -84,7 +92,7 @@ help: ## Show this help
 # which ensures the toolchain, collections, sshpass, passlib and Keychain in one
 # place. The `ensure-*` helpers below are internal and fail loudly.
 
-install: ensure-toolchain ensure-sshpass ensure-keychain ensure-collections ensure-passlib ## Install the control-node toolchain, collections, sshpass, passlib, Keychain
+install: ensure-toolchain ensure-sshpass ensure-keychain ensure-collections ensure-passlib ## Install the pinned toolchain, collections, and control-node dependencies
 
 host-init: vault-init ## Scaffold group_vars + host_vars/<VARIANT> from the examples (vault encrypted; VARIANT=<name>)
 	@test -n "$(VARIANT)" || { echo "ERROR: VARIANT is required, e.g. make host-init VARIANT=ib-main"; exit 1; }
@@ -100,9 +108,10 @@ host-init: vault-init ## Scaffold group_vars + host_vars/<VARIANT> from the exam
 	@chmod 0600 inventory/host_vars/$(VARIANT)/vault.yml
 	@echo "scaffolded inventory/host_vars/$(VARIANT)/ (edit main.yml; make vault-edit VARIANT=$(VARIANT) for vault.yml)"
 
-host-bootstrap: ## Create the ansible service account (bootstrap.yml; EXTRA=<extra -e vars>)
+host-bootstrap: ## Create the ansible service account (bootstrap.yml; EXTRA=<extra -e vars>; HOST_KEY=1 refreshes host keys first)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
+	@if [ -n "$(HOST_KEY)" ]; then $(MAKE) --no-print-directory hostkey-init; fi
 	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/bootstrap.yml
 
 vault-init: ## One-time: generate the vault password (idempotent)
@@ -170,6 +179,25 @@ lint: install vault-init
 		echo "WARN: ansible-lint not installed, skipped"; \
 	fi
 
+# (internal) Scan every inventory host and (re)write its SSH host key into the
+# control node's known_hosts (removing any stale entry first). Invoked by
+# deploy/host-bootstrap when HOST_KEY=1, and usable standalone.
+hostkey-init: vault-init
+	@set -e; \
+	nh="$(KNOWN_HOSTS)"; mkdir -p "$$(dirname "$$nh")"; tmp=$$(mktemp); \
+	$(ANS_PLAY) -i $(INV) playbooks/host_keys.yml -e host_keys_out="$$tmp" >/dev/null; \
+	mapfile -t lines < <(python3 -c "import json; [print(f\"{t['name']}\t{t['host']}\t{t['port']}\") for t in json.load(open('$$tmp'))]"); \
+	rm -f "$$tmp"; \
+	if [ "$${#lines[@]}" -eq 0 ]; then echo "ERROR: no hosts resolved from the inventory."; exit 1; fi; \
+	for line in "$${lines[@]}"; do \
+		name=$$(printf '%s' "$$line" | cut -f1); host=$$(printf '%s' "$$line" | cut -f2); port=$$(printf '%s' "$$line" | cut -f3); \
+		echo "host key: $$name ($$host:$$port)"; \
+		ssh-keygen -R "$$host" -f "$$nh" >/dev/null 2>&1 || true; \
+		if [ "$$port" != "22" ]; then ssh-keygen -R "[$$host]:$$port" -f "$$nh" >/dev/null 2>&1 || true; fi; \
+		ssh-keyscan -T 5 -p "$$port" -t rsa,ecdsa,ed25519 "$$host" >> "$$nh" 2>/dev/null || { echo "ERROR: ssh-keyscan failed for $$host:$$port"; exit 1; }; \
+	done; \
+	echo "host keys refreshed in $$nh"
+
 info: ## Query ImageBuilder image/profile info (no build; EXTRA=<extra -e vars>)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
@@ -180,7 +208,8 @@ build: ## Build a customized OpenWrt firmware image, run host-bootstrap first (E
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/build.yml
 
-deploy: host-bootstrap build ## One-click: bootstrap the build host, then build every variant (EXTRA=<extra -e vars>)
+deploy: host-bootstrap build ## One-click: bootstrap the build host, then build every variant (EXTRA=<extra -e vars>; HOST_KEY=1 refreshes host keys first)
+	@if [ -n "$(HOST_KEY)" ]; then $(MAKE) --no-print-directory hostkey-init; fi
 
 # ==============================================================================
 # Internal helpers (not part of the public interface)

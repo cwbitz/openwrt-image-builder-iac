@@ -1,0 +1,33 @@
+---
+# ==============================================================================
+# Emit each managed host's resolved SSH connection target as JSON
+# (playbooks/host_keys.yml)
+# ==============================================================================
+# Used by `make host-key-init` to refresh the control node's known_hosts after a
+# managed host is rebuilt. It only RESOLVES the inventory vars (it makes no SSH
+# connection), so it works even when the host's host key is unknown or changed.
+# Writes a JSON list of {name, host, port} to `host_keys_out`.
+- name: "Emit resolved SSH targets"
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  become: false
+  vars:
+    host_keys_out: "host_keys.json"
+  tasks:
+    - name: "[HostKeys] Build the resolved target list"
+      ansible.builtin.set_fact:
+        host_keys_targets: >-
+          {{ host_keys_targets | default([]) + [ {
+               'name': item,
+               'host': hostvars[item].ansible_host | default(item),
+               'port': hostvars[item].ansible_port | default(22) } ] }}
+      loop: "{{ groups['builder'] | default([]) }}"
+      changed_when: false
+
+    - name: "[HostKeys] Write the resolved SSH targets"
+      ansible.builtin.copy:
+        content: "{{ host_keys_targets | default([]) | to_json }}"
+        dest: "{{ host_keys_out }}"
+        mode: "0600"
+      changed_when: false
