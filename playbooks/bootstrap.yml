@@ -20,12 +20,10 @@
 #
 # Service account auth (ansible identity) — exactly one of:
 #   vault_host_ansible_ssh_pubkey_file   control-node path to the .pub (key auth)
-#   (neither)                            a password is set (password auth), stored
-#                                        as vault_host_ansible_password_auto in the
-#                                        encrypted managed host vault
-#                                        (vault_managed.yml) when the operator
-#                                        vault leaves vault_host_ansible_password
-#                                        empty.
+#   (neither)                            a password is set (password auth); when
+#                                        the vault leaves vault_host_ansible_password
+#                                        empty it is generated and merged back into
+#                                        the same vault under the same name.
 # ==============================================================================
 
 - name: Probe the SSH identities (ansible -> admin -> root)
@@ -144,7 +142,6 @@
       vars:
         ensure_secrets_component: bootstrap
         ensure_secrets_vault_file: "{{ host_vault_file }}"
-        ensure_secrets_managed_file: "{{ host_vault_managed_file }}"
         ensure_secrets_per_host: true
         ensure_secrets_list:
           - var: vault_host_ansible_password
@@ -154,9 +151,7 @@
 
     - name: "[Bootstrap] Resolve the effective service-account password"
       ansible.builtin.set_fact:
-        bootstrap_service_password: >-
-          {{ vault_host_ansible_password
-             | default(vault_host_ansible_password_auto | default(''), true) }}
+        bootstrap_service_password: "{{ vault_host_ansible_password | default('', true) }}"
       no_log: true
       when: not (bootstrap_use_key | bool)
 
@@ -313,7 +308,7 @@
     - name: "[Bootstrap] Resolve the passwordless-sudo accounts"
       ansible.builtin.set_fact:
         bootstrap_sudo_users: >-
-          {{ ([bootstrap_service_user]
+          {{ ([bootstrap_service_user | default('ansible')]
               + ([bootstrap_admin.user]
                  if (bootstrap_admin_defined | default(false) | bool
                      and bootstrap_admin.user | default('', true) != 'root')

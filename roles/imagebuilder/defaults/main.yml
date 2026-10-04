@@ -17,15 +17,13 @@ openwrt_profile: ""
 openwrt_force_pull: false
 
 # --- Vaults (secrets) ---------------------------------------------------------
-# Fallback per-host vault paths. This project actually groups variants by
-# `builder` and overrides BOTH paths in inventory/group_vars/builder/main.yml so
-# the machine-wide connection vault is shared by every variant; per-variant
-# firmware secrets stay in host_vars/<variant>/vault.yml (auto-loaded by the
-# inventory). Operator vault: hand-edited. Managed vault: written by
-# `make host-bootstrap` (ensure_secrets) as encrypted "<var>_auto" values when
-# the operator value is empty.
+# Fallback per-host vault path. This project groups variants by `builder` and
+# overrides it in inventory/group_vars/builder/main.yml so the machine-wide
+# connection vault is shared by every variant; per-variant firmware secrets stay
+# in host_vars/<variant>/vault.yml (auto-loaded by the inventory). The vault is
+# hand-editable, and `make host-bootstrap` (ensure_secrets) merges any missing
+# generated value into it under the same variable name.
 host_vault_file: "{{ project_root }}/inventory/host_vars/{{ inventory_hostname }}/vault.yml"
-host_vault_managed_file: "{{ project_root }}/inventory/host_vars/{{ inventory_hostname }}/vault_managed.yml"
 
 # --- Builder-side paths (on the managed build host) --------------------------
 # The build host is normally a SEPARATE LAN machine from the control node, so

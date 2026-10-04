@@ -5,13 +5,16 @@
 # is shared by every build variant. Copy this to
 # inventory/group_vars/builder/vault.yml and fill in real values, then encrypt
 # it in place:
-#   make ans-vault-init                                    # one-time
-#   make ans-vault-encrypt VAULT_FILE=inventory/group_vars/builder/vault.yml
-#   make ans-vault-edit    VAULT_FILE=inventory/group_vars/builder/vault.yml
+#   make vault-init                                        # one-time
+#   make vault-edit-group                                  # edit the shared vault
 # vault.yml is gitignored; only this *.example is committed.
 #
+# Every secret here is a control -> managed credential (the key/password the
+# control node uses to reach the build host). This project has no managed ->
+# control secrets, so one vault file holds them all.
+#
 # Per-variant FIRMWARE secrets (root/PPPoE passwords) do NOT belong here: put
-# them in inventory/host_vars/<variant>/vault.yml (see host_vars/example/).
+# them in inventory/host_vars/<variant>/vault.yml (see host_vars/variant.example/).
 
 # --- SSH connection identity -------------------------------------------------
 # `make host-bootstrap` probes [ansible, admin, root] and uses the first that
@@ -31,9 +34,8 @@ vault_host_admin_ssh_pubkey_file: ""
 # The ansible identity is the service account host-bootstrap creates/repairs;
 # its public key (when set) also switches the account to key auth instead of a
 # generated password. Leave vault_host_ansible_password empty to have
-# host-bootstrap generate one into the encrypted managed vault next to this file
-# (vault_managed.yml) as vault_host_ansible_password_auto; an existing _auto
-# value is never rotated, and a non-empty value here always wins.
+# host-bootstrap generate one and merge it into THIS vault under the same name;
+# an existing non-empty value is never rotated.
 vault_host_ansible_user: "ansible"
 vault_host_ansible_password: ""
 vault_host_ansible_ssh_privkey_file: /home/example/.ssh/id_ed25519_ansible
