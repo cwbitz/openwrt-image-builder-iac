@@ -43,25 +43,24 @@ make build
 - **uci-defaults 使用 Jinja 模板**：原先构建期的 `$VARNAME` 替换改为 Ansible
   `template` 模块；静态文件按原样拷贝。渲染产物汇总到 `.build/files/`。
 - **多变体按主机建模**：一个变体 = 一个 inventory 主机 = 一组（目标, Profile,
-  设置）；所有变体指向**同一台物理构建机**（`ansible_host` 相同）。每个变体的
-  构建配置放在 `host_vars/<variant>/`（目录名与 inventory 主机名一致）；机器级
-  共享配置（SSH 身份、服务账号、共享 vault 路径、变体隔离）放在
-  `group_vars/builder/`。仅 `example/` 与 `group_vars/builder/` 被提交。
+  设置）；所有变体都构建在**同一台物理构建机**上（构建机地址作为组变量只写一次）。
+  每个变体的构建配置放在 `host_vars/<variant>/`（目录名与 inventory 主机名一致）；
+  机器级共享配置（SSH 身份、服务账号、共享 vault 路径、变体隔离）放在
+  `group_vars/builder/`。仅 `variant.example/` 与 `group_vars/builder/*.example`
+  模板被提交；真实的 `main.yml` 与 `vault*.yml` 均为本地文件。
 - **变体隔离、并行安全**：`group_vars/builder/main.yml` 用 `inventory_hostname`
   为每个变体分配独立的构建机 scratch/输出目录与控制机产物目录，且容器名带变体
   标识，因此 `make build` 可**并行**构建全部变体而互不干扰。
 - **密钥隔离**：连接凭据属于机器，放在共享 vault
   （`inventory/group_vars/builder/vault.yml`）；root 密码、PPPoE 密码等固件密钥
   属于变体，放在各自的 `host_vars/<variant>/vault.yml`，均以 `{{ vault_* }}`
-  引用；vault 口令文件保存在仓库之外。自动生成的连接密钥由
-  `make host-bootstrap` 写入**始终加密的托管 vault**
-  （`inventory/group_vars/builder/vault_managed.yml`），命名为 `<var>_auto`，从而
-  让 `vault.yml` 保持由运维维护（未加密的明文 vault 同样可用，直到你将其加密）。
-  运维显式提供的值优先于对应 `_auto` 回退值，且已存在的 `_auto` 值永不轮换。
+  引用；vault 口令文件保存在仓库之外。当 `make host-bootstrap` 缺少某个连接密钥
+  （如 `ansible` 密码）时，会在控制机生成并以**同名变量**合并回同一个 vault
+  （始终加密；已存在的非空值永不轮换）。
 - **`host-bootstrap` 引导服务账号**（移植自 netbird-iac）：它按
   `ansible -> admin -> root` 探测并使用首个可用身份；若不是 `ansible`，则创建/修复
-  `ansible` 服务账号（未提供公钥且 `vault_host_ansible_password` 为空时，生成
-  `vault_host_ansible_password_auto`、免密 sudo，存在 `docker` 组时加入）。
+  `ansible` 服务账号（未提供公钥且 `vault_host_ansible_password` 为空时，生成并以
+  同名变量合并回共享 vault；免密 sudo，存在 `docker` 组时加入）。
   各身份的公钥（`vault_host_<id>_ssh_pubkey_file`）会被授权到对应账号。
 - **连接身份显式化**（netbird-iac 模型，机器级）：`group_vars/builder/main.yml` 里的
   `host_ssh_identities` 映射把共享 vault 中的
@@ -78,13 +77,13 @@ make build
 openwrt-image-builder-iac/
 ├── ansible.cfg                        # 规范 Ansible 配置（仓库根即 Ansible 根）
 ├── inventory/
-│   ├── hosts.yml.example              # 构建变体（同一台构建机，多个 variant 主机）
+│   ├── hosts.yml.example              # builder 组：地址只写一次 + 变体主机
 │   ├── group_vars/
-│   │   └── builder/                   # 机器级共享配置（已提交）
-│   │       ├── main.yml               # SSH 身份、服务账号、共享 vault 路径、变体隔离
+│   │   └── builder/                   # 机器级共享配置（main.yml 本地文件）
+│   │       ├── main.yml.example       # SSH 身份、服务账号、共享 vault 路径、变体隔离
 │   │       └── vault.yml.example      # 共享连接密钥模板
 │   └── host_vars/
-│       └── example/                   # 变体模板；真实 variant 目录 gitignore
+│       └── variant.example/       # 变体模板；真实 variant 目录 gitignore
 │           ├── main.yml               # 该变体的构建配置（目标/Profile/模块/软件包）
 │           └── vault.yml.example      # 该变体的固件密钥模板
 ├── playbooks/
@@ -112,16 +111,16 @@ mise install           # 或：asdf install
 
 # 1) 为每个变体生成配置目录（目录名须与 inventory 主机名一致）
 #    变体名即 inventory 主机名，例如 ib-main / ib-side / ib-ap。
-make host-init HOST=ib-main
+make host-init VARIANT=ib-main
 #    -> 编辑 ib-main/main.yml（构建目标、Profile、模块、软件包）
 #       以及 ib-main/vault.yml（该变体的固件密钥：root/PPPoE 密码）
-#    -> 对其它变体重复：make host-init HOST=ib-side 等
+#    -> 对其它变体重复：make host-init VARIANT=ib-side 等
 
 # 2) 密钥：连接密钥放共享 vault（每台构建机一次），固件密钥放各变体 vault
 make install           # 工具链 + collections + sshpass/passlib + Keychain
 make vault-init     # 一次性：生成 vault 口令（务必另行备份）
-make vault-edit VAULT_FILE=inventory/group_vars/builder/vault.yml  # SSH 连接身份
-make vault-edit HOST=ib-main      # 该变体的固件密钥
+make vault-edit-group            # 共享 SSH 连接身份
+make vault-edit VARIANT=ib-main  # 该变体的固件密钥
 
 # 3) 引导构建机（一次性）：按 ansible -> admin -> root 探测并创建 'ansible' 服务账号
 make host-bootstrap EXTRA='--limit ib-main'   # 只对首个变体（同一台机器）执行
@@ -141,8 +140,9 @@ make deploy
 `sha256sums` 等）。使用 `make info` 可只查询 ImageBuilder 镜像与 Profile 信息、不构建。
 
 > 默认情况下，**控制机**（运行 `make` 的机器）与**构建机**（被控的 Docker 主机）是
-> 内网中**两台独立设备**。请在 `inventory/hosts.yml` 中为每个变体填入相同的
-> `ansible_host` 指向你的构建机（使用 `hosts.yml.example` 作为模板）；连接身份来自
+> 内网中**两台独立设备**。请在 `inventory/hosts.yml` 的 `builder` 组下列出各变体主机，
+> 并把 `ansible_host` 作为组变量**只写一次**（使用 `hosts.yml.example` 作为模板）；
+> 所有变体自动继承。连接身份来自
 > `group_vars/builder/main.yml`。也可使用 `ansible_connection: local` 直接在控制机构建。
 
 ## 构建多个固件（多变体）
@@ -156,7 +156,7 @@ make deploy
 
 | 位置 | 作用 |
 |------|------|
-| `inventory/hosts.yml` | 每个变体一行，`ansible_host` 全部指向同一台构建机 |
+| `inventory/hosts.yml` | `builder` 组下列出变体主机，构建机 `ansible_host` 作为组变量只写一次 |
 | `inventory/group_vars/builder/main.yml` | 机器级共享：SSH 身份、服务账号、共享 vault 路径、变体隔离 |
 | `inventory/host_vars/<variant>/main.yml` | 该变体的构建配置（`openwrt_image`、`openwrt_profile`、模块、软件包、LAN IP 等） |
 | `inventory/host_vars/<variant>/vault.yml` | 该变体的固件密钥（root/PPPoE 密码） |
@@ -176,14 +176,18 @@ make deploy
 | 命令 | 用途 |
 |------|------|
 | `make install` | **唯一依赖入口**：确保控制端工具链、collections、`sshpass`、`passlib` 与 Keychain |
-| `make lint` | `ansible-playbook --syntax-check` + `ansible-lint` |
-| `make host-init HOST=<name>` | 从模板生成 `inventory/` 与 `host_vars/<name>/`（vault 立即加密） |
+| `make host-init VARIANT=<name>` | 从模板生成 `group_vars/builder/main.yml` 与 `host_vars/<name>/`（vault 立即加密） |
 | `make host-bootstrap` | 探测 ansible → admin → root 并创建服务账号 |
 | `make deploy` | 一键首次构建：先 `host-bootstrap` 再 `build` |
 | `make build` | 构建自定义固件镜像（ImageBuilder 容器） |
 | `make info` | 查询镜像/Profile 信息（不构建） |
 | `make vault-init` | 一次性：生成 vault 口令 |
-| `make vault-edit` / `vault-view` | 编辑 / 查看 vault 文件（`HOST=...` 或 `VAULT_FILE=...`） |
+| `make vault-edit VARIANT=<name>` | 编辑某个变体的 vault |
+| `make vault-edit-group` | 编辑共享的 builder 连接 vault |
+| `make vault-view` | 遍历查看所有变体的 vault 与共享 vault（只读） |
+
+`make lint`（syntax-check + `ansible-lint`）是**内部**目标，由 CI 调用；它有意不在
+`make help` 中展示，但开发者仍可直接执行。
 
 已移除：`make agent-setup`（请自行启动 agent，或让 `run-playbook` 自动兜底）、
 `make clean`（请自行删除 `.cache`/`collections`/`.ansible`）、
@@ -219,9 +223,9 @@ docker Python SDK 是**构建机**依赖，由 role preflight 断言，因此 `i
 
 ## 扩展路径
 
-- **新增一个变体**：`make host-init HOST=<variant>`，在 `inventory/hosts.yml` 添加该
-  主机（`ansible_host` 指向同一台构建机），再编辑其 `host_vars/<variant>/main.yml`
-  （`openwrt_image` / `openwrt_profile` 等），无需改动角色。
+- **新增一个变体**：`make host-init VARIANT=<variant>`，在 `inventory/hosts.yml` 的
+  `builder.hosts` 下添加该主机名（构建机 `ansible_host` 由组变量继承），再编辑其
+  `host_vars/<variant>/main.yml`（`openwrt_image` / `openwrt_profile` 等），无需改动角色。
 - **更换目标/Profile**：修改对应变体的 `host_vars/<variant>/main.yml` 中的
   `openwrt_image`（可选 `openwrt_profile`），无需改动其它内容。
 - **新增自定义模块**：添加 `roles/imagebuilder/files/overlay/<name>/...`（静态）
@@ -241,7 +245,7 @@ docker Python SDK 是**构建机**依赖，由 role preflight 断言，因此 `i
 - **首次运行 / 自动化用户**：先执行一次 `make host-bootstrap`。它按
   `ansible → admin → root` 探测；若不是以 `ansible` 连接，则创建 `ansible` 服务账号
   （未设置 `vault_host_ansible_ssh_pubkey_file` 且 `vault_host_ansible_password` 为空
-  时，生成 `vault_host_ansible_password_auto` 写入托管 vault；免密 sudo；存在 `docker`
+  时，生成并以同名变量合并回共享 vault；免密 sudo；存在 `docker`
   组时加入）。因此首次运行需能以 root 或具备 sudo 的 admin 用户连接；
   若唯一可用账号是 `root`，请在 vault 中设置 `vault_host_root_password`（或 root 私钥）。
 - **控制机用哪个私钥？** 各身份可在 vault 中设置私钥路径

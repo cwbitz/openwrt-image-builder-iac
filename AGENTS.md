@@ -4,8 +4,9 @@ Ansible IaC that builds customized **OpenWrt firmware images** with the official
 `openwrt/imagebuilder` running in a Docker container on a build host.
 
 The **control node** (where `make` runs) and the **build host** (the machine
-running Docker) are separate LAN machines by default; every build variant points
-at the same `ansible_host`. Entry playbooks: `playbooks/bootstrap.yml` (once,
+running Docker) are separate LAN machines by default; every build variant runs
+against that same machine (the builder address is written once as a group
+variable). Entry playbooks: `playbooks/bootstrap.yml` (once,
 provisions the `ansible` service account), `playbooks/build.yml` (build every
 variant in parallel) and `playbooks/info.yml` (read-only ImageBuilder query). The
 build logic lives in `roles/imagebuilder/`.
@@ -21,10 +22,11 @@ build logic lives in `roles/imagebuilder/`.
   interpreter. The role preflight asserts the Docker CLI/daemon and SDK here.
 - **Per variant** (`inventory/host_vars/<variant>/`): build config (`main.yml`)
   and firmware secrets (`vault.yml`). One variant = one inventory host = one
-  (target, profile, settings); all variants share `ansible_host`.
+  (target, profile, settings); the builder `ansible_host` is defined once as a
+  group variable and inherited by every variant.
 - **Machine-wide** (`inventory/group_vars/builder/`): the SSH identity map,
-  service account, shared connection vault, always-encrypted managed vault and
-  per-variant isolation paths (derived from `inventory_hostname`).
+  service account, shared connection vault and per-variant isolation paths
+  (derived from `inventory_hostname`).
 
 ## Dependency model
 
@@ -52,31 +54,36 @@ build logic lives in `roles/imagebuilder/`.
 
 ## Commands
 
-- `make help` — target list, with each target's overridable variables
-  (`HOST`, `VAULT_FILE`, `EXTRA`) listed beneath it. `VAULT_FILE` overrides
-  `HOST`.
+- `make help` — aligned target list; each target's overridable variables
+  (`VARIANT`, `EXTRA`) are shown inline in its description. `help` is listed last.
 - `make install` — the sole dependency entry (see above).
-- `make lint` — `ansible-playbook --syntax-check` for every playbook +
-  `ansible-lint`.
-- `make host-init HOST=<name>` — scaffold `inventory/hosts.yml` and
-  `host_vars/<name>/` from `example/`; the vault is encrypted immediately (dir
-  `0700`, file `0600`). Re-running does not overwrite existing files.
+- `make host-init VARIANT=<name>` — scaffold `inventory/hosts.yml` and
+  `group_vars/builder/main.yml` from the examples, plus `host_vars/<name>/`; the
+  vault is encrypted immediately (dir `0700`, file `0600`). Re-running does not
+  overwrite existing files.
 - `make host-bootstrap` — once: probe `ansible → admin → root` and create/repair
   the `ansible` service account (keys, NOPASSWD sudo, `docker` group).
 - `make deploy` — one-click: `host-bootstrap` then `build` (fresh host to image).
 - `make build` / `make info` — build every variant in parallel / query
   ImageBuilder info. Non-`ansible` runs are unsupported.
 - `make vault-init` — generate the vault password file (outside the repo).
-- `make vault-edit` / `make vault-view` — edit/view a vault (`HOST=<name>`,
-  default `ib-main`, or `VAULT_FILE=<path>`); `vault-edit` encrypts a plaintext
-  vault first.
+- `make vault-edit VARIANT=<name>` — edit that variant's vault; a plaintext
+  vault is encrypted first.
+- `make vault-edit-group` — same, for the shared builder connection vault.
+- `make vault-view` — read-only: iterate every inventory `builder` host and print
+  its `host_vars/<host>/vault.yml`, then the shared
+  `group_vars/builder/vault.yml`. Missing per-host vaults show `(missing)`.
+- `lint` (syntax-check + `ansible-lint`, invoked by CI) is internal and hidden
+  from `make help`.
 - `agent-load` (start+load keys) and `agent-check` (verify loaded) are internal:
   `run-playbook` already falls back to Keychain on a permission failure.
 - `EXTRA` is appended to every `ansible-playbook` invocation, e.g.
   `make build EXTRA='--limit ib-side'`.
 
 Removed — do not reintroduce: `agent-setup`, `clean`, `vault-encrypt`, the
-public `check-*` (`check-deps`/`check-collections`) and `keychain-*` helpers,
+separate `vault_managed.yml` managed vault (and its `*_auto` indirection —
+generated secrets are merged into `vault.yml` in place), the public `check-*`
+(`check-deps`/`check-collections`) and `keychain-*` helpers,
 `install-sshpass-local` / `install-passlib-local`, and the `KEYCHAIN_PYZ`
 local-asset override. The control-node caches (`.cache`, `collections`,
 `.ansible`) are the operator's to delete. Keychain's asset URL is a fixed
@@ -84,13 +91,14 @@ constant.
 
 ## Secrets and local-only files
 
+- `inventory/group_vars/builder/main.yml` — machine-wide non-secret config, local
+  only; the committed template is `main.yml.example` (scaffolded by `host-init`).
 - `inventory/group_vars/builder/vault.yml` — machine-wide connection secrets
-  (`vault_host_<id>_{user,password,ssh_privkey_file,ssh_pubkey_file}`), operator
-  owned.
+  (`vault_host_<id>_{user,password,ssh_privkey_file,ssh_pubkey_file}`),
+  operator-owned; a missing generated value (e.g. the `ansible` password) is
+  merged in place by `make host-bootstrap` under the same name.
 - `inventory/host_vars/<variant>/vault.yml` — per-variant firmware secrets
   (`vault_openwrt_root_password`, `vault_openwrt_pppoe_password`), operator owned.
-- `inventory/group_vars/builder/vault_managed.yml` — automation-owned and always
-  encrypted; holds generated `*_auto` values only (never hand-edited).
 - Vault password file:
   `~/.config/projects/openwrt-image-builder-iac/ansible_vault_password`
   (pointed to by `ansible.cfg`, auto-generated by `make vault-init`). It lives
@@ -101,9 +109,9 @@ constant.
 
 ## Gotchas
 
-- Only `host_vars/example/` and `group_vars/builder/` (minus the real
-  `vault*.yml`) are committed. `inventory/hosts.yml` and real variant directories
-  are gitignored.
+- Only `host_vars/variant.example/` and the `group_vars/builder/*.example`
+  templates are committed. `inventory/hosts.yml`, real variant directories, and
+  `group_vars/builder/main.yml` / real `vault*.yml` are gitignored.
 - `bootstrap.yml` acts on `groups['builder'][0]`; `host-bootstrap` runs once for
   the whole builder.
 - The built image carries the secrets it was built with — treat fetched

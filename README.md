@@ -45,11 +45,14 @@ Core design decisions:
   substitution is replaced by Ansible's `template` module; static files are
   copied verbatim. Rendered output is assembled under `.build/files/`.
 - **Multi-variant, host-modelled config**: one variant = one inventory host =
-  one (target, profile, settings) combination; every variant points at the SAME
-  physical build machine. Per-variant build settings live in
+  one (target, profile, settings) combination; every variant builds on the SAME
+  physical build machine (the builder address is defined once as a group
+  variable). Per-variant build settings live in
   `host_vars/<variant>/` (matching the inventory name); machine-wide settings
   (SSH identity, service account, shared vault paths, variant isolation) live in
-  `group_vars/builder/`. Only `example/` and `group_vars/builder/` are committed.
+  `group_vars/builder/`. Only `variant.example/` and the
+  `group_vars/builder/*.example` templates are committed; the real `main.yml`
+  and `vault*.yml` are local-only.
 - **Variant isolation, parallel-safe**: `group_vars/builder/main.yml` derives a
   per-variant builder-side scratch/output directory and control-node artifact
   directory from `inventory_hostname`, and the container name carries the
@@ -58,17 +61,15 @@ Core design decisions:
   live in the shared vault (`inventory/group_vars/builder/vault.yml`); firmware
   secrets (root/PPPoE passwords) belong to a variant and live in each
   `host_vars/<variant>/vault.yml`. Both are referenced as `{{ vault_* }}`; the
-  vault password stays outside the repo. Auto-generated connection secrets are
-  written by `make host-bootstrap` into an always-encrypted **managed** vault
-  (`inventory/group_vars/builder/vault_managed.yml`) as `<var>_auto`, so
-  `vault.yml` stays operator-owned (plaintext vaults are supported until
-  encrypted). An operator value always wins over its `_auto` fallback and an
-  existing `_auto` value is never rotated.
+  vault password stays outside the repo. When `make host-bootstrap` needs a
+  missing connection secret (e.g. the `ansible` password) it generates it on the
+  control node and merges it into the same vault under the same name (the vault
+  is always encrypted; existing non-empty values are never rotated).
 - **`host-bootstrap` provisions the service account** (ported from netbird-iac):
   it probes `ansible -> admin -> root` and uses the first identity that works;
   when that is not `ansible` it (re)creates the `ansible` service account (an
-  empty `vault_host_ansible_password` triggers a generated
-  `vault_host_ansible_password_auto` unless a public key is supplied, passwordless
+  empty `vault_host_ansible_password` is generated and merged into the shared
+  vault under the same name unless a public key is supplied, passwordless
   sudo, and the `docker` group when present). Per-identity public keys
   (`vault_host_<id>_ssh_pubkey_file`) are authorized for their account.
 - **Connection identity is explicit** (netbird-iac model, machine-wide): the
@@ -87,13 +88,13 @@ Core design decisions:
 openwrt-image-builder-iac/
 ├── ansible.cfg                        # canonical Ansible config (repo root == Ansible root)
 ├── inventory/
-│   ├── hosts.yml.example              # build variants (same builder, many hosts)
+│   ├── hosts.yml.example              # builder group: address once + variant hosts
 │   ├── group_vars/
-│   │   └── builder/                   # machine-wide shared config (committed)
-│   │       ├── main.yml               # SSH identity, service account, shared vault, variant isolation
+│   │   └── builder/                   # machine-wide shared config (main.yml local-only)
+│   │       ├── main.yml.example       # SSH identity, service account, shared vault, variant isolation
 │   │       └── vault.yml.example      # shared connection secrets template
 │   └── host_vars/
-│       └── example/                   # variant template; real variants gitignored
+│       └── variant.example/       # variant template; real variants gitignored
 │           ├── main.yml               # per-variant build config (target/profile/modules/packages)
 │           └── vault.yml.example      # per-variant firmware secrets template
 ├── playbooks/
@@ -123,17 +124,17 @@ mise install           # or: asdf install
 # 1) Scaffold one config dir per build variant (the dir name must match the
 #    inventory host name). Variant names are inventory host names, e.g.
 #    ib-main / ib-side / ib-ap.
-make host-init HOST=ib-main
+make host-init VARIANT=ib-main
 #    -> edit ib-main/main.yml (build target, profile, modules, packages)
 #       and ib-main/vault.yml (that variant's firmware secrets: root/PPPoE)
-#    -> repeat for other variants: make host-init HOST=ib-side
+#    -> repeat for other variants: make host-init VARIANT=ib-side
 
 # 2) Secrets: connection secrets go in the shared vault (once per builder);
 #    firmware secrets go in each variant's vault.
 make install           # toolchain + collections + sshpass/passlib + Keychain
 make vault-init     # one-time: vault password (back it up)
-make vault-edit VAULT_FILE=inventory/group_vars/builder/vault.yml  # SSH identity
-make vault-edit HOST=ib-main      # that variant's firmware secrets
+make vault-edit-group            # shared SSH identity vault
+make vault-edit VARIANT=ib-main  # that variant's firmware secrets
 
 # 3) Bootstrap the build host once: probe ansible -> admin -> root and provision
 #    the 'ansible' service account (generated password, keys, NOPASSWD sudo).
@@ -156,8 +157,9 @@ ImageBuilder image and profile information without building.
 
 > By default the **control node** (where you run `make`) and the **build host**
 > (the managed machine running Docker) are **two separate machines on the LAN**.
-> In `inventory/hosts.yml`, give every variant the same `ansible_host` pointing
-> at your builder (start from `hosts.yml.example`); the connection identity comes
+> In `inventory/hosts.yml`, list the variant hosts under the `builder` group and
+> set `ansible_host` ONCE as a group variable (start from `hosts.yml.example`);
+> every variant inherits it. The connection identity comes
 > from `group_vars/builder/main.yml`. Building on the control node itself is also
 > possible (`ansible_connection: local`).
 
@@ -172,7 +174,7 @@ and a variant-scoped container name.
 
 | Location | Purpose |
 |----------|---------|
-| `inventory/hosts.yml` | one line per variant, all sharing `ansible_host` (the builder) |
+| `inventory/hosts.yml` | variant hosts under `builder`; the builder's `ansible_host` set once as a group variable |
 | `inventory/group_vars/builder/main.yml` | machine-wide: SSH identity, service account, shared vault paths, variant isolation |
 | `inventory/host_vars/<variant>/main.yml` | that variant's build config (`openwrt_image`, `openwrt_profile`, modules, packages, LAN IP, ...) |
 | `inventory/host_vars/<variant>/vault.yml` | that variant's firmware secrets (root/PPPoE) |
@@ -193,14 +195,18 @@ Notes:
 | Command | Purpose |
 |---------|---------|
 | `make install` | **Sole dependency entry**: ensures the control-node toolchain, collections, `sshpass`, `passlib` and Keychain |
-| `make lint` | `ansible-playbook --syntax-check` + `ansible-lint` |
-| `make host-init HOST=<name>` | Scaffold `inventory/` + `host_vars/<name>/` from the example (vault encrypted) |
+| `make host-init VARIANT=<name>` | Scaffold `group_vars/builder/main.yml` + `host_vars/<name>/` from the examples (vault encrypted) |
 | `make host-bootstrap` | Probe ansible → admin → root and provision the service account |
 | `make deploy` | One-click first build: `host-bootstrap` then `build` |
 | `make build` | Build a customized firmware image (ImageBuilder container) |
 | `make info` | Query image/profile information (no build) |
 | `make vault-init` | One-time: generate the vault password |
-| `make vault-edit` / `vault-view` | Edit / view a vault file (`HOST=...` or `VAULT_FILE=...`) |
+| `make vault-edit VARIANT=<name>` | Edit a variant's vault |
+| `make vault-edit-group` | Edit the shared builder connection vault |
+| `make vault-view` | View every pseudo-host's vault + shared vaults (read-only) |
+
+`make lint` (syntax-check + `ansible-lint`) is an **internal** target invoked by
+CI; it is intentionally hidden from `make help`, but developers can still run it.
 
 Removed: `make agent-setup` (start the agent yourself, or let `run-playbook`
 fall back to it), `make clean` (delete `.cache`/`collections`/`.ansible`
@@ -238,8 +244,9 @@ appended (or removed with a `-` prefix) via `openwrt_extra_packages`.
 
 ## Growth Path
 
-- **Another variant**: `make host-init HOST=<variant>`, add the host to
-  `inventory/hosts.yml` (same `ansible_host` as the builder), and edit
+- **Another variant**: `make host-init VARIANT=<variant>`, add the host name under
+  `builder.hosts` in `inventory/hosts.yml` (the builder `ansible_host` is
+  inherited from the group), and edit
   `host_vars/<variant>/main.yml` (`openwrt_image` / `openwrt_profile`, ...); no
   role change.
 - **Another target/profile**: change `openwrt_image` (and optionally
@@ -264,8 +271,8 @@ appended (or removed with a `-` prefix) via `openwrt_extra_packages`.
 - **First run / automation user**: run `make host-bootstrap` once. It probes
   `ansible → admin → root` and, when it does not connect as `ansible`, creates
   the `ansible` service account. With no `vault_host_ansible_ssh_pubkey_file`,
-  an empty `vault_host_ansible_password` makes it generate
-  `vault_host_ansible_password_auto` in the managed vault (NOPASSWD sudo; added
+  an empty `vault_host_ansible_password` is generated and merged into the shared
+  vault under the same name (NOPASSWD sudo; added
   to the `docker` group when present), so the first run must reach the host as
   root or a sudo-capable (admin) user. If your only usable account is `root`,
   set `vault_host_root_password` (or a root private key) in the vault.
