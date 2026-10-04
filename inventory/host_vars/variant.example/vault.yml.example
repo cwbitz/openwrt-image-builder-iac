@@ -1,11 +1,10 @@
 ---
 # Example per-variant firmware vault. Copy to host_vars/<variant>/vault.yml and
 # fill in real values, then encrypt in place:
-#   make ans-vault-init                                    # one-time
-#   make ans-vault-encrypt HOST=<variant>                  # encrypt the plaintext vault
-#   make ans-vault-edit HOST=<variant>                     # edit it afterwards
-# host_vars/<variant>/vault.yml is gitignored; only the example/ folder is
-# committed.
+#   make vault-init                                 # one-time
+#   make vault-edit VARIANT=<variant>               # encrypts plaintext first, then edits
+# host_vars/<variant>/vault.yml is gitignored; only the variant.example/
+# folder is committed.
 #
 # Connection secrets do NOT belong here: the SSH connection identity is shared
 # by every variant and lives in inventory/group_vars/builder/vault.yml (see its

@@ -15,19 +15,25 @@
 # Building on the control node itself is also possible: set
 # `ansible_connection: local` and `ansible_host: 127.0.0.1`.
 #
-# Build variants: each inventory host is one (target, profile, settings)
-# combination that builds on the SAME physical machine (all share ansible_host).
-# `make build` builds every variant in parallel; use ANS_EXTRA='--limit <host>'
-# for one. Per-variant settings live in host_vars/<variant>/ (main.yml + vault.yml,
-# the directory name MUST match the inventory host name); machine-wide settings
-# (SSH identity + shared connection vault) live in group_vars/builder/.
+# Build variants ("pseudo-hosts"): each inventory host is one
+# (target, profile, settings) combination that builds on the SAME physical
+# machine. The builder address is defined ONCE as a group variable below and
+# inherited by every variant — Ansible officially supports targeting the same
+# host more than once so the variants still build in parallel (forks). `make
+# build` builds every variant in parallel; use EXTRA='--limit <host>' for one.
+# Per-variant settings live in host_vars/<variant>/ (main.yml + vault.yml, the
+# directory name MUST match the inventory host name; see
+# host_vars/variant.example/); machine-wide settings (SSH identity + shared
+# connection vault) live in group_vars/builder/.
 all:
   children:
     builder:
       hosts:
         ib-main:
-          ansible_host: 192.0.2.10 # TODO: your builder host's LAN IP/hostname
         ib-side:
-          ansible_host: 192.0.2.10 # TODO: same builder as ib-main
         ib-ap:
-          ansible_host: 192.0.2.10 # TODO: same builder as ib-main
+      vars:
+        ansible_host: 192.0.2.10 # replace with your builder host's LAN IP/hostname
+    # Declared empty so `playbooks/bootstrap.yml`'s dynamic staging group always
+    # resolves; the probe play adds the chosen host here via add_host at runtime.
+    builder_bootstrap:

@@ -6,7 +6,7 @@ useDefault = true
 [allowlist]
 description = "Committed examples/placeholders only (no real secrets are committed)"
 paths = [
-  '''(^|/)example/''',
+  '''(^|/)variant\.example/''',
   '''\.example$''',
 ]
 regexes = [

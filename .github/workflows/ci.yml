@@ -36,7 +36,9 @@ jobs:
       - name: Prepare Ansible vault password (throwaway; CI has no secrets)
         run: make vault-init
       - name: Prepare inventory from example
-        run: cp inventory/hosts.yml.example inventory/hosts.yml
+        run: |
+          cp inventory/hosts.yml.example inventory/hosts.yml
+          cp inventory/group_vars/builder/main.yml.example inventory/group_vars/builder/main.yml
       - name: Lint (syntax check + ansible-lint)
         run: make lint
       - name: YAML lint

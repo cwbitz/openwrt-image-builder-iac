@@ -5,7 +5,7 @@
       - openwrt_image | length > 0
     fail_msg: >-
       openwrt_image is not set. Configure it in
-      inventory/host_vars/<variant>/main.yml (copy host_vars/example/),
+      inventory/host_vars/<variant>/main.yml (copy host_vars/variant.example/),
       e.g. openwrt/imagebuilder:x86-64-v23.05.5.
 
 - name: Check the Docker CLI is available on the build host

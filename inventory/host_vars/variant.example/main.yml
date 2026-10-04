@@ -5,7 +5,7 @@
 #
 # Copy this directory to host_vars/<variant>/ (the name must match the inventory
 # host) and fill in real values. host_vars/<variant>/ is gitignored; only the
-# example/ folder is committed.
+# variant.example/ folder is committed.
 #
 # Machine-wide settings (SSH connection identity, the `ansible` service account,
 # the shared connection vault and per-variant scratch isolation) live in
