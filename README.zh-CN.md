@@ -189,11 +189,12 @@ make deploy
 `make lint`（syntax-check + `ansible-lint`）是**内部**目标，由 CI 调用；它有意不在
 `make help` 中展示，但开发者仍可直接执行。
 
-已移除：`make agent-setup`（请自行启动 agent，或让 `run-playbook` 自动兜底）、
+已移除：`make agent-setup`（由共享 runner 准备 agent）、
 `make clean`（请自行删除 `.cache`/`collections`/`.ansible`）、
 `make vault-encrypt`（`host-init` 即加密；`vault-edit` 会先加密明文 vault），
-以及公开的 `check-*` / `keychain-*` / `agent-load` / `agent-check` 辅助目标
-（已转为内部：`install` 驱动 `ensure-*`，`run-playbook` 在私钥权限失败时自动兜底）。
+以及公开的 `check-*` / `keychain-*` / `agent-needed` / `agent-fallback` /
+`agent-ensure` / `agent-load` / `agent-check` 辅助目标
+（已转为内部：`install` 驱动 `ensure-*`，`run-playbook` 通过共享 runner 准备 agent）。
 docker Python SDK 是**构建机**依赖，由 role preflight 断言，因此 `install`
 有意不在控制端安装它。
 
@@ -251,11 +252,13 @@ docker Python SDK 是**构建机**依赖，由 role preflight 断言，因此 `i
 - **控制机用哪个私钥？** 各身份可在 vault 中设置私钥路径
   （`vault_host_<id>_ssh_privkey_file`）；未设置时回退到本机 ssh-agent，再回退到
   vault 密码。vault 中只存路径，绝不存私钥内容。
-- **Keychain 仅作兜底，不是前置条件**：私钥权限正确（或使用密码）时，
-  `build`/`info`/`host-bootstrap` 直接连接。仅当 OpenSSH 因私钥文件权限无法修复
-  （如 WSL `/mnt/c` 挂载的 `0777`）而拒绝时，才启动固定版本的 **Keychain 3** agent，
+- **Keychain 仅作兜底，不是前置条件**：`build`/`info`/`host-bootstrap` 都经由共享
+  脚本 `scripts/run-with-ssh-agent.sh` 执行。其内部的 `agent-fallback` 仅在
+  `agent-needed` 发现某个已配置私钥的权限会被 OpenSSH 拒绝时才准备 agent
+  （如 WSL `/mnt/c` 挂载的 `0777`；`agent-ensure` 为无条件变体），
   把所有已配置的 `vault_host_<id>_ssh_privkey_file` 经 stdin 加载进去
-  （`ssh-add - < key`，直接读取私钥内容、绕过权限检查），并重试一次。
+  （`ssh-add - < key`，直接读取私钥内容、绕过权限检查），runner 再自动重试一次。
+  私钥权限正确（或使用密码）时直接连接，不使用 agent。
   `make install` 保证 Keychain 能装上；`agent-load`（启动/复用 agent 并加载私钥）
   与 `agent-check`（验证身份）仍作为内部辅助目标保留。探测顺序为
   `ansible → admin → root`。

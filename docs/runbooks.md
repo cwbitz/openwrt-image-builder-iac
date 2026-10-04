@@ -103,15 +103,17 @@ every variant):
   running SSH agent), then the password, capped at one prompt
   (`host_ssh_common_args`). `sshpass` is required on the control node for password
   attempts (ensured by `make install`).
-- `build`/`info`/`host-bootstrap` connect directly when key permissions are
-  correct (or via password). Keychain is a **fallback**: when OpenSSH refuses a
-  key whose file permissions cannot be fixed (e.g. `0777` on the WSL `/mnt/c`
-  mount), the target starts a pinned **Keychain 3** ssh-agent, loads every
+- `build`/`info`/`host-bootstrap` run through the shared
+  `scripts/run-with-ssh-agent.sh`. Keychain is a **fallback**: the internal
+  `agent-fallback` prepares the agent only when `agent-needed` finds a configured
+  key whose permissions OpenSSH would refuse (e.g. `0777` on the WSL `/mnt/c`
+  mount; `agent-ensure` is the unconditional variant), then loads every
   configured `vault_host_<id>_ssh_privkey_file` (via stdin, `ssh-add - < key`,
-  which reads the key content directly and skips the permission check), and
-  retries once. The internal `make agent-load` (start/reuse the agent and load
-  the keys) and `make agent-check` (verify identities) helpers remain available
-  — `run-playbook` already performs the fallback on demand.
+  which reads the key content directly and skips the permission check) and the
+  runner retries once. Correctly permissioned keys and password auth connect
+  directly, with no agent. The internal `make agent-load` (start/reuse the agent
+  and load the keys) and `make agent-check` (verify identities) helpers remain
+  available — `run-playbook` already performs the fallback on demand.
 
 ## 3. Build
 

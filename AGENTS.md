@@ -45,12 +45,15 @@ build logic lives in `roles/imagebuilder/`.
   Debian-family only.
 - **Keychain 3 is a fallback, never a prerequisite.** `install` only guarantees
   it *can* be installed: the pinned GitHub asset is downloaded and
-  SHA256-verified against `keychain.pin`, then installed to `~/.local/bin`. The
-  agent is started only when OpenSSH refuses a private key whose file
-  permissions cannot be fixed (e.g. `0777` on the WSL `/mnt/c` mount);
-  `run-playbook` then starts Keychain, loads the vault keys via stdin and retries
-  once. Correctly permissioned keys and password auth connect directly, with no
-  agent.
+  SHA256-verified against `keychain.pin`, then installed to `~/.local/bin`. Every
+  SSH-consuming target runs through the shared, project-agnostic
+  `scripts/run-with-ssh-agent.sh` (driven by the `SSH_AGENT_*` environment
+  variables). The internal `agent-fallback` prepares the agent only when
+  `agent-needed` detects a configured key whose permissions OpenSSH would refuse
+  (e.g. `0777` on the WSL `/mnt/c` mount; `agent-ensure` is the unconditional
+  variant), loads the vault keys via `playbooks/ssh_agent_load.yml` (stdin
+  fallback), and the runner retries once on a refused-key failure. Correctly
+  permissioned keys and password auth connect directly, with no agent.
 
 ## Commands
 
@@ -75,8 +78,9 @@ build logic lives in `roles/imagebuilder/`.
   `group_vars/builder/vault.yml`. Missing per-host vaults show `(missing)`.
 - `lint` (syntax-check + `ansible-lint`, invoked by CI) is internal and hidden
   from `make help`.
-- `agent-load` (start+load keys) and `agent-check` (verify loaded) are internal:
-  `run-playbook` already falls back to Keychain on a permission failure.
+- `agent-needed`/`agent-fallback`/`agent-ensure` (prepare the agent), `agent-load`
+  (start+load keys) and `agent-check` (verify loaded) are internal: `run-playbook`
+  prepares the agent through the shared runner.
 - `EXTRA` is appended to every `ansible-playbook` invocation, e.g.
   `make build EXTRA='--limit ib-side'`.
 

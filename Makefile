@@ -59,6 +59,47 @@ KEYCHAIN_AGENT   := eval "$$($(KEYCHAIN_BIN) agent start --eval --quiet 2>/dev/n
 
 export ANSIBLE_CONFIG := ansible.cfg
 
+# ------------------------------------------------ shared ssh-agent runner ----
+# Identical across the 5 IaC projects: the generic scripts/run-with-ssh-agent.sh
+# is driven by the SSH_AGENT_* environment variables, so only the per-project
+# values below differ (the private-key hostvar names, and the inventory/playbook
+# paths already defined above). The agent is prepared proactively only when a
+# configured key has permissions OpenSSH would refuse (e.g. WSL /mnt/c), and the
+# runner retries once on a refused-key failure as a safety net.
+SSH_AGENT_ENV   ?= $(HOME)/.cache/iac/ssh-agent.env
+SSH_AGENT_RUN   ?= $(CURDIR)/scripts/run-with-ssh-agent.sh
+# Per-project fork: hostvars holding the control-node private-key paths.
+SSH_AGENT_KEY_VARS ?= vault_host_ansible_ssh_privkey_file vault_host_admin_ssh_privkey_file vault_host_root_ssh_privkey_file
+export SSH_AGENT_ENV
+export SSH_AGENT_KEYCHAIN_BIN  := $(KEYCHAIN_BIN)
+export SSH_AGENT_ANS_PLAY      := $(ANS_PLAY)
+export SSH_AGENT_INVENTORY     := $(INV)
+export SSH_AGENT_LOAD_PLAYBOOK := playbooks/ssh_agent_load.yml
+
+# (shared) Probe: exit 0 when a configured private key has unsafe permissions
+# (group/other bits set, e.g. 0777), i.e. OpenSSH would refuse it.
+SSH_AGENT_PROBE := ansible-inventory -i $(INV) --list 2>/dev/null | SSH_AGENT_KEY_VARS="$(SSH_AGENT_KEY_VARS)" python3 -c "import json,os,sys; names=os.environ['SSH_AGENT_KEY_VARS'].split(); vs=json.load(sys.stdin).get('_meta',{}).get('hostvars',{}); ks={os.path.expanduser(h.get(v)) for h in vs.values() for v in names if h.get(v)}; sys.exit(0 if any(os.path.isfile(k) and (os.stat(k).st_mode & 0o077) for k in ks) else 1)"
+
+# (shared) Canned recipe: prepare the Keychain ssh-agent. Reuse a loaded agent;
+# otherwise start Keychain and load the configured keys. SSH_AGENT_FORCE=1 skips
+# the permission probe. Writes SSH_AGENT_ENV for the runner to source.
+define SSH_AGENT_PREPARE
+	@set -e; \
+	mkdir -p "$$(dirname "$(SSH_AGENT_ENV)")"; \
+	rm -f "$(SSH_AGENT_ENV)"; \
+	if [ -n "$${SSH_AUTH_SOCK:-}" ] && ssh-add -l >/dev/null 2>&1; then \
+		echo "ssh-agent: reusing loaded agent"; \
+		echo "export SSH_AUTH_SOCK='$$SSH_AUTH_SOCK'" > "$(SSH_AGENT_ENV)"; exit 0; \
+	fi; \
+	if [ "$(SSH_AGENT_FORCE)" != "1" ] && ! $(SSH_AGENT_PROBE); then \
+		echo "ssh-agent: not needed (keys usable or password auth)"; exit 0; \
+	fi; \
+	echo "ssh-agent: starting Keychain and loading keys"; \
+	eval "$$($(KEYCHAIN_BIN) agent start --eval --quiet 2>/dev/null)"; \
+	echo "export SSH_AUTH_SOCK='$$SSH_AUTH_SOCK'" > "$(SSH_AGENT_ENV)"; \
+	$(ANS_PLAY) -i $(INV) $(SSH_AGENT_LOAD_PLAYBOOK)
+endef
+
 # Interpreter that runs ansible-playbook: the community.docker modules need the
 # `docker` Python SDK importable by the target's interpreter (asserted by the
 # role preflight on the build host). Resolve the mise tool path first.
@@ -74,7 +115,8 @@ ANSIBLE_PYTHON ?= $(shell \
 # Internal helpers (not listed in help; not part of the public interface).
 .PHONY: ensure-toolchain ensure-sshpass ensure-keychain ensure-collections \
         ensure-passlib keychain-fetch verify-keychain-pin run-playbook \
-        agent-load agent-check vault-edit-file lint hostkey-init
+        agent-needed agent-fallback agent-ensure agent-load agent-check \
+        vault-edit-file lint hostkey-init
 
 help: ## Show this help
 	@printf '\nUsage: make <target> [VAR=value ...]\n\n'
@@ -215,12 +257,26 @@ deploy: host-bootstrap build ## One-click: bootstrap the build host, then build 
 # Internal helpers (not part of the public interface)
 # ==============================================================================
 
+# (internal) Diagnostic probe: exit 0 when a configured private key would be
+# refused by OpenSSH. Shared across the 5 projects.
+agent-needed: vault-init
+	@$(SSH_AGENT_PROBE)
+
+# (internal) Prepare the Keychain ssh-agent, probe-gated (Ansible targets).
+agent-fallback: ensure-keychain
+	$(SSH_AGENT_PREPARE)
+
+# (internal) Prepare the Keychain ssh-agent unconditionally. Unused by this
+# Ansible-only project, kept so the block is identical across the 5 projects.
+agent-ensure: ensure-keychain
+	$(SSH_AGENT_PREPARE)
+agent-ensure: SSH_AGENT_FORCE := 1
+
 # (internal) Start/reuse the Keychain ssh-agent and load the vault keys. Only
-# used as an explicit convenience; `run-playbook` performs the same fallback
-# automatically when OpenSSH refuses a key file's permissions.
+# used as an explicit convenience; `run-playbook` prepares the agent on demand.
 agent-load: install vault-init
 	@$(KEYCHAIN_AGENT); \
-	$(ANS_PLAY) playbooks/ssh_agent_load.yml
+	$(ANS_PLAY) -i $(INV) $(SSH_AGENT_LOAD_PLAYBOOK)
 
 # (internal) Diagnostic: ensure the Keychain is installed and the agent has
 # identities loaded. `run-playbook` already starts it on demand.
@@ -353,22 +409,9 @@ ensure-keychain: verify-keychain-pin
 		echo "keychain installed: $(KEYCHAIN_BIN) (v$(KEYCHAIN_VERSION))"; \
 	fi
 
-# (internal) Run a playbook. Keychain is a FALLBACK: when OpenSSH refuses a
-# private key because its file permissions cannot be fixed (e.g. 0777 on the WSL
-# /mnt/c mount), start the Keychain agent and load the vault keys in THIS shell,
-# then retry once. Correctly permissioned keys (and password auth) connect
-# directly, with no agent.
-run-playbook: install vault-init
-	@set -o pipefail; \
-	log=$$(mktemp); trap 'rm -f "$$log"' EXIT; \
-	$(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(EXTRA) 2>&1 | tee "$$log"; \
-	rc=$${PIPESTATUS[0]}; \
-	if [ $$rc -eq 0 ]; then exit 0; fi; \
-	if grep -qiE 'UNPROTECTED PRIVATE KEY FILE|are too open|bad permissions|Permissions [0-9]+ for' "$$log"; then \
-		echo "NOTE: SSH refused a private key due to file permissions — starting Keychain and retrying once..."; \
-		$(KEYCHAIN_AGENT); \
-		$(ANS_PLAY) playbooks/ssh_agent_load.yml; \
-		$(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(EXTRA); \
-	else \
-		exit $$rc; \
-	fi
+# (internal) Run a playbook through the shared ssh-agent runner: the agent is
+# prepared (probe-gated) first, and the runner retries once if OpenSSH refuses a
+# private key (e.g. 0777 on the WSL /mnt/c mount). Correctly permissioned keys
+# (and password auth) connect directly, with no agent.
+run-playbook: install vault-init agent-fallback
+	@$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(EXTRA)

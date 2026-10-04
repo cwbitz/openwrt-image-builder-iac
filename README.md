@@ -208,12 +208,13 @@ Notes:
 `make lint` (syntax-check + `ansible-lint`) is an **internal** target invoked by
 CI; it is intentionally hidden from `make help`, but developers can still run it.
 
-Removed: `make agent-setup` (start the agent yourself, or let `run-playbook`
-fall back to it), `make clean` (delete `.cache`/`collections`/`.ansible`
-yourself), `make vault-encrypt` (`host-init` encrypts; `vault-edit` encrypts a
-plaintext vault first), and the public `check-*` / `keychain-*` / `agent-load` /
-`agent-check` helpers (now internal — `install` drives the `ensure-*` helpers,
-and `run-playbook` falls back to Keychain on a key-permission failure). The
+Removed: `make agent-setup` (the shared runner prepares the agent), `make clean`
+(delete `.cache`/`collections`/`.ansible` yourself), `make vault-encrypt`
+(`host-init` encrypts; `vault-edit` encrypts a plaintext vault first), and the
+public `check-*` / `keychain-*` / `agent-needed` / `agent-fallback` /
+`agent-ensure` / `agent-load` / `agent-check` helpers (now internal — `install`
+drives the `ensure-*` helpers, and `run-playbook` prepares the agent through the
+shared runner). The
 docker Python SDK is a **build-host** dependency, asserted by the role
 preflight, so it is intentionally not installed by `install` on the control
 node.
@@ -281,15 +282,16 @@ appended (or removed with a `-` prefix) via `openwrt_extra_packages`.
   falls back to your running ssh-agent, then to the vault password. The private
   key is never stored as a value in the vault — only its path.
 - **Keychain is a fallback, not a prerequisite**: `build`/`info`/`host-bootstrap`
-  connect directly when their key permissions are correct (or via password). Only
-  when OpenSSH refuses a key whose file permissions cannot be fixed (e.g. `0777`
-  on the WSL `/mnt/c` mount) do they start the pinned **Keychain 3** agent, load
-  every configured `vault_host_<id>_ssh_privkey_file` into it (via stdin,
-  `ssh-add - < key`, which reads the key content directly and skips the permission
-  check), and retry once. `make install` guarantees Keychain can be installed;
-  `agent-load` (start/reuse the agent and load the keys) and `agent-check`
-  (verify identities) stay available as internal helpers. The probe order is
-  `ansible → admin → root`.
+  run through the shared `scripts/run-with-ssh-agent.sh`. Its internal
+  `agent-fallback` prepares the agent only when `agent-needed` finds a configured
+  key whose permissions OpenSSH would refuse (e.g. `0777` on the WSL `/mnt/c`
+  mount; `agent-ensure` is the unconditional variant); it loads every configured
+  `vault_host_<id>_ssh_privkey_file` into it (via stdin, `ssh-add - < key`, which
+  reads the key content directly and skips the permission check) and the runner
+  retries once. Correctly permissioned keys and password auth connect directly,
+  with no agent. `make install` guarantees Keychain can be installed; `agent-load`
+  (start/reuse the agent and load the keys) and `agent-check` (verify identities)
+  stay available as internal helpers. The probe order is `ansible → admin → root`.
 - **Where do the images go?** Each variant is built on the builder under
   `openwrt_output_dir` (`~/.cache/openwrt-builder/artifacts/<variant>` by
   default), then fetched to the control node's
