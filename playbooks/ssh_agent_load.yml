@@ -35,8 +35,8 @@
 
     - name: "[SSHAgent] Collect the configured private-key file paths (per identity)"
       ansible.builtin.set_fact:
-        agent_private_key_files: >-
-          {{ (agent_private_key_files | default([])) +
+        agent_privkey_files: >-
+          {{ (agent_privkey_files | default([])) +
              [ hostvars[item].host_ssh_identities.ansible.privkey | default('', true),
                hostvars[item].host_ssh_identities.admin.privkey | default('', true),
                hostvars[item].host_ssh_identities.root.privkey | default('', true) ] }}
@@ -46,15 +46,15 @@
 
     - name: "[SSHAgent] Deduplicate the configured private-key paths"
       ansible.builtin.set_fact:
-        agent_private_keys: >-
-          {{ agent_private_key_files | select | unique | list }}
+        agent_privkeys: >-
+          {{ agent_privkey_files | select | unique | list }}
 
     - name: "[SSHAgent] Warn when no private-key paths are configured"
       ansible.builtin.debug:
         msg: >-
           No vault_host_<id>_ssh_privkey_file values found (no hosts, or empty
           vaults). Nothing to load.
-      when: agent_private_keys | length == 0
+      when: agent_privkeys | length == 0
 
     - name: "[SSHAgent] Load each private key into the SSH agent"
       ansible.builtin.shell: |
@@ -76,7 +76,7 @@
         executable: /bin/bash
       environment:
         KEY: "{{ item }}"
-      loop: "{{ agent_private_keys }}"
+      loop: "{{ agent_privkeys }}"
       loop_control:
         label: "{{ item }}"
       changed_when: false
