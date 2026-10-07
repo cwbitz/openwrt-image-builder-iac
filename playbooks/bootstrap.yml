@@ -24,6 +24,10 @@
 #                                        the vault leaves vault_host_ansible_password
 #                                        empty it is generated and merged back into
 #                                        the same vault under the same name.
+#
+# Passwords are hashed with a per-account random salt and applied with
+# update_password=on_create, so re-runs are idempotent and a host-side password
+# rotation is preserved.
 # ==============================================================================
 
 - name: Probe the SSH identities (ansible -> admin -> root)
@@ -116,7 +120,8 @@
     ansible_user: "{{ hostvars['localhost'].probe_chosen.user }}"
     ansible_password: "{{ hostvars['localhost'].probe_chosen.password }}"
     ansible_ssh_private_key_file: "{{ hostvars['localhost'].probe_chosen.privkey }}"
-    # root needs no escalation; admin/ansible do (NOPASSWD sudo). The play var
+    # root needs no escalation; ansible gets NOPASSWD sudo, admin password sudo.
+    # The play var
     # overrides the steady-state ansible_become=false from host_vars/main.yml.
     bootstrap_become: "{{ (hostvars['localhost'].probe_identity | lower) != 'root' }}"
     ansible_become: "{{ bootstrap_become }}"
@@ -182,29 +187,37 @@
         shell: /bin/bash
         create_home: true
         home: "/home/{{ bootstrap_service_user }}"
+        password: >-
+          {{ (bootstrap_service_password | password_hash('sha512'))
+             if not (bootstrap_use_key | bool) else omit }}
+        update_password: on_create
+      no_log: true
       when: hostvars['localhost'].probe_identity | lower != 'ansible'
 
-    - name: "[Bootstrap] Set the service-account password (password-auth mode)"
-      ansible.builtin.user:
-        name: "{{ bootstrap_service_user }}"
-        password: "{{ bootstrap_service_password | password_hash('sha512', 65534 | random(seed=inventory_hostname + bootstrap_service_password) | string) }}"
-        update_password: always
-      no_log: true
-      when:
-        - hostvars['localhost'].probe_identity | lower != 'ansible'
-        - not (bootstrap_use_key | bool)
-
     # --------------------------------------------------------------------------
-    # Admin identity (optional): when the operator defines admin credentials
-    # and/or a public key, create/repair the account and set its password.
-    # Root always exists and is never created.
+    # Admin identity (optional, opt-in via host_admin_enabled). A HUMAN operator
+    # account: always gets a password (generated when empty) for console login
+    # and sudo; a configured public key is installed additionally. Root always
+    # exists and is never created.
     # --------------------------------------------------------------------------
     - name: "[Bootstrap] Resolve the admin identity settings"
       ansible.builtin.set_fact:
         bootstrap_admin: "{{ host_ssh_identities.admin }}"
-        bootstrap_admin_defined: >-
-          {{ (host_ssh_identities.admin.password | default('', true) | length > 0)
-             or (host_ssh_identities.admin.pubkey | default('', true) | length > 0) }}
+        bootstrap_admin_defined: "{{ host_admin_enabled | default(false) | bool }}"
+
+    - name: "[Bootstrap] Provision the admin password (enabled, none supplied)"
+      ansible.builtin.include_role:
+        name: imagebuilder
+        tasks_from: ensure_secrets
+      vars:
+        ensure_secrets_component: bootstrap_admin
+        ensure_secrets_vault_file: "{{ host_vault_file }}"
+        ensure_secrets_per_host: true
+        ensure_secrets_list:
+          - var: vault_host_admin_password
+            type: hex
+            length: 24
+      when: bootstrap_admin_defined | bool
 
     - name: "[Bootstrap] Create/repair the admin account"
       ansible.builtin.user:
@@ -214,21 +227,13 @@
         shell: /bin/bash
         create_home: true
         state: present
-      when:
-        - bootstrap_admin_defined | bool
-        - bootstrap_admin.user != 'root'
-        - bootstrap_admin.user != bootstrap_service_user
-
-    - name: "[Bootstrap] Set the admin account password"
-      ansible.builtin.user:
-        name: "{{ bootstrap_admin.user }}"
-        password: "{{ bootstrap_admin.password | password_hash('sha512', 65534 | random(seed=inventory_hostname + bootstrap_admin.password) | string) }}"
-        update_password: always
+        password: "{{ vault_host_admin_password | password_hash('sha512') }}"
+        update_password: on_create
       no_log: true
       when:
         - bootstrap_admin_defined | bool
         - bootstrap_admin.user != 'root'
-        - bootstrap_admin.password | default('', true) | length > 0
+        - bootstrap_admin.user != bootstrap_service_user
 
     # --------------------------------------------------------------------------
     # SSH public keys (per identity, opt-in): authorize every explicitly
@@ -240,7 +245,8 @@
         bootstrap_pubkey_specs: >-
           {%- set ns = namespace(specs=[]) -%}
           {%- for id, ident in host_ssh_identities.items() -%}
-          {%-   if (ident.pubkey | default('') | string | trim) | length > 0 -%}
+          {%-   if (id != 'admin' or (bootstrap_admin_defined | default(false) | bool))
+                 and (ident.pubkey | default('') | string | trim) | length > 0 -%}
           {%-     set ns.specs = ns.specs + [{'id': id, 'user': ident.user, 'path': ident.pubkey}] -%}
           {%-   endif -%}
           {%- endfor -%}
@@ -303,19 +309,20 @@
         label: "{{ item.item.id }}"
 
     # --------------------------------------------------------------------------
-    # Passwordless sudo for the managed accounts.
+    # Sudo: NOPASSWD for the automation account; password sudo for the (optional)
+    # human admin.
     # --------------------------------------------------------------------------
-    - name: "[Bootstrap] Resolve the passwordless-sudo accounts"
+    - name: "[Bootstrap] Resolve the sudo accounts"
       ansible.builtin.set_fact:
-        bootstrap_sudo_users: >-
-          {{ ([bootstrap_service_user | default('ansible')]
-              + ([bootstrap_admin.user]
-                 if (bootstrap_admin_defined | default(false) | bool
-                     and bootstrap_admin.user | default('', true) != 'root')
-                 else []))
-             | unique }}
+        bootstrap_sudo_nopasswd_users: "{{ [bootstrap_service_user | default('ansible')] }}"
+        bootstrap_sudo_password_users: >-
+          {{ [bootstrap_admin.user]
+             if (bootstrap_admin_defined | default(false) | bool
+                 and bootstrap_admin.user | default('', true) != 'root'
+                 and bootstrap_admin.user | default('', true) != (bootstrap_service_user | default('ansible')))
+             else [] }}
 
-    - name: "[Bootstrap] Grant passwordless sudo"
+    - name: "[Bootstrap] Grant the automation account passwordless sudo"
       ansible.builtin.copy:
         content: "{{ item }} ALL=(ALL) NOPASSWD: ALL\n"
         dest: "/etc/sudoers.d/90-openwrt-builder-{{ item }}"
@@ -323,8 +330,18 @@
         group: root
         mode: "0440"
         validate: "visudo -cf %s"
-      loop: "{{ bootstrap_sudo_users }}"
+      loop: "{{ bootstrap_sudo_nopasswd_users }}"
       when: host_bootstrap_sudo_nopasswd | default(true) | bool
+
+    - name: "[Bootstrap] Grant the admin account password sudo"
+      ansible.builtin.copy:
+        content: "{{ item }} ALL=(ALL) ALL\n"
+        dest: "/etc/sudoers.d/90-openwrt-builder-{{ item }}"
+        owner: root
+        group: root
+        mode: "0440"
+        validate: "visudo -cf %s"
+      loop: "{{ bootstrap_sudo_password_users }}"
 
     - name: "[Bootstrap] Report the outcome"
       ansible.builtin.debug:

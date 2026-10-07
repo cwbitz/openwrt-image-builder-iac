@@ -79,6 +79,13 @@ host_ansible_gid: 6000
 # [OPTIONAL] docker group to add the automation user to when it exists.
 host_ansible_docker_group: docker
 
+# Create/repair the optional human 'admin' operator account during
+# `make host-bootstrap`. When true the account is created and ALWAYS gets a
+# password (generated into the shared builder vault when left empty) for console
+# login and sudo; a configured public key is installed additionally. Default
+# false: no admin account is managed (least privilege).
+host_admin_enabled: false
+
 # --- Shared connection vault -------------------------------------------------
 # The connection identity and its secrets belong to the MACHINE, so all variants
 # read/write one vault here (overriding the role's per-host default). A generated

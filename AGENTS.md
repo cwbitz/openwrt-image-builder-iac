@@ -65,7 +65,10 @@ build logic lives in `roles/imagebuilder/`.
   vault is encrypted immediately (dir `0700`, file `0600`). Re-running does not
   overwrite existing files.
 - `make host-bootstrap` — once: probe `ansible → admin → root` and create/repair
-  the `ansible` service account (keys, NOPASSWD sudo, `docker` group).
+  the `ansible` service account (key-first, NOPASSWD sudo, `docker` group) plus
+  the human `admin` account when `host_admin_enabled` is set (always given a
+  password). Passwords use a per-account random salt with `update_password:
+  on_create`.
 - `make deploy` — one-click: `host-bootstrap` then `build` (fresh host to image).
 - `make build` / `make info` — build every variant in parallel / query
   ImageBuilder info. Non-`ansible` runs are unsupported.
@@ -99,8 +102,9 @@ constant.
   only; the committed template is `main.yml.example` (scaffolded by `host-init`).
 - `inventory/group_vars/builder/vault.yml` — machine-wide connection secrets
   (`vault_host_<id>_{user,password,ssh_privkey_file,ssh_pubkey_file}`),
-  operator-owned; a missing generated value (e.g. the `ansible` password) is
-  merged in place by `make host-bootstrap` under the same name.
+  operator-owned; a missing generated value (the `ansible` password when no key
+  is set, and the `admin` password when `host_admin_enabled`) is merged in place
+  by `make host-bootstrap` under the same name.
 - `inventory/host_vars/<variant>/vault.yml` — per-variant firmware secrets
   (`vault_openwrt_root_password`, `vault_openwrt_pppoe_password`), operator owned.
 - Vault password file:

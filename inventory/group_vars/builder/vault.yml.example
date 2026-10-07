@@ -27,6 +27,9 @@
 vault_host_root_password: ""
 vault_host_root_ssh_privkey_file: ""
 vault_host_root_ssh_pubkey_file: ""
+# The optional human 'admin' operator account is created only when
+# `host_admin_enabled: true` is set in group_vars/builder/main.yml. It always
+# gets a password (generated here when left empty) plus any configured key.
 vault_host_admin_user: "admin"
 vault_host_admin_password: ""
 vault_host_admin_ssh_privkey_file: ""
