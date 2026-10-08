@@ -2,10 +2,56 @@
   "files.associations": {
     "*.j2": "jinja"
   },
+  "yaml.format.bracketSpacing": false,
+  "yaml.format.printWidth": 160,
+  "yaml.format.trailingComma": false,
   "yaml.schemas": {
     ".vscode/schemas/ansible-vars.json": [
       "inventory/host_vars/**/*.yml",
       "inventory/group_vars/**/*.yml"
     ]
+  },
+  "yaml.disableSchemaDetection": [
+    "**/playbooks/vars/*.yml",
+    "**/playbooks/vars/*.yaml",
+    "**/vars/*.yml",
+    "**/vars/*.yaml",
+    "**/defaults/*.yml",
+    "**/defaults/*.yaml",
+    "**/requirements.yml",
+    "**/requirements.yaml",
+    "**/meta/main.yml",
+    "**/meta/main.yaml",
+    "**/meta/runtime.yml",
+    "**/meta/runtime.yaml",
+    "**/execution-environment.yml",
+    "**/execution-environment.yaml",
+    "**/.ansible-lint",
+    "**/.config/ansible-lint.yml",
+    "**/.config/ansible-lint.yaml",
+    "**/galaxy.yml",
+    "**/galaxy.yaml",
+    "**/molecule/*/molecule.yml",
+    "**/molecule/*/molecule.yaml",
+    "**/rulebooks/*.yml",
+    "**/rulebooks/*.yaml"
+  ],
+  "ansible.validation.enabled": true,
+  "ansible.validation.lint.enabled": true,
+  "python.analysis.exclude": [
+    "**/collections/**",
+    "**/.ansible/**"
+  ],
+  "python.analysis.ignore": [
+    "**/collections/**",
+    "**/.ansible/**"
+  ],
+  "files.watcherExclude": {
+    "**/collections/**": true,
+    "**/.ansible/**": true
+  },
+  "search.exclude": {
+    "**/collections/": true,
+    "**/.ansible/": true
   }
 }
