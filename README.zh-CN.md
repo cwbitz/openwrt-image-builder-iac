@@ -91,7 +91,8 @@ openwrt-image-builder-iac/
 │   ├── build.yml                      # 构建固件（make build）
 │   └── info.yml                       # 查询 ImageBuilder 信息（make info）
 ├── roles/imagebuilder/
-│   ├── defaults/main.yml              # 模块注册表、软件包列表、默认值
+│   ├── defaults/main.yml              # 运维开关的回退默认值
+│   ├── vars/main.yml                  # 模块注册表、软件包列表、内部常量
 │   ├── tasks/                         # preflight/modules/setup/packages/overlay/build/info
 │   ├── files/overlay/<module>/...     # 静态 uci-defaults overlay
 │   └── templates/overlay/<module>/    # 模板化 uci-defaults + build.sh.j2
@@ -230,7 +231,7 @@ docker Python SDK 是**构建机**依赖，由 role preflight 断言，因此 `i
 - **更换目标/Profile**：修改对应变体的 `host_vars/<variant>/main.yml` 中的
   `openwrt_image`（可选 `openwrt_profile`），无需改动其它内容。
 - **新增自定义模块**：添加 `roles/imagebuilder/files/overlay/<name>/...`（静态）
-  或 `templates/overlay/<name>/...`（模板），并在 `defaults/main.yml` 的
+  或 `templates/overlay/<name>/...`（模板），并在 `vars/main.yml` 的
   `openwrt_module_packages` 中加入其软件包、在 `openwrt_known_modules` 中登记。
 - **远程构建主机**：修改 `hosts.yml` 以 SSH 方式指向该主机。
 

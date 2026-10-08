@@ -102,7 +102,8 @@ openwrt-image-builder-iac/
 │   ├── build.yml                      # build firmware (make build)
 │   └── info.yml                       # query ImageBuilder info (make info)
 ├── roles/imagebuilder/
-│   ├── defaults/main.yml              # module registry, package lists, defaults
+│   ├── defaults/main.yml              # fallbacks for the operator knobs
+│   ├── vars/main.yml                  # module registry, package lists, internals
 │   ├── tasks/                         # preflight/modules/setup/packages/overlay/build/info
 │   ├── files/overlay/<module>/...     # static uci-defaults overlay
 │   └── templates/overlay/<module>/    # templated uci-defaults + build.sh.j2
@@ -254,7 +255,7 @@ appended (or removed with a `-` prefix) via `openwrt_extra_packages`.
   `openwrt_profile`) in `host_vars/<variant>/main.yml`; nothing else changes.
 - **A custom module**: add `roles/imagebuilder/files/overlay/<name>/...` (static)
   or `templates/overlay/<name>/...` (templated) plus its packages in
-  `defaults/main.yml` (`openwrt_module_packages`), and list `<name>` in
+  `vars/main.yml` (`openwrt_module_packages`), and list `<name>` in
   `openwrt_known_modules`.
 - **A remote Docker builder**: edit `hosts.yml` to target the host over SSH.
 

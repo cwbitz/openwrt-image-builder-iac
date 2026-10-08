@@ -265,7 +265,7 @@ The same knob also works for release images; combined with
 1. Add overlay files under `roles/imagebuilder/files/overlay/<name>/...`
    (static) or `templates/overlay/<name>/...` (Jinja, for variables).
 2. Add its packages to `openwrt_module_packages` in
-   `roles/imagebuilder/defaults/main.yml` (if any).
+   `roles/imagebuilder/vars/main.yml` (if any).
 3. Add `<name>` to `openwrt_known_modules`.
 4. Reference any operator variables in `host_vars/variant.example/main.yml`
    (with empty role defaults so the templates always resolve).

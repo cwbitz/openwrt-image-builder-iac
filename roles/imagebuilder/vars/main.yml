@@ -1,0 +1,97 @@
+---
+# ==============================================================================
+# imagebuilder role internal constants (roles/imagebuilder/vars/main.yml)
+# ==============================================================================
+# Values the role owns; kept out of defaults/main.yml so inventory cannot
+# override them.
+
+# --- Internal path bases -----------------------------------------------------
+# The repo root IS the Ansible root (flat layout). Derived from playbook_dir
+# (playbooks/) via `dirname` so no path ever contains '..'.
+project_root: "{{ playbook_dir | dirname }}"
+# Scratch space for the rendered overlay and the in-container script. Paths are
+# namespaced by inventory host (build variant) so multiple variants on the same
+# build host can build in parallel without clobbering each other.
+openwrt_workdir: "{{ openwrt_build_dir }}/work/{{ inventory_hostname }}"
+
+# --- Module selection --------------------------------------------------------
+openwrt_default_modules:
+  - base
+  - system
+  - root-password
+  - pppoe
+  - main-router
+  - disable-ipv6
+  - extras
+openwrt_known_modules:
+  - ap
+  - base
+  - bypass-router
+  - disable-ipv6
+  - extras
+  - main-router
+  - pppoe
+  - prefer-ipv6
+  - python
+  - root-password
+  - ssh-permission
+  - statistics
+  - system
+
+# --- Packages ----------------------------------------------------------------
+openwrt_base_packages:
+  - luci
+  - "-dnsmasq"
+  - dnsmasq-full
+  - "-wpad-basic-mbedtls"
+  - wpad-mbedtls
+  - openssl-util
+  - openssh-sftp-server
+  - rsync
+  - luci-i18n-base-zh-cn
+  - luci-i18n-firewall-zh-cn
+# The LuCI package-manager translation package differs by OpenWrt release.
+openwrt_base_package_manager_pkg: luci-i18n-package-manager-zh-cn
+openwrt_base_opkg_pkg: luci-i18n-opkg-zh-cn
+openwrt_package_manager_min_version: "24.10"
+# Static package lists per module (base is version-aware and handled separately
+# by packages.yml).
+openwrt_module_packages:
+  extras:
+    - curl
+    - vim-full
+    - diffutils
+    - bind-dig
+    - nping
+    - conntrack
+    - tcpdump
+  python:
+    - python3-light
+  statistics:
+    - luci-app-statistics
+    - collectd-mod-irq
+    - collectd-mod-sensors
+
+# --- Container limits --------------------------------------------------------
+# The ImageBuilder host tools use fakeroot, whose `faked` daemon closes every
+# file descriptor from 0 up to RLIMIT_NOFILE on startup. Docker inherits the
+# daemon's (often near-infinite) nofile limit, which turns that loop into a
+# billion-iteration spin that hangs the build. Pin a bounded limit.
+openwrt_container_ulimits:
+  - "nofile:65536:65536"
+
+# --- Mirrors -----------------------------------------------------------------
+# USTC mirror used by setup.sh to fetch the ImageBuilder tarball. setup.sh builds
+# "$UPSTREAM_URL/$VERSION_PATH/targets/...", and VERSION_PATH already contains
+# 'releases/<ver>' or 'snapshots', so this root works for both release and
+# SNAPSHOT images.
+openwrt_setup_mirror_url: "https://mirrors.ustc.edu.cn/openwrt"
+
+# --- Overlay file modes ------------------------------------------------------
+# Relative overlay paths that must be executable on the device (uci-defaults).
+# Every other overlay file is installed mode 0644.
+openwrt_overlay_executable:
+  - etc/uci-defaults/91-system
+  - etc/uci-defaults/92-system
+  - etc/uci-defaults/99-ssh
+  - etc/uci-defaults/99-statistics

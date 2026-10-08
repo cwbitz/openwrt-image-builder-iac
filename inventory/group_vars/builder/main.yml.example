@@ -19,8 +19,9 @@
 #
 # Per-variant build settings (openwrt_image, openwrt_profile, packages, LAN IP,
 # ...) live in inventory/host_vars/<variant>/main.yml. See host_vars/variant.example/.
-# Per-variant scratch/output isolation is a role default (see
-# roles/imagebuilder/defaults/main.yml), so it works for any inventory layout.
+# Per-variant scratch/output isolation is a role default/vars value (see
+# roles/imagebuilder/defaults/main.yml and vars/main.yml), so it works for any
+# inventory layout.
 
 # --- SSH connection identity -------------------------------------------------
 # `make host-bootstrap` probes [ansible, admin, root] and uses the first that
@@ -96,6 +97,7 @@ host_admin_enabled: false
 host_vault_file: "{{ project_root }}/inventory/group_vars/builder/vault.yml"
 
 # Per-variant isolation (scratch/output/artifact directories derived from
-# inventory_hostname, and a variant-scoped container name) is a role default so
-# it applies consistently whether or not this group_vars file is used; see
-# roles/imagebuilder/defaults/main.yml and tasks/setup.yml.
+# inventory_hostname, and a variant-scoped container name) is a role default/vars
+# value so it applies consistently whether or not this group_vars file is used;
+# see roles/imagebuilder/defaults/main.yml, roles/imagebuilder/vars/main.yml and
+# tasks/setup.yml.

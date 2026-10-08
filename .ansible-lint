@@ -21,7 +21,8 @@ skip_list:
   - yaml[comments]
   - yaml[braces]
   # Operator-facing knobs live unprefixed in group_vars/builder/main.yml; the
-  # role defaults mirror them as fallbacks, so the role-prefix rule is a false
+  # role defaults mirror them and role-internal constants (roles/imagebuilder/
+  # vars/main.yml) are unprefixed too, so the role-prefix rule is a false
   # positive for this single-role project.
   - var-naming[no-role-prefix]
 
