@@ -6,8 +6,12 @@
 #
 # `ansible-core` has no asdf plugin: mise resolves it through its pypi backend
 # (an isolated venv). Collections are pinned separately in
-# requirements.yml. Lint tools (ansible-lint / yamllint) are
-# intentionally NOT pinned here — they are "latest"-tracked and installed via
-# pip/pipx by the operator / CI (outside `make install`).
+# requirements.yml. Lint tools (ansible-lint / yamllint) are pinned below
+# through mise's pipx backend (no asdf equivalent; with asdf install them via
+# `pipx install ansible-lint yamllint`).
 python 3.11.15
 ansible-core 2.19.11
+
+# Lint tools, pinned so local and CI use one version.
+pipx:ansible-lint 26.6.0
+pipx:yamllint 1.38.0

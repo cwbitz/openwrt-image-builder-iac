@@ -20,6 +20,13 @@
     },
     {
       "customType": "regex",
+      "description": "lint tools pinned through mise's pipx backend in .tool-versions",
+      "managerFilePatterns": ["/^\\.tool-versions$/"],
+      "matchStrings": ["^pipx:(?<depName>\\S+) (?<currentValue>\\S+)$"],
+      "datasourceTemplate": "pypi"
+    },
+    {
+      "customType": "regex",
       "description": "Keychain 3 pin (version + sha256) via GitHub release attachments",
       "managerFilePatterns": ["/^keychain\\.pin$/"],
       "matchStrings": ["(?<currentValue>\\d+\\.\\d+\\.\\d+)\\s+sha256:(?<currentDigest>[a-f0-9]{64})"],
@@ -40,6 +47,13 @@
       "automerge": true,
       "automergeType": "pr",
       "platformAutomerge": true
+    },
+    {
+      "description": "Lint tools (PyPI, via mise's pipx backend): manual review, never automerge",
+      "matchDatasources": ["pypi"],
+      "matchPackageNames": ["ansible-lint", "yamllint"],
+      "automerge": false,
+      "addLabels": ["review-required"]
     },
     {
       "description": "Never auto-merge major updates",

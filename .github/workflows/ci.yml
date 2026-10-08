@@ -28,11 +28,13 @@ jobs:
         with:
           install: true
           cache: true
-      - name: Install lint tooling
-        run: pip install ansible-lint yamllint
       # Same entry point as local: installs control-node prerequisites + collections.
       - name: Install control-node prerequisites + collections
         run: make install
+      - name: Show the running lint tool versions
+        run: |
+          ansible-lint --version
+          yamllint --version
       - name: Prepare Ansible vault password (throwaway; CI has no secrets)
         run: make vault-init
       - name: Prepare inventory from example
