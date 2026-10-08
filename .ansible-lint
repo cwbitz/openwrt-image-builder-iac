@@ -1,6 +1,7 @@
 ---
 exclude_paths:
   - collections/
+  - .ansible/
   - inventory/
   - .cache/
   - .build/
@@ -8,6 +9,12 @@ exclude_paths:
   - .github/
   - docs/
   - artifacts/
+
+# Do not install a second, private copy of requirements.yml under
+# .ansible/collections: the project's collections/ dir (installed by the
+# `install` target) is the single source of truth, and ansible.cfg already
+# points collections_path at it.
+offline: true
 
 # Layout/style rules that false-positive on the Jinja/embedded shell here.
 skip_list:

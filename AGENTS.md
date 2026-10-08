@@ -34,7 +34,7 @@ build logic lives in `roles/imagebuilder/`.
   depends on it (build/info/host-bootstrap go through the internal
   `run-playbook`). In order it ensures: the toolchain (`ensure-toolchain`:
   python >= 3.8 + openssl), `ensure-sshpass`, `ensure-keychain`,
-  `ensure-collections`, `ensure-passlib`. These are internal (`ensure-*`, no
+  `ensure-ansible-collections`, `ensure-passlib`. These are internal (`ensure-*`, no
   help entry) and **fail loudly** — no silent fallbacks.
 - The **docker Python SDK is a build-host dependency**, not a control-node one.
   `install` does not install it; `roles/imagebuilder/tasks/preflight.yml`

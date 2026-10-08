@@ -113,7 +113,7 @@ ANSIBLE_PYTHON ?= $(shell \
 .PHONY: help install vault-init host-init vault-edit vault-edit-group vault-view \
         host-bootstrap info build deploy
 # Internal helpers (not listed in help; not part of the public interface).
-.PHONY: ensure-toolchain ensure-sshpass ensure-keychain ensure-collections \
+.PHONY: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections \
         ensure-passlib keychain-fetch verify-keychain-pin run-playbook \
         agent-needed agent-fallback agent-ensure agent-load agent-check \
         vault-edit-file lint hostkey-init
@@ -134,7 +134,7 @@ help: ## Show this help
 # which ensures the toolchain, collections, sshpass, passlib and Keychain in one
 # place. The `ensure-*` helpers below are internal and fail loudly.
 
-install: ensure-toolchain ensure-sshpass ensure-keychain ensure-collections ensure-passlib ## Install the pinned toolchain, collections, and control-node dependencies
+install: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections ensure-passlib ## Install the pinned toolchain, collections, and control-node dependencies
 
 host-init: vault-init ## Scaffold group_vars + host_vars/<VARIANT> from the examples (vault encrypted; VARIANT=<name>)
 	@test -n "$(VARIANT)" || { echo "ERROR: VARIANT is required, e.g. make host-init VARIANT=ib-main"; exit 1; }
@@ -358,15 +358,13 @@ ensure-passlib:
 	cp -a root/usr/lib/python3/dist-packages/passlib "$$dest/"; \
 	echo "passlib installed: $$dest/passlib"
 
-# (internal) Ensure the required Ansible collections are installed.
-ensure-collections:
-	@cols="$$(ansible-galaxy collection list 2>/dev/null)"; \
-	if printf '%s\n' "$$cols" | grep -qE '^community\.docker[[:space:]]'; then \
-		echo "ansible collections: present"; \
-	else \
-		echo "ansible collections: missing — installing"; \
-		ansible-galaxy collection install -r requirements.yml -p collections; \
-	fi
+# (internal) Install/refresh the pinned Ansible collections into the
+# project-local `collections/` dir (selected by ansible.cfg's `collections_path`,
+# which REPLACES the global ~/.ansible/collections). ansible-galaxy is
+# idempotent and version-aware: it no-ops when the pinned versions are present,
+# and installs/upgrades to the exact requirements.yml pins otherwise.
+ensure-ansible-collections:
+	@ansible-galaxy collection install -r requirements.yml
 
 # (internal) Download the pinned Keychain asset into the cache. A failed
 # download is fatal: fetch the asset manually and re-run.
