@@ -214,6 +214,19 @@ make info
 Runs `make info` inside the container without building; use it to discover the
 target's profiles before setting `openwrt_profile`.
 
+The target queries **every** variant (each inventory `builder` host) and prints
+one `===== variant =====` block per variant — no task banners, per-host `ok:`
+blocks, PLAY RECAP, or dependency-helper chatter (toolchain / collections /
+Keychain / ssh-agent are silenced via `QUIET=1`). To query a single variant,
+append `EXTRA='--limit <variant>'`, e.g.
+`make info EXTRA='--limit ib-main'`.
+
+The query pulls the ImageBuilder image / profile index over the network, and the
+shared runner buffers the play output until it finishes. So the terminal can
+pause with nothing to show; while it runs, `make info` displays a
+`Querying ImageBuilder info` spinner (a static
+line when stdout is not a TTY), then prints the captured output.
+
 ## 5. Mirrors
 
 Two independent knobs, both off by default (official OpenWrt sources):

@@ -71,7 +71,11 @@ build logic lives in `roles/imagebuilder/`.
   on_create`.
 - `make deploy` — one-click: `host-bootstrap` then `build` (fresh host to image).
 - `make build` / `make info` — build every variant in parallel / query
-  ImageBuilder info. Non-`ansible` runs are unsupported.
+  ImageBuilder info. Non-`ansible` runs are unsupported. `info` targets every
+  variant and prints one `===== variant =====` block per variant, hiding the
+  dependency-helper chatter (`QUIET=1`) — via the `callback_plugins/info_format.py`
+  stdout callback plus the no-op `info_silent` displacing `profile_tasks`, all
+  selected only by that target; limit to one with `EXTRA='--limit <variant>'`.
 - `make vault-init` — generate the vault password file (outside the repo).
 - `make vault-edit VARIANT=<name>` — edit that variant's vault; a plaintext
   vault is encrypted first.

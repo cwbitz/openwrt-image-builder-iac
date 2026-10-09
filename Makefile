@@ -22,6 +22,14 @@ export ANSIBLE_VAULT_PASSWORD_FILE := $(HOME)/.config/projects/openwrt-image-bui
 # the shared connection vault.
 VARIANT           ?= ib-main
 
+# QUIET=1 makes the internal dependency helpers (ensure-* / keychain-* /
+# ssh-agent preparation) print only errors, so a target's own output is not
+# buried under toolchain/collection chatter. Set only by the `info` target;
+# unset => the normal verbose output.
+QUIET ?=
+# `$(say) "text"` echoes normally, or is a no-op when QUIET is set.
+say = $(if $(QUIET),:,echo)
+
 # Refresh SSH host keys before connecting (HOST_KEY=1). Useful after the build
 # host is rebuilt: its new host key would otherwise fail the "host key changed"
 # check. hostkey-init scans every inventory host and (re)writes its key into
@@ -88,13 +96,13 @@ define SSH_AGENT_PREPARE
 	mkdir -p "$$(dirname "$(SSH_AGENT_ENV)")"; \
 	rm -f "$(SSH_AGENT_ENV)"; \
 	if [ -n "$${SSH_AUTH_SOCK:-}" ] && ssh-add -l >/dev/null 2>&1; then \
-		echo "ssh-agent: reusing loaded agent"; \
+		$(say) "ssh-agent: reusing loaded agent"; \
 		echo "export SSH_AUTH_SOCK='$$SSH_AUTH_SOCK'" > "$(SSH_AGENT_ENV)"; exit 0; \
 	fi; \
 	if [ "$(SSH_AGENT_FORCE)" != "1" ] && ! $(SSH_AGENT_PROBE); then \
-		echo "ssh-agent: not needed (keys usable or password auth)"; exit 0; \
+		$(say) "ssh-agent: not needed (keys usable or password auth)"; exit 0; \
 	fi; \
-	echo "ssh-agent: starting Keychain and loading keys"; \
+	$(say) "ssh-agent: starting Keychain and loading keys"; \
 	eval "$$($(KEYCHAIN_BIN) agent start --eval --quiet 2>/dev/null)"; \
 	echo "export SSH_AUTH_SOCK='$$SSH_AUTH_SOCK'" > "$(SSH_AGENT_ENV)"; \
 	$(ANS_PLAY) -i $(INV) $(SSH_AGENT_LOAD_PLAYBOOK)
@@ -243,7 +251,23 @@ hostkey-init: vault-init
 info: ## Query ImageBuilder image/profile info (no build; EXTRA=<extra -e vars>)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
-	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/info.yml
+	@log=$$(mktemp); spin=""; \
+	trap 'rm -f "$$log"; [ -n "$$spin" ] && kill "$$spin" 2>/dev/null' EXIT INT TERM; \
+	if [ -t 2 ]; then \
+		( frames='|/-'; i=0; while :; do printf '\r%s Querying ImageBuilder info' "$${frames:$$i:1}" >&2; i=$$(( (i+1) % 3 )); sleep 0.15; done ) & \
+		spin=$$!; \
+	else \
+		printf 'Querying ImageBuilder info\n' >&2; \
+	fi; \
+	QUIET=1 \
+	ANSIBLE_STDOUT_CALLBACK=info_format \
+	ANSIBLE_CALLBACK_PLUGINS=$(CURDIR)/callback_plugins \
+	ANSIBLE_CALLBACKS_ENABLED=info_silent \
+	$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/info.yml >"$$log" 2>&1; \
+	rc=$$?; \
+	if [ -n "$$spin" ]; then kill "$$spin" 2>/dev/null; wait "$$spin" 2>/dev/null; printf '\r\033[K' >&2; fi; \
+	cat "$$log"; \
+	exit $$rc
 
 build: ## Build a customized OpenWrt firmware image, run host-bootstrap first (EXTRA=<extra -e vars>)
 	@test -f $(INV) || { \
@@ -298,7 +322,7 @@ ensure-toolchain:
 		|| { echo "ERROR: python3 >= 3.8 required; found $$(python3 --version 2>&1)."; exit 1; }
 	@command -v openssl >/dev/null 2>&1 \
 		|| { echo "ERROR: openssl is required (secret generation). Install it."; exit 1; }
-	@echo "toolchain: python3 $$(python3 --version 2>&1 | awk '{print $$2}'), openssl $$(openssl version | awk '{print $$2}')"
+	@$(say) "toolchain: python3 $$(python3 --version 2>&1 | awk '{print $$2}'), openssl $$(openssl version | awk '{print $$2}')"
 
 # (internal) Ensure sshpass: passwordless apt-get when available, otherwise a
 # rootless install into ~/.local/bin. A failure is fatal (install it manually or
@@ -306,14 +330,14 @@ ensure-toolchain:
 ensure-sshpass:
 	@set -e; \
 	if command -v sshpass >/dev/null 2>&1 || [ -x "$(SSHPASS_BIN)" ]; then \
-		echo "sshpass: present"; exit 0; \
+		$(say) "sshpass: present"; exit 0; \
 	fi; \
 	if sudo -n true >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then \
-		echo "sshpass: installing via sudo apt-get..."; \
+		$(say) "sshpass: installing via sudo apt-get..."; \
 		if sudo -n apt-get install -y sshpass; then exit 0; fi; \
-		echo "sshpass: sudo install failed — trying a rootless install..."; \
+		$(say) "sshpass: sudo install failed — trying a rootless install..."; \
 	fi; \
-	echo "sshpass: installing rootless into $(dir $(SSHPASS_BIN))..."; \
+	$(say) "sshpass: installing rootless into $(dir $(SSHPASS_BIN))..."; \
 	if ! command -v apt-get >/dev/null 2>&1 || ! command -v dpkg-deb >/dev/null 2>&1; then \
 		echo "ERROR: cannot auto-install sshpass (apt-get/dpkg-deb not found)." >&2; \
 		echo "  Install sshpass manually, or use key-only bootstrap credentials" >&2; \
@@ -328,7 +352,7 @@ ensure-sshpass:
 	dpkg-deb -x sshpass_*.deb root; \
 	mkdir -p "$(dir $(SSHPASS_BIN))"; \
 	install -m 0755 root/usr/bin/sshpass "$(SSHPASS_BIN)"; \
-	echo "sshpass installed: $(SSHPASS_BIN)"
+	$(say) "sshpass installed: $(SSHPASS_BIN)"
 
 # (internal) Ensure passlib (password_hash for the automation user): the target
 # interpreter already has it, else pip, else a rootless deb fallback. Fatal.
@@ -336,12 +360,12 @@ ensure-passlib:
 	@set -e; \
 	py="$(ANSIBLE_PYTHON)"; [ -n "$$py" ] || py=$$(command -v python3); \
 	if "$$py" -c 'import passlib' >/dev/null 2>&1; then \
-		echo "passlib: present ($$py)"; exit 0; \
+		$(say) "passlib: present ($$py)"; exit 0; \
 	fi; \
 	if "$$py" -m pip install --quiet passlib >/dev/null 2>&1; then \
-		echo "passlib: installed with pip ($$py)"; exit 0; \
+		$(say) "passlib: installed with pip ($$py)"; exit 0; \
 	fi; \
-	echo "passlib: pip unavailable for $$py — using the rootless deb fallback..."; \
+	$(say) "passlib: pip unavailable for $$py — using the rootless deb fallback..."; \
 	if ! command -v apt-get >/dev/null 2>&1 || ! command -v dpkg-deb >/dev/null 2>&1; then \
 		echo "ERROR: cannot auto-install passlib (apt-get/dpkg-deb not found)." >&2; \
 		echo "  Install python3-passlib with pip or your package manager." >&2; \
@@ -356,7 +380,7 @@ ensure-passlib:
 	dpkg-deb -x python3-passlib_*.deb root; \
 	mkdir -p "$$dest"; \
 	cp -a root/usr/lib/python3/dist-packages/passlib "$$dest/"; \
-	echo "passlib installed: $$dest/passlib"
+	$(say) "passlib installed: $$dest/passlib"
 
 # (internal) Install/refresh the pinned Ansible collections into the
 # project-local `collections/` dir (selected by ansible.cfg's `collections_path`,
@@ -364,7 +388,7 @@ ensure-passlib:
 # idempotent and version-aware: it no-ops when the pinned versions are present,
 # and installs/upgrades to the exact requirements.yml pins otherwise.
 ensure-ansible-collections:
-	@ansible-galaxy collection install -r requirements.yml
+	@ansible-galaxy collection install -r requirements.yml $(if $(QUIET),1>/dev/null,)
 
 # (internal) Download the pinned Keychain asset into the cache. A failed
 # download is fatal: fetch the asset manually and re-run.
@@ -375,7 +399,7 @@ keychain-fetch:
 	   && printf '%s  %s\n' "$(KEYCHAIN_SHA256)" "$(KEYCHAIN_ASSET)" | sha256sum -c - >/dev/null 2>&1; then \
 		exit 0; \
 	fi; \
-	echo "downloading keychain $(KEYCHAIN_VERSION)..."; \
+	$(say) "downloading keychain $(KEYCHAIN_VERSION)..."; \
 	if ! curl -fsSL -o "$(KEYCHAIN_ASSET).tmp" "$(KEYCHAIN_URL)"; then \
 		rm -f "$(KEYCHAIN_ASSET).tmp"; \
 		echo "ERROR: failed to download keychain v$(KEYCHAIN_VERSION)." >&2; \
@@ -393,18 +417,18 @@ verify-keychain-pin: keychain-fetch
 		|| { echo "ERROR: keychain asset checksum mismatch: $(KEYCHAIN_ASSET)" >&2; \
 		     echo "  Remove it and re-run, or download it manually from $(KEYCHAIN_URL)." >&2; \
 		     exit 1; }; \
-	echo "keychain pin OK: v$(KEYCHAIN_VERSION)"
+	$(say) "keychain pin OK: v$(KEYCHAIN_VERSION)"
 
 # (internal) Ensure the pinned Keychain is installed (used only as a fallback).
 ensure-keychain: verify-keychain-pin
 	@set -e; \
 	if [ -f "$(KEYCHAIN_BIN)" ] \
 	   && printf '%s  %s\n' "$(KEYCHAIN_SHA256)" "$(KEYCHAIN_BIN)" | sha256sum -c - >/dev/null 2>&1; then \
-		echo "keychain:  present (v$(KEYCHAIN_VERSION), $(KEYCHAIN_BIN))"; \
+		$(say) "keychain:  present (v$(KEYCHAIN_VERSION), $(KEYCHAIN_BIN))"; \
 	else \
 		mkdir -p "$$(dirname "$(KEYCHAIN_BIN)")"; \
 		install -m 0755 "$(KEYCHAIN_ASSET)" "$(KEYCHAIN_BIN)"; \
-		echo "keychain installed: $(KEYCHAIN_BIN) (v$(KEYCHAIN_VERSION))"; \
+		$(say) "keychain installed: $(KEYCHAIN_BIN) (v$(KEYCHAIN_VERSION))"; \
 	fi
 
 # (internal) Run a playbook through the shared ssh-agent runner: the agent is
