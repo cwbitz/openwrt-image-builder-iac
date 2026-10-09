@@ -17,8 +17,8 @@ openwrt_force_pull: false
 # overrides it in inventory/group_vars/builder/main.yml so the machine-wide
 # connection vault is shared by every variant; per-variant firmware secrets stay
 # in host_vars/<variant>/vault.yml (auto-loaded by the inventory). The vault is
-# hand-editable, and `make host-bootstrap` (ensure_secrets) merges any missing
-# generated value into it under the same variable name.
+# hand-editable, and `make host-bootstrap` (helpers generate_shared_secrets)
+# merges any missing generated value into it under the same variable name.
 host_vault_file: "{{ project_root }}/inventory/host_vars/{{ inventory_hostname }}/vault.yml"
 
 # --- Builder-side paths (on the managed build host) --------------------------

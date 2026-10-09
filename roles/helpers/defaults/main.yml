@@ -1,0 +1,11 @@
+---
+# ==============================================================================
+# Shared helpers role defaults (roles/helpers/defaults/main.yml)
+# ==============================================================================
+# Password file passed explicitly to ansible-vault. The helper runs ansible-vault
+# as a subprocess whose working directory does not discover ansible.cfg, so the
+# vault_password_file setting there is not picked up automatically. Prefers the
+# exported ANSIBLE_VAULT_PASSWORD_FILE, else the canonical per-project path.
+helper_vault_password_file: >-
+  {{ lookup('ansible.builtin.env', 'ANSIBLE_VAULT_PASSWORD_FILE')
+     | default(lookup('ansible.builtin.env', 'HOME') ~ '/.config/projects/openwrt-image-builder-iac/ansible_vault_password', true) }}
