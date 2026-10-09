@@ -28,6 +28,9 @@ ignore:
   - "collections/"
   - ".ansible/"
   - ".cache/"
-  # Encrypted vault files are not parseable YAML until decrypted.
+  # Ansible Vault files are not linted here: the real ones are encrypted blobs
+  # and the committed `vault.yml.example` schemas omit the `---` document start
+  # on purpose to match the generated vault layout.
   - "**/vault.yml"
+  - "**/vault.yml.example"
   - ".build/"

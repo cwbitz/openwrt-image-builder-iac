@@ -1,4 +1,3 @@
----
 # Example per-variant firmware vault. Copy to host_vars/<variant>/vault.yml and
 # fill in real values, then encrypt in place:
 #   make vault-init                                 # one-time

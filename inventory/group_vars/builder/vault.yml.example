@@ -1,4 +1,3 @@
----
 # Example builder-group vault (inventory/group_vars/builder/vault.yml.example).
 #
 # The SSH connection identity is a property of the physical build MACHINE, so it
