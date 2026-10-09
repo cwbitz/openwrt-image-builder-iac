@@ -36,6 +36,9 @@ id_ed25519.*
 # Only *.example templates are committed (re-included below).
 **/*vault*.yml
 !**/*.example
+# The shared helpers role's read/write vault tasks are code, not secret data.
+!roles/helpers/tasks/read_vault.yml
+!roles/helpers/tasks/write_vault.yml
 
 # ===== Python / tooling =====
 __pycache__/
