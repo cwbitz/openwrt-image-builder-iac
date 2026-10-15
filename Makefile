@@ -144,18 +144,19 @@ help: ## Show this help
 
 install: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections ensure-passlib ## Install the pinned toolchain, collections, and control-node dependencies
 
-host-init: vault-init ## Scaffold group_vars + host_vars/<VARIANT> from the examples (vault encrypted; VARIANT=<name>)
+host-init: vault-init ## Scaffold group_vars + host_vars/<VARIANT> from the examples (comment-free); adds VARIANT to builder (VARIANT default ib-main)
 	@test -n "$(VARIANT)" || { echo "ERROR: VARIANT is required, e.g. make host-init VARIANT=ib-main"; exit 1; }
-	@[ -e $(INV) ] || { cp $(INV).example $(INV); echo "created $(INV)"; }
-	@[ -e inventory/group_vars/builder/main.yml ] || { cp inventory/group_vars/builder/main.yml.example inventory/group_vars/builder/main.yml; echo "created inventory/group_vars/builder/main.yml"; }
+	@[ -e $(INV) ] || { python3 $(CURDIR)/scripts/render_clean_template.py $(INV).example $(INV); echo "created $(INV) (comments stripped)"; }
+	@[ -e inventory/group_vars/builder/main.yml ] || { python3 $(CURDIR)/scripts/render_clean_template.py inventory/group_vars/builder/main.yml.example inventory/group_vars/builder/main.yml; echo "created inventory/group_vars/builder/main.yml (comments stripped)"; }
 	@install -d -m 0700 inventory/host_vars/$(VARIANT)
-	@[ -e inventory/host_vars/$(VARIANT)/main.yml ] || cp inventory/host_vars/variant.example/main.yml inventory/host_vars/$(VARIANT)/main.yml
-	@[ -e inventory/host_vars/$(VARIANT)/vault.yml ] || cp inventory/host_vars/variant.example/vault.yml.example inventory/host_vars/$(VARIANT)/vault.yml
+	@[ -e inventory/host_vars/$(VARIANT)/main.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py inventory/host_vars/variant.example/main.yml inventory/host_vars/$(VARIANT)/main.yml
+	@[ -e inventory/host_vars/$(VARIANT)/vault.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py inventory/host_vars/variant.example/vault.yml.example inventory/host_vars/$(VARIANT)/vault.yml
 	@if ! grep -q 'ANSIBLE_VAULT' inventory/host_vars/$(VARIANT)/vault.yml; then \
 		echo "encrypting inventory/host_vars/$(VARIANT)/vault.yml"; \
 		ansible-vault encrypt inventory/host_vars/$(VARIANT)/vault.yml; \
 	fi
 	@chmod 0600 inventory/host_vars/$(VARIANT)/vault.yml
+	@python3 $(CURDIR)/scripts/ensure_inventory_host.py $(INV) "$(VARIANT)" --group builder --ansible-host ''
 	@echo "scaffolded inventory/host_vars/$(VARIANT)/ (edit main.yml; make vault-edit VARIANT=$(VARIANT) for vault.yml)"
 
 host-bootstrap: ## Create the ansible service account (bootstrap.yml; EXTRA=<extra -e vars>; HOST_KEY=1 refreshes host keys first)

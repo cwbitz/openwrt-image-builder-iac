@@ -126,8 +126,9 @@ mise install           # or: asdf install
 #    inventory host name). Variant names are inventory host names, e.g.
 #    ib-main / ib-side / ib-ap.
 make host-init VARIANT=ib-main
-#    -> edit ib-main/main.yml (build target, profile, modules, packages)
-#       and ib-main/vault.yml (that variant's firmware secrets: root/PPPoE)
+#    (comment-free; ib-main is added under builder.hosts automatically)
+#    -> edit inventory/host_vars/ib-main/main.yml (build target, profile, modules, packages)
+#       and inventory/host_vars/ib-main/vault.yml (that variant's firmware secrets: root/PPPoE)
 #    -> repeat for other variants: make host-init VARIANT=ib-side
 
 # 2) Secrets: connection secrets go in the shared vault (once per builder);

@@ -61,9 +61,11 @@ build logic lives in `roles/imagebuilder/`.
   (`VARIANT`, `EXTRA`) are shown inline in its description. `help` is listed last.
 - `make install` — the sole dependency entry (see above).
 - `make host-init VARIANT=<name>` — scaffold `inventory/hosts.yml` and
-  `group_vars/builder/main.yml` from the examples, plus `host_vars/<name>/`; the
-  vault is encrypted immediately (dir `0700`, file `0600`). Re-running does not
-  overwrite existing files.
+  `group_vars/builder/main.yml` **comment-free** from the examples, plus
+  `host_vars/<name>/`, and add `<name>` under `builder.hosts`; the vault is
+  encrypted immediately (dir `0700`, file `0600`). VARIANT defaults to `ib-main`;
+  re-running does not overwrite existing files and an already-present variant
+  leaves `hosts.yml` untouched.
 - `make host-bootstrap` — once: probe `ansible → admin → root` and create/repair
   the `ansible` service account (key-first, NOPASSWD sudo, `docker` group) plus
   the human `admin` account when `host_admin_enabled` is set (always given a

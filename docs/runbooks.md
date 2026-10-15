@@ -37,10 +37,9 @@ control node does not need the docker SDK.
 ```bash
 mise install
 # One variant per (target, profile, settings); all variants share one builder.
-make host-init VARIANT=ib-main            # scaffolds group_vars + host_vars/<variant>/
+make host-init VARIANT=ib-main            # scaffolds group_vars + host_vars/<variant>/, adds it under builder.hosts
 make host-init VARIANT=ib-side            # repeat for each variant
-# edit inventory/hosts.yml (list variants under builder; set ansible_host once
-# as a group variable = the builder)
+# edit inventory/hosts.yml only to set ansible_host once as the builder group var
 # and each host_vars/<variant>/main.yml (build config) + vault.yml (firmware secrets)
 make install
 make vault-init

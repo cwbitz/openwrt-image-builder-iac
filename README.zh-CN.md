@@ -113,8 +113,9 @@ mise install           # 或：asdf install
 # 1) 为每个变体生成配置目录（目录名须与 inventory 主机名一致）
 #    变体名即 inventory 主机名，例如 ib-main / ib-side / ib-ap。
 make host-init VARIANT=ib-main
-#    -> 编辑 ib-main/main.yml（构建目标、Profile、模块、软件包）
-#       以及 ib-main/vault.yml（该变体的固件密钥：root/PPPoE 密码）
+#    生成文件无注释，变体自动加入 inventory 的 builder.hosts
+#    -> 编辑 inventory/host_vars/ib-main/main.yml（构建目标、Profile、模块、软件包）
+#       以及 inventory/host_vars/ib-main/vault.yml（该变体的固件密钥：root/PPPoE 密码）
 #    -> 对其它变体重复：make host-init VARIANT=ib-side 等
 
 # 2) 密钥：连接密钥放共享 vault（每台构建机一次），固件密钥放各变体 vault
@@ -177,7 +178,7 @@ make deploy
 | 命令 | 用途 |
 |------|------|
 | `make install` | **唯一依赖入口**：确保控制端工具链、collections、`sshpass`、`passlib` 与 Keychain |
-| `make host-init VARIANT=<name>` | 从模板生成 `group_vars/builder/main.yml` 与 `host_vars/<name>/`（vault 立即加密） |
+| `make host-init VARIANT=<name>` | 无注释生成 `group_vars/builder/main.yml` 与 `host_vars/<name>/`，并把变体加入 `builder.hosts`（vault 立即加密） |
 | `make host-bootstrap` | 探测 ansible → admin → root 并创建服务账号 |
 | `make deploy` | 一键首次构建：先 `host-bootstrap` 再 `build` |
 | `make build` | 构建自定义固件镜像（ImageBuilder 容器） |
@@ -225,9 +226,10 @@ docker Python SDK 是**构建机**依赖，由 role preflight 断言，因此 `i
 
 ## 扩展路径
 
-- **新增一个变体**：`make host-init VARIANT=<variant>`，在 `inventory/hosts.yml` 的
-  `builder.hosts` 下添加该主机名（构建机 `ansible_host` 由组变量继承），再编辑其
-  `host_vars/<variant>/main.yml`（`openwrt_image` / `openwrt_profile` 等），无需改动角色。
+- **新增一个变体**：`make host-init VARIANT=<variant>`（会自动把该变体加入
+  `inventory/hosts.yml` 的 `builder.hosts`；构建机 `ansible_host` 由组变量继承），
+  再编辑其 `host_vars/<variant>/main.yml`（`openwrt_image` / `openwrt_profile` 等），
+  无需改动角色。
 - **更换目标/Profile**：修改对应变体的 `host_vars/<variant>/main.yml` 中的
   `openwrt_image`（可选 `openwrt_profile`），无需改动其它内容。
 - **新增自定义模块**：添加 `roles/imagebuilder/files/overlay/<name>/...`（静态）
