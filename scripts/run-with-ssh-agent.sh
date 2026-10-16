@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 #
-# run-with-ssh-agent.sh — shared by the 5 IaC projects. DO NOT fork unless the
-# interface itself must change (then update all 5 together).
-#
-# Run a command; if it fails because OpenSSH refused a private key, start the
-# Keychain ssh-agent, load the configured keys, and retry ONCE.
+# run-with-ssh-agent.sh — run a command; if it fails because OpenSSH refused a
+# private key, start the Keychain ssh-agent, load the configured keys, and retry
+# ONCE. Keep the SSH_AGENT_* interface below stable: it is the contract the
+# Makefile drives this script through.
 #
 # Output policy ("silent retry, show only on failure"):
 #   * the first attempt is buffered and replayed only when it SUCCEEDS, or when

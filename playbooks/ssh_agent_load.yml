@@ -3,18 +3,16 @@
 # Load the control-node private keys into the running SSH agent
 # (playbooks/ssh_agent_load.yml)
 # ==============================================================================
-# The SSH agent is key-based, not path-based: it holds private keys and the
-# target's authorized_keys decides which is accepted. This playbook loads the
-# private-key paths recorded per identity in the vault
-# (vault_host_<id>_ssh_privkey_file), so the operator does not have to remember
-# them.
+# The agent is key-based: it holds private keys, and the target's authorized_keys
+# decides which is accepted. This playbook loads the private-key paths recorded
+# per identity in the vault (vault_host_<id>_ssh_privkey_file), so the operator
+# does not have to remember them.
 #
-# Run via the internal `make agent-load`, or automatically by `run-playbook`
-# after it starts/reuses the pinned Keychain agent (`keychain agent start
-# --eval`) in the current shell. Keys that OpenSSH
-# rejects due to file permissions (e.g. on the WSL /mnt/c mount) are loaded via
-# stdin (`ssh-add - < key`), which reads the key content directly and skips the
-# permission check. This is why key loading lives here rather than in Keychain.
+# Run via the internal `make agent-load`, or automatically by `run-playbook`.
+# Keys that OpenSSH rejects due to file permissions (e.g. on the WSL /mnt/c
+# mount) are loaded via stdin (`ssh-add - < key`), which reads the key content
+# directly and skips the permission check; that is why key loading lives here
+# rather than in Keychain.
 # ==============================================================================
 
 - name: Load the control-node private keys into the running SSH agent

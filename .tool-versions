@@ -1,14 +1,10 @@
-# Control-node toolchain — THE single source of truth for local + CI.
-# Standard asdf `.tool-versions` format, read natively by BOTH asdf and mise:
+# Control-node toolchain — the single source of truth for local + CI, in standard
+# asdf `.tool-versions` format (read by both asdf and mise):
 #   mise install     # or: asdf install
-# With shell activation the pinned tools are selected when you enter the repo.
-# CI installs the SAME set via `jdx/mise-action`, so local == CI.
 #
-# `ansible-core` has no asdf plugin: mise resolves it through its pypi backend
-# (an isolated venv). Collections are pinned separately in
-# requirements.yml. Lint tools (ansible-lint / yamllint) are pinned below
-# through mise's pipx backend (no asdf equivalent; with asdf install them via
-# `pipx install ansible-lint yamllint`).
+# `ansible-core` has no asdf plugin: mise resolves it via its pypi backend (an
+# isolated venv). Collections are pinned in requirements.yml; the lint tools use
+# mise's pipx backend (with asdf, install them via `pipx install`).
 python 3.11.15
 ansible-core 2.19.11
 
