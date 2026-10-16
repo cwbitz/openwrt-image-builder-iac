@@ -9,10 +9,12 @@
 # The repo root IS the Ansible root (flat layout). Derived from playbook_dir
 # (playbooks/) via `dirname` so no path ever contains '..'.
 project_root: "{{ playbook_dir | dirname }}"
-# Scratch space for the rendered overlay and the in-container script. Paths are
-# namespaced by inventory host (build variant) so multiple variants on the same
-# build host can build in parallel without clobbering each other.
-openwrt_workdir: "{{ openwrt_build_dir }}/work/{{ inventory_hostname }}"
+# Build id namespaces every per-variant artifact: the inventory host is the build
+# MACHINE, so the variant name is appended (several variants share a machine).
+openwrt_build_id: "{{ inventory_hostname }}-{{ (openwrt_variant | default({})).name | default('') }}"
+# Scratch space for the rendered overlay and the in-container script, namespaced
+# by build id so variants on the same machine build in parallel without clashes.
+openwrt_workdir: "{{ openwrt_build_dir }}/work/{{ openwrt_build_id }}"
 
 # --- Module selection --------------------------------------------------------
 openwrt_default_modules:

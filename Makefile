@@ -8,24 +8,31 @@ INV      := inventory/hosts.yml
 #   make build EXTRA='-e openwrt_modules_adjust=["statistics"]'
 EXTRA ?=
 
-# Vault password file (kept OUTSIDE the repo). The canonical `ansible.cfg` sets
-# `vault_password_file` to the same path, so a raw ansible-vault/ansible-* from
-# the project root auto-loads it. ansible-core 2.19 hard-fails when the file is
-# missing, so the ansible-running targets depend on `vault-init` (which
-# generates it), and CI generates a throwaway one before lint/syntax-check.
-# Ansible Vault password file (outside the repo), exported under Ansible's own
-# env-var name so every ansible-* invocation picks it up.
+# Ansible Vault password file, kept OUTSIDE the repo and exported under Ansible's
+# own env-var name so every ansible-* invocation picks it up. ansible-core 2.19
+# hard-fails when it is missing, so the ansible-running targets depend on
+# `vault-init` (which generates it) and CI generates a throwaway one.
 export ANSIBLE_VAULT_PASSWORD_FILE := $(HOME)/.config/projects/openwrt-image-builder-iac/ansible_vault_password
-# VARIANT names the variant to operate on (its inventory host / host_vars dir).
-# `vault-edit` edits that variant's vault; `vault-edit-group` edits the shared
-# builder connection vault; `vault-view` auto-iterates every variant vault plus
-# the shared connection vault.
-VARIANT           ?= ib-main
+# HOST names the build machine (its inventory host / host_vars dir). `host-init`
+# scaffolds it; `vault-edit` edits its vault; `vault-edit-group` edits the shared
+# builder connection vault; `vault-view` iterates every machine vault plus the
+# shared connection vault.
+HOST              ?= openwrt-ib-prod-1
 
-# QUIET=1 makes the internal dependency helpers (ensure-* / keychain-* /
-# ssh-agent preparation) print only errors, so a target's own output is not
-# buried under toolchain/collection chatter. Set only by the `info` target;
-# unset => the normal verbose output.
+# Management address for the builder host, written once as the `builder` group
+# variable (all variants share it). It is set only when the variable is unset or
+# still a placeholder; an omitted value leaves an existing address untouched, and
+# a disagreeing value is refused (FORCE_IP=1 is the deliberate override).
+HOST_IP           ?=
+
+# Operator knobs for the scaffolding target. They are command-line inputs: a
+# value inherited from the environment is called out, because make lets an
+# environment variable win over the file default silently.
+$(foreach v,HOST HOST_IP,$(if $(filter environment,$(origin $(v))),$(warning $(v) is inherited from the environment; pass $(v)=... explicitly if unintended)))
+
+# QUIET=1 silences the internal dependency helpers (ensure-* / keychain-* /
+# ssh-agent) so a target's own output is not buried under their chatter. Set only
+# by the `info` target.
 QUIET ?=
 # `$(say) "text"` echoes normally, or is a no-op when QUIET is set.
 say = $(if $(QUIET),:,echo)
@@ -49,11 +56,9 @@ VAULT_PASSWORD_HINT := ERROR: Ansible Vault cannot decrypt this file - the passw
 SSHPASS_BIN ?= $(HOME)/.local/bin/sshpass
 
 # Keychain 3 (pinned, single zipapp) is a FALLBACK ssh-agent: `install` ensures
-# it can be installed, but it is only started when OpenSSH refuses a private
-# key whose file permissions cannot be fixed (e.g. on the WSL /mnt/c mount).
-# Loading via stdin (`ssh-add - < key`) reads the key content directly and skips
-# the permission check. The asset URL is a fixed constant; a failed download is
-# fatal (fetch the asset manually and re-run).
+# it can be installed, but it starts only when OpenSSH refuses a private key
+# whose file permissions cannot be fixed (e.g. the WSL /mnt/c mount). The asset
+# URL is a fixed constant; a failed download is fatal (fetch it manually).
 KEYCHAIN_PIN     := $(CURDIR)/keychain.pin
 KEYCHAIN_VERSION := $(shell awk '!/^#/ && NF {print $$1; exit}' $(KEYCHAIN_PIN))
 KEYCHAIN_SHA256  := $(shell awk '!/^#/ && NF {print $$2; exit}' $(KEYCHAIN_PIN) | sed 's/^sha256://')
@@ -68,15 +73,13 @@ KEYCHAIN_AGENT   := eval "$$($(KEYCHAIN_BIN) agent start --eval --quiet 2>/dev/n
 export ANSIBLE_CONFIG := ansible.cfg
 
 # ------------------------------------------------ shared ssh-agent runner ----
-# Identical across the 5 IaC projects: the generic scripts/run-with-ssh-agent.sh
-# is driven by the SSH_AGENT_* environment variables, so only the per-project
-# values below differ (the private-key hostvar names, and the inventory/playbook
-# paths already defined above). The agent is prepared proactively only when a
-# configured key has permissions OpenSSH would refuse (e.g. WSL /mnt/c), and the
-# runner retries once on a refused-key failure as a safety net.
+# The generic scripts/run-with-ssh-agent.sh is driven by the SSH_AGENT_*
+# environment variables below. The agent is prepared only when a configured key
+# has permissions OpenSSH would refuse (e.g. WSL /mnt/c), and the runner retries
+# once on a refused-key failure.
 SSH_AGENT_ENV   ?= $(HOME)/.cache/iac/ssh-agent.env
 SSH_AGENT_RUN   ?= $(CURDIR)/scripts/run-with-ssh-agent.sh
-# Per-project fork: hostvars holding the control-node private-key paths.
+# Hostvars holding the control-node private-key paths.
 SSH_AGENT_KEY_VARS ?= vault_host_ansible_ssh_privkey_file vault_host_admin_ssh_privkey_file vault_host_root_ssh_privkey_file
 export SSH_AGENT_ENV
 export SSH_AGENT_KEYCHAIN_BIN  := $(KEYCHAIN_BIN)
@@ -84,11 +87,11 @@ export SSH_AGENT_ANS_PLAY      := $(ANS_PLAY)
 export SSH_AGENT_INVENTORY     := $(INV)
 export SSH_AGENT_LOAD_PLAYBOOK := playbooks/ssh_agent_load.yml
 
-# (shared) Probe: exit 0 when a configured private key has unsafe permissions
+# Probe: exit 0 when a configured private key has unsafe permissions
 # (group/other bits set, e.g. 0777), i.e. OpenSSH would refuse it.
 SSH_AGENT_PROBE := ansible-inventory -i $(INV) --list 2>/dev/null | SSH_AGENT_KEY_VARS="$(SSH_AGENT_KEY_VARS)" python3 -c "import json,os,sys; names=os.environ['SSH_AGENT_KEY_VARS'].split(); vs=json.load(sys.stdin).get('_meta',{}).get('hostvars',{}); ks={os.path.expanduser(h.get(v)) for h in vs.values() for v in names if h.get(v)}; sys.exit(0 if any(os.path.isfile(k) and (os.stat(k).st_mode & 0o077) for k in ks) else 1)"
 
-# (shared) Canned recipe: prepare the Keychain ssh-agent. Reuse a loaded agent;
+# Canned recipe: prepare the Keychain ssh-agent. Reuse a loaded agent;
 # otherwise start Keychain and load the configured keys. SSH_AGENT_FORCE=1 skips
 # the permission probe. Writes SSH_AGENT_ENV for the runner to source.
 define SSH_AGENT_PREPARE
@@ -144,20 +147,21 @@ help: ## Show this help
 
 install: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections ensure-passlib ## Install the pinned toolchain, collections, and control-node dependencies
 
-host-init: vault-init ## Scaffold group_vars + host_vars/<VARIANT> from the examples (comment-free); adds VARIANT to builder (VARIANT default ib-main)
-	@test -n "$(VARIANT)" || { echo "ERROR: VARIANT is required, e.g. make host-init VARIANT=ib-main"; exit 1; }
+host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples (comment-free); adds HOST to builder (HOST default openwrt-ib-prod-1, HOST_IP = its address)
+	@test -n "$(HOST)" || { echo "ERROR: HOST is required, e.g. make host-init HOST=openwrt-ib-prod-1 HOST_IP=10.0.10.50"; exit 1; }
 	@[ -e $(INV) ] || { python3 $(CURDIR)/scripts/render_clean_template.py $(INV).example $(INV); echo "created $(INV) (comments stripped)"; }
 	@[ -e inventory/group_vars/builder/main.yml ] || { python3 $(CURDIR)/scripts/render_clean_template.py inventory/group_vars/builder/main.yml.example inventory/group_vars/builder/main.yml; echo "created inventory/group_vars/builder/main.yml (comments stripped)"; }
-	@install -d -m 0700 inventory/host_vars/$(VARIANT)
-	@[ -e inventory/host_vars/$(VARIANT)/main.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py inventory/host_vars/variant.example/main.yml inventory/host_vars/$(VARIANT)/main.yml
-	@[ -e inventory/host_vars/$(VARIANT)/vault.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py inventory/host_vars/variant.example/vault.yml.example inventory/host_vars/$(VARIANT)/vault.yml
-	@if ! grep -q 'ANSIBLE_VAULT' inventory/host_vars/$(VARIANT)/vault.yml; then \
-		echo "encrypting inventory/host_vars/$(VARIANT)/vault.yml"; \
-		ansible-vault encrypt inventory/host_vars/$(VARIANT)/vault.yml; \
+	@install -d -m 0700 inventory/host_vars/$(HOST)
+	@[ -e inventory/host_vars/$(HOST)/main.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py inventory/host_vars/builder.example/main.yml inventory/host_vars/$(HOST)/main.yml
+	@[ -e inventory/host_vars/$(HOST)/vault.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py inventory/host_vars/builder.example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml
+	@if ! grep -q 'ANSIBLE_VAULT' inventory/host_vars/$(HOST)/vault.yml; then \
+		echo "encrypting inventory/host_vars/$(HOST)/vault.yml"; \
+		ansible-vault encrypt inventory/host_vars/$(HOST)/vault.yml; \
 	fi
-	@chmod 0600 inventory/host_vars/$(VARIANT)/vault.yml
-	@python3 $(CURDIR)/scripts/ensure_inventory_host.py $(INV) "$(VARIANT)" --group builder --ansible-host ''
-	@echo "scaffolded inventory/host_vars/$(VARIANT)/ (edit main.yml; make vault-edit VARIANT=$(VARIANT) for vault.yml)"
+	@chmod 0600 inventory/host_vars/$(HOST)/vault.yml
+	@python3 $(CURDIR)/scripts/ensure_inventory_host.py $(INV) "$(HOST)" --group builder --ansible-host "$(HOST_IP)" $(if $(FORCE_IP),--force)
+	@echo "scaffolded inventory/host_vars/$(HOST)/ (machine registered under the builder group; edit openwrt_variants[] in main.yml)"
+	@echo "next: make vault-edit HOST=$(HOST)"
 
 host-bootstrap: ## Create the ansible service account (bootstrap.yml; EXTRA=<extra -e vars>; HOST_KEY=1 refreshes host keys first)
 	@test -f $(INV) || { \
@@ -182,8 +186,8 @@ vault-init: ## One-time: generate the vault password (idempotent)
 			|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
 	fi
 
-vault-edit: vault-init ## Edit a variant's vault, plaintext auto-encrypted first (VARIANT=<name>)
-	@$(MAKE) --no-print-directory vault-edit-file VAULT_EDIT_FILE=inventory/host_vars/$(VARIANT)/vault.yml
+vault-edit: vault-init ## Edit a machine's vault, plaintext auto-encrypted first (HOST=<name>)
+	@$(MAKE) --no-print-directory vault-edit-file VAULT_EDIT_FILE=inventory/host_vars/$(HOST)/vault.yml
 
 vault-edit-group: vault-init ## Edit the shared builder connection vault (plaintext auto-encrypted first)
 	@$(MAKE) --no-print-directory vault-edit-file VAULT_EDIT_FILE=inventory/group_vars/builder/vault.yml
@@ -197,7 +201,7 @@ vault-edit-file:
 	fi
 	ansible-vault edit $(VAULT_EDIT_FILE)
 
-vault-view: vault-init ## View every pseudo-host vault + the shared connection vault (read-only)
+vault-view: vault-init ## View every variant's vault + the shared connection vault (read-only)
 	@test -f $(INV) || { echo "ERROR: $(INV) not found — copy $(INV).example and fill it in." >&2; exit 1; }
 	@hosts="$$(ansible-inventory -i $(INV) --graph builder | awk '/\|\-\-/{sub(/^.*\|\-\- */, ""); print}')"; \
 	files=""; \
@@ -283,7 +287,7 @@ deploy: host-bootstrap build ## One-click: bootstrap the build host, then build 
 # ==============================================================================
 
 # (internal) Diagnostic probe: exit 0 when a configured private key would be
-# refused by OpenSSH. Shared across the 5 projects.
+# refused by OpenSSH.
 agent-needed: vault-init
 	@$(SSH_AGENT_PROBE)
 
@@ -291,8 +295,8 @@ agent-needed: vault-init
 agent-fallback: ensure-keychain
 	$(SSH_AGENT_PREPARE)
 
-# (internal) Prepare the Keychain ssh-agent unconditionally. Unused by this
-# Ansible-only project, kept so the block is identical across the 5 projects.
+# (internal) Prepare the Keychain ssh-agent unconditionally (the
+# SSH_AGENT_FORCE=1 variant of the recipe above).
 agent-ensure: ensure-keychain
 	$(SSH_AGENT_PREPARE)
 agent-ensure: SSH_AGENT_FORCE := 1

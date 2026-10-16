@@ -1,43 +1,24 @@
-# Example builder-group vault (inventory/group_vars/builder/vault.yml.example).
-#
-# The SSH connection identity is a property of the physical build MACHINE, so it
-# is shared by every build variant. Copy this to
-# inventory/group_vars/builder/vault.yml and fill in real values, then encrypt
-# it in place:
-#   make vault-init                                        # one-time
-#   make vault-edit-group                                  # edit the shared vault
-# vault.yml is gitignored; only this *.example is committed.
-#
-# Every secret here is a control -> managed credential (the key/password the
-# control node uses to reach the build host). This project has no managed ->
-# control secrets, so one vault file holds them all.
-#
-# Per-variant FIRMWARE secrets (root/PPPoE passwords) do NOT belong here: put
-# them in inventory/host_vars/<variant>/vault.yml (see host_vars/variant.example/).
+# Shared builder connection vault. Copy to
+# inventory/group_vars/builder/vault.yml, fill in real values, then encrypt:
+#   make vault-init          # one-time
+#   make vault-edit-group    # edit the shared vault
+# The identity belongs to the machine, so every variant on it shares the vault.
+# Values are control -> builder credentials; paths only, never raw key strings.
+# Per-machine firmware secrets live in host_vars/<machine>/vault.yml.
 
-# --- SSH connection identity -------------------------------------------------
-# `make host-bootstrap` probes [ansible, admin, root] and uses the first that
-# works; normal runs (build/info) always connect as `ansible`. Each identity may
-# set a password AND/OR a private key file (SSH prefers the key, then the
-# password). `vault_host_<id>_ssh_privkey_file` is the control-node private key
-# used to log in as that identity; `vault_host_<id>_ssh_pubkey_file` is an
-# optional control-node path to the matching public key, authorized for that
-# account by host-bootstrap. Only paths are accepted, never raw key strings.
+# Probed [ansible, admin, root]; build/info use `ansible`. Each identity sets a
+# password and/or a key path (key preferred). `pubkey` is authorized for it.
 vault_host_root_password: ""
 vault_host_root_ssh_privkey_file: ""
 vault_host_root_ssh_pubkey_file: ""
-# The optional human 'admin' operator account is created only when
-# `host_admin_enabled: true` is set in group_vars/builder/main.yml. It always
-# gets a password (generated here when left empty) plus any configured key.
+# Optional human 'admin' account, created only when host_admin_enabled is true;
+# always gets a password (generated here when empty) plus any configured key.
 vault_host_admin_user: "admin"
 vault_host_admin_password: ""
 vault_host_admin_ssh_privkey_file: ""
 vault_host_admin_ssh_pubkey_file: ""
-# The ansible identity is the service account host-bootstrap creates/repairs;
-# its public key (when set) also switches the account to key auth instead of a
-# generated password. Leave vault_host_ansible_password empty to have
-# host-bootstrap generate one and merge it into THIS vault under the same name;
-# an existing non-empty value is never rotated.
+# The service account host-bootstrap creates/repairs. Its pubkey switches the
+# account to key auth; otherwise an empty password is generated here.
 vault_host_ansible_user: "ansible"
 vault_host_ansible_password: ""
 vault_host_ansible_ssh_privkey_file: /home/example/.ssh/id_ed25519_ansible

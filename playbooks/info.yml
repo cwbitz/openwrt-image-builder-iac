@@ -1,13 +1,18 @@
 ---
 # Query the ImageBuilder image and profile information without building. Run
-# via `make info`. Connects as the `ansible` identity from host_vars (run
-# `make host-bootstrap` once first).
+# via `make info`. One inventory host = one build MACHINE; it queries every
+# variant listed in host_vars/<machine>/main.yml. Machine-wide connection
+# settings live in group_vars/builder/; run `make host-bootstrap` once first.
 - name: "OpenWrt ImageBuilder information"
   hosts: builder
   gather_facts: true
   become: false
   tasks:
-    - name: Query ImageBuilder image and profile information
+    - name: "Query each variant of the machine"
       ansible.builtin.include_role:
         name: imagebuilder
         tasks_from: info
+      loop: "{{ openwrt_variants }}"
+      loop_control:
+        loop_var: openwrt_variant
+        label: "{{ openwrt_variant.name }}"

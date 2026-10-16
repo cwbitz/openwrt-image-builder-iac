@@ -46,7 +46,7 @@
     openwrt_use_package_manager: >-
       {{ (not (openwrt_version_is_numeric | bool))
          or (openwrt_version is version(openwrt_package_manager_min_version, '>=')) }}
-    openwrt_container_name: "openwrt-bw-{{ openwrt_target_name }}-{{ openwrt_version }}-{{ inventory_hostname }}"
+    openwrt_container_name: "openwrt-bw-{{ openwrt_target_name }}-{{ openwrt_version }}-{{ openwrt_build_id }}"
 
 - name: Show the detected build target
   ansible.builtin.debug:

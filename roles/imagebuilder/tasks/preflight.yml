@@ -4,9 +4,9 @@
     that:
       - openwrt_image | length > 0
     fail_msg: >-
-      openwrt_image is not set. Configure it in
-      inventory/host_vars/<variant>/main.yml (copy host_vars/variant.example/),
-      e.g. openwrt/imagebuilder:x86-64-v23.05.5.
+      openwrt_image is not set for this variant. Configure it under
+      openwrt_variants in inventory/host_vars/<machine>/main.yml (copy
+      host_vars/builder.example/), e.g. openwrt/imagebuilder:x86-64-v23.05.5.
 
 - name: Check the Docker CLI is available on the build host
   ansible.builtin.command: docker --version

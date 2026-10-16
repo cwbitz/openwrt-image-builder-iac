@@ -2,15 +2,21 @@
 # Build a customized OpenWrt firmware image with the official ImageBuilder
 # container. Run via `make build`.
 #
-# Per-variant settings live in inventory/host_vars/<variant>/main.yml (copy the
-# .example); firmware secrets live in the encrypted vault.yml next to it, while
-# machine-wide connection settings/secrets live in inventory/group_vars/builder/.
-# The connection identity comes from host_vars (the `ansible` identity); run
-# `make host-bootstrap` once first to probe/provision it. Re-running converges
-# on the same output for the same inputs.
+# One inventory host = one build MACHINE; its build VARIANTS (target/profile/
+# settings) are listed in host_vars/<machine>/main.yml as `openwrt_variants`.
+# Machine-wide connection settings/secrets live in group_vars/builder/. Run
+# `make host-bootstrap` once per machine first (the connection identity is the
+# `ansible` account). Re-running converges on the same output.
 - name: "OpenWrt firmware image build"
   hosts: builder
   gather_facts: true
   become: false
-  roles:
-    - role: imagebuilder
+  tasks:
+    - name: "Build each variant of the machine"
+      ansible.builtin.include_role:
+        name: imagebuilder
+      loop: "{{ openwrt_variants }}"
+      loop_control:
+        loop_var: openwrt_variant
+        label: "{{ openwrt_variant.name }}"
+      tags: [always]

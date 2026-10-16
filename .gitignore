@@ -4,10 +4,10 @@ inventory/hosts.yml
 # group_vars/builder/main.yml is local-only (operators may customize it); the
 # committed template is group_vars/builder/main.yml.example.
 inventory/group_vars/builder/main.yml
-# host_vars/ is host-scoped and local-only; ONLY the variant.example/ folder
+# host_vars/ is machine-scoped and local-only; ONLY the builder.example/ folder
 # is committed (its main.yml and vault.yml.example templates).
 inventory/host_vars/*
-!inventory/host_vars/variant.example/
+!inventory/host_vars/builder.example/
 collections/
 .cache/
 .ansible/

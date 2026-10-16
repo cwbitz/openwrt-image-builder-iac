@@ -22,5 +22,5 @@
 
 - name: Show the ImageBuilder information
   ansible.builtin.debug:
-    msg: "{{ openwrt_info.container.Output | default('', true) | split('\n') }}"
+    msg: "{{ ['== ' ~ openwrt_build_id ~ ' =='] + (openwrt_info.container.Output | default('', true) | split('\n')) }}"
   tags: [imagebuilder_info]

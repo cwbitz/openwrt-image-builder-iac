@@ -1,39 +1,20 @@
 ---
-# Static inventory for the ImageBuilder host. This file is local-only
-# (gitignored) — copy this example to `hosts.yml`.
+# Static inventory: the build machine(s). Copy this file to `hosts.yml`
+# (gitignored, local-only).
 #
-# By default the CONTROL node (where you run make) and the BUILD host (the
-# managed machine running Docker) are TWO SEPARATE machines on the LAN. Replace
-# the desensitized address below with your builder's LAN IP/hostname and make
-# sure SSH works with one of the credentials configured in the vault.
+# One inventory host = ONE physical build machine. A machine builds one or more
+# VARIANTS (target/profile/settings), declared in host_vars/<machine>/main.yml
+# as `openwrt_variants`; every variant shares the machine's `ansible_host`, so
+# `make build` builds them in parallel on it.
 #
 # Do NOT set ansible_user here: the connection identity comes from
-# group_vars/builder/main.yml (host_ssh_identities). Run `make host-bootstrap`
-# once first — it probes ansible -> admin -> root and provisions the 'ansible'
-# service account; normal runs then connect as 'ansible'.
+# group_vars/builder/main.yml. Run `make host-bootstrap` once per machine first.
 #
-# Building on the control node itself is also possible: set
-# `ansible_connection: local` and `ansible_host: 127.0.0.1`.
-#
-# Build variants ("pseudo-hosts"): each inventory host is one
-# (target, profile, settings) combination that builds on the SAME physical
-# machine. The builder address is defined ONCE as a group variable below and
-# inherited by every variant — Ansible officially supports targeting the same
-# host more than once so the variants still build in parallel (forks). `make
-# build` builds every variant in parallel; use EXTRA='--limit <host>' for one.
-# Per-variant settings live in host_vars/<variant>/ (main.yml + vault.yml, the
-# directory name MUST match the inventory host name; see
-# host_vars/variant.example/); machine-wide settings (SSH identity + shared
-# connection vault) live in group_vars/builder/.
+# Building on the control node is also possible (`ansible_connection: local`,
+# `ansible_host: 127.0.0.1`). Add another machine as a sibling under `builder`.
 all:
   children:
     builder:
       hosts:
-        ib-main:
-        ib-side:
-        ib-ap:
-      vars:
-        ansible_host: 192.0.2.10 # replace with your builder host's LAN IP/hostname
-    # Declared empty so `playbooks/bootstrap.yml`'s dynamic staging group always
-    # resolves; the probe play adds the chosen host here via add_host at runtime.
-    builder_bootstrap:
+        openwrt-ib-prod-1:
+          ansible_host: CHANGE_ME_HOST_IP

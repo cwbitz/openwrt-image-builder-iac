@@ -1,51 +1,66 @@
 ---
 # ==============================================================================
-# Build-host bootstrap (`make host-bootstrap`). Ported from netbird-iac's
-# bootstrap logic and adapted to this project's SINGLE build host. Never part
-# of build.yml / info.yml (those connect as the `ansible` identity directly).
+# Build-host bootstrap (`make host-bootstrap`). Never part of build.yml /
+# info.yml (those connect as the `ansible` identity directly).
 #
-# It probes the SSH identities in order [ansible, admin, root] and uses the
-# first that works. If that identity is NOT `ansible`, it (re)creates the
-# least-privilege `ansible` service account; if it already IS `ansible` it only
-# applies the optional pubkey/sudo state. This self-heals a deleted/rotated
-# ansible password or key (ansible login fails -> falls back to root ->
-# recreates it).
+# Probes the SSH identities in order [ansible, admin, root] for EVERY build
+# machine and uses the first that works on each. If that is NOT `ansible`, it
+# (re)creates the least-privilege `ansible` service account; if it already IS
+# `ansible` it only applies the optional pubkey/sudo state. This self-heals a
+# deleted/rotated credential.
 #
-# SSH public keys (per identity, opt-in) — for every identity whose
-#   vault_host_{root,admin,ansible}_ssh_pubkey_file is set, the key at that
-#   control-node path is authorized for the matching account on the target.
-#   Unset/empty -> skipped (keys are never auto-generated). Paths only, never
-#   raw key strings. The matching private keys the control node connects with
-#   live in vault.yml too (vault_host_<id>_ssh_privkey_file).
+# SSH public keys (per identity, opt-in): for every identity whose
+# vault_host_{root,admin,ansible}_ssh_pubkey_file is set, the key at that
+# control-node path is authorized for the matching account. Unset/empty ->
+# skipped (keys are never auto-generated); paths only, never raw key strings.
 #
-# Service account auth (ansible identity) — exactly one of:
-#   vault_host_ansible_ssh_pubkey_file   control-node path to the .pub (key auth)
-#   (neither)                            a password is set (password auth); when
-#                                        the vault leaves vault_host_ansible_password
-#                                        empty it is generated and merged back into
-#                                        the same vault under the same name.
-#
-# Passwords are hashed with a per-account random salt and applied with
-# update_password=on_create, so re-runs are idempotent and a host-side password
-# rotation is preserved.
+# Service-account auth is exactly one of: a supplied public key (key auth), or a
+# password; an empty vault_host_ansible_password is generated and merged back
+# into the same vault under the same name. Passwords are hashed with a
+# per-account random salt and applied with update_password=on_create, so re-runs
+# are idempotent and a host-side rotation is preserved.
 # ==============================================================================
 
-- name: Probe the SSH identities (ansible -> admin -> root)
+# Preflight on the control node, before any connection: assert every managed host
+# has a real address in the gitignored inventory (the committed template carries
+# the CHANGE_ME_HOST_IP placeholder), so an unfilled entry fails with the fix
+# command instead of an opaque SSH-resolution error. Tagged [always].
+- name: "Preflight: verify the managed hosts are configured"
   hosts: localhost
   connection: local
   gather_facts: false
-  # keep the control-node SSH agent (Keychain) reachable: sudo would strip
-  # SSH_AUTH_SOCK, so keys loaded via stdin (bad perms) would be unusable.
+  tags: [always]
+  tasks:
+    - name: "[Preflight] Require a real management address for every host"
+      ansible.builtin.assert:
+        that:
+          - (hostvars[item].ansible_host | default('', true) | string | trim | length) > 0
+          - >-
+            (hostvars[item].ansible_host | default('', true) | string | trim)
+            is not match('(?i)^(change_?me|todo)')
+        fail_msg: |-
+          { item }: ansible_host is
+          '{ hostvars[item].ansible_host | default('<unset>', true) }', which is not a
+          usable management address. Set the real address in the gitignored
+          inventory/hosts.yml, or re-scaffold the host:
+            make host-init HOST={{ item }} HOST_IP=<builder-address>
+        quiet: true
+      loop: "{{ groups['builder'] | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
+
+# Probe every build machine and inject the chosen identity per host (passwords
+# via env, never argv). Runs on the control node.
+- name: "Probe the SSH identities (ansible -> admin -> root) on every machine"
+  hosts: localhost
+  connection: local
+  gather_facts: false
   become: false
-  vars:
-    builder_target: "{{ hostvars[groups['builder'][0]] }}"
-    probe_host: "{{ builder_target.ansible_host }}"
-    probe_port: "{{ builder_target.ansible_port | default(22) }}"
   tasks:
     - name: "[Probe] Try each identity over SSH"
       ansible.builtin.shell: |
         set -u
-        HOST="{{ probe_host }}"; PORT="{{ probe_port }}"
+        HOST="{{ hostvars[probe_host].ansible_host }}"; PORT="{{ hostvars[probe_host].ansible_port | default(22) }}"
         try_identity() {
           id="$1"
           user=$(eval echo "\$PROBE_${id}_USER")
@@ -69,67 +84,74 @@
       args:
         executable: /bin/bash
       environment:
-        PROBE_ANSIBLE_USER: "{{ builder_target.host_ssh_identities.ansible.user }}"
-        PROBE_ANSIBLE_PW: "{{ builder_target.host_ssh_identities.ansible.password }}"
-        PROBE_ANSIBLE_KEY: "{{ builder_target.host_ssh_identities.ansible.privkey }}"
-        PROBE_ADMIN_USER: "{{ builder_target.host_ssh_identities.admin.user }}"
-        PROBE_ADMIN_PW: "{{ builder_target.host_ssh_identities.admin.password }}"
-        PROBE_ADMIN_KEY: "{{ builder_target.host_ssh_identities.admin.privkey }}"
-        PROBE_ROOT_USER: "{{ builder_target.host_ssh_identities.root.user }}"
-        PROBE_ROOT_PW: "{{ builder_target.host_ssh_identities.root.password }}"
-        PROBE_ROOT_KEY: "{{ builder_target.host_ssh_identities.root.privkey }}"
+        PROBE_ANSIBLE_USER: "{{ hostvars[probe_host].host_ssh_identities.ansible.user }}"
+        PROBE_ANSIBLE_PW: "{{ hostvars[probe_host].host_ssh_identities.ansible.password }}"
+        PROBE_ANSIBLE_KEY: "{{ hostvars[probe_host].host_ssh_identities.ansible.privkey }}"
+        PROBE_ADMIN_USER: "{{ hostvars[probe_host].host_ssh_identities.admin.user }}"
+        PROBE_ADMIN_PW: "{{ hostvars[probe_host].host_ssh_identities.admin.password }}"
+        PROBE_ADMIN_KEY: "{{ hostvars[probe_host].host_ssh_identities.admin.privkey }}"
+        PROBE_ROOT_USER: "{{ hostvars[probe_host].host_ssh_identities.root.user }}"
+        PROBE_ROOT_PW: "{{ hostvars[probe_host].host_ssh_identities.root.password }}"
+        PROBE_ROOT_KEY: "{{ hostvars[probe_host].host_ssh_identities.root.privkey }}"
+      loop: "{{ groups['builder'] | default([]) }}"
+      loop_control:
+        loop_var: probe_host
+        label: "{{ probe_host }}"
       register: probe
       changed_when: false
       no_log: true
       failed_when: false
 
-    - name: "[Probe] Fail if no identity can connect"
+    - name: "[Probe] Fail if a machine has no working identity"
       ansible.builtin.assert:
         that:
-          - probe.rc == 0
+          - probe_result.rc == 0
         fail_msg: >-
-          Could not log in as ansible, admin or root with the configured
-          credentials. Check inventory/group_vars/builder/vault.yml
-          (vault_host_{ansible,admin,root}_password / _ssh_privkey_file) and
-          the host.
+          {{ probe_result.probe_host }}: could not log in as ansible, admin or
+          root with the configured credentials. Check
+          inventory/group_vars/builder/vault.yml
+          (vault_host_{ansible,admin,root}_password / _ssh_privkey_file) and the
+          host.
+      loop: "{{ probe.results | default([]) }}"
+      loop_control:
+        loop_var: probe_result
+        label: "{{ probe_result.probe_host }}"
 
-    - name: "[Probe] Record the working identity"
-      ansible.builtin.set_fact:
-        probe_identity: "{{ probe.stdout | trim }}"
-
-    - name: "[Probe] Resolve the chosen connection settings"
-      ansible.builtin.set_fact:
-        probe_chosen: "{{ builder_target.host_ssh_identities[probe_identity | lower] }}"
-
-    - name: "[Probe] Register the target in the bootstrap group"
+    - name: "[Probe] Inject the chosen identity per machine"
       ansible.builtin.add_host:
-        name: "{{ groups['builder'][0] }}"
-        groups: builder_bootstrap
-        probe_identity: "{{ probe.stdout | trim }}"
+        name: "{{ probe_result.probe_host }}"
+        probe_identity: "{{ probe_result.stdout | trim }}"
+        bootstrap_conn:
+          user: >-
+            {{ hostvars[probe_result.probe_host].host_ssh_identities[(probe_result.stdout | trim | lower)].user }}
+          password: >-
+            {{ hostvars[probe_result.probe_host].host_ssh_identities[(probe_result.stdout | trim | lower)].password }}
+          privkey: >-
+            {{ hostvars[probe_result.probe_host].host_ssh_identities[(probe_result.stdout | trim | lower)].privkey }}
+          become: "{{ (probe_result.stdout | trim | lower) != 'root' }}"
+      loop: "{{ probe.results | default([]) }}"
+      loop_control:
+        loop_var: probe_result
+        label: "{{ probe_result.probe_host }}"
 
-    - name: "[Probe] Report the working identity"
-      ansible.builtin.debug:
-        msg: "Connected as '{{ probe_identity }}' ({{ probe_chosen.user }})."
-
-- name: Bootstrap the build host (service + admin accounts, keys, sudo)
-  hosts: builder_bootstrap
+- name: Bootstrap the build machines (service + admin accounts, keys, sudo)
+  hosts: builder
   gather_facts: true
-  # The probed identity's connection vars are applied as PLAY vars (add_host
-  # vars rank below inventory host_vars, so they would not take effect there).
+  # The per-machine probed identity is applied as PLAY vars (add_host vars rank
+  # below inventory host_vars, so they would not take effect there).
   vars:
-    ansible_user: "{{ hostvars['localhost'].probe_chosen.user }}"
-    ansible_password: "{{ hostvars['localhost'].probe_chosen.password }}"
-    ansible_ssh_private_key_file: "{{ hostvars['localhost'].probe_chosen.privkey }}"
+    ansible_user: "{{ hostvars[inventory_hostname].bootstrap_conn.user }}"
+    ansible_password: "{{ hostvars[inventory_hostname].bootstrap_conn.password }}"
+    ansible_ssh_private_key_file: "{{ hostvars[inventory_hostname].bootstrap_conn.privkey }}"
     # root needs no escalation; ansible gets NOPASSWD sudo, admin password sudo.
-    # The play var
-    # overrides the steady-state ansible_become=false from host_vars/main.yml.
-    bootstrap_become: "{{ (hostvars['localhost'].probe_identity | lower) != 'root' }}"
+    # This overrides the steady-state ansible_become from group_vars/builder/main.yml.
+    bootstrap_become: "{{ hostvars[inventory_hostname].bootstrap_conn.become }}"
     ansible_become: "{{ bootstrap_become }}"
     # The admin identity may log in by key (empty SSH password) while its sudo
     # still requires the account password; reuse the identity's password for
     # become so escalation works. A wrong/empty value only matters when sudo is
     # not passwordless, in which case bootstrap fails loudly.
-    ansible_become_password: "{{ hostvars['localhost'].probe_chosen.password | default('', true) }}"
+    ansible_become_password: "{{ hostvars[inventory_hostname].bootstrap_conn.password | default('', true) }}"
   become: "{{ bootstrap_become }}"
   tasks:
     # --------------------------------------------------------------------------
@@ -192,7 +214,7 @@
              if not (bootstrap_use_key | bool) else omit }}
         update_password: on_create
       no_log: true
-      when: hostvars['localhost'].probe_identity | lower != 'ansible'
+      when: hostvars[inventory_hostname].probe_identity | lower != 'ansible'
 
     # --------------------------------------------------------------------------
     # Admin identity (optional, opt-in via host_admin_enabled). A HUMAN operator
@@ -350,7 +372,7 @@
     - name: "[Bootstrap] Report the outcome"
       ansible.builtin.debug:
         msg: >-
-          Probed as '{{ hostvars['localhost'].probe_identity }}'. Service
+          Probed as '{{ hostvars[inventory_hostname].probe_identity }}'. Service
           account '{{ bootstrap_service_user }}'{{ " and admin account '" ~
           bootstrap_admin.user ~ "'" if bootstrap_admin_defined | bool else "" }}
           should exist; subsequent runs connect via vault_host_{ansible,admin,root}_*

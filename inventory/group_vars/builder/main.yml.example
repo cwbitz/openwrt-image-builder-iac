@@ -1,37 +1,15 @@
 ---
-# ==============================================================================
-# Shared configuration for every host in the `builder` group
-# (inventory/group_vars/builder/main.yml.example)
-# ==============================================================================
-# TEMPLATE: copy this file to inventory/group_vars/builder/main.yml and adjust as
-# needed. main.yml is gitignored and local-only; only this *.example is committed.
-# `make host-init` creates it automatically when missing.
-#
-# This project models "build variants" as multiple inventory hosts that all
-# point at the SAME physical build machine (one inventory host per
-# target/profile/setting combination). Everything that is a property of the
-# MACHINE — not of a single variant — lives here so it is not duplicated across
-# host_vars/<variant>/main.yml:
-#
-#   * the SSH connection identity (probe order ansible -> admin -> root),
-#   * the `ansible` service account's uid/gid and docker group,
-#   * the shared connection vault (one per machine, not per variant).
-#
-# Per-variant build settings (openwrt_image, openwrt_profile, packages, LAN IP,
-# ...) live in inventory/host_vars/<variant>/main.yml. See host_vars/variant.example/.
-# Per-variant scratch/output isolation is a role default/vars value (see
-# roles/imagebuilder/defaults/main.yml and vars/main.yml), so it works for any
-# inventory layout.
+# Shared, machine-wide config for every build machine in the `builder` group.
+# Copy to inventory/group_vars/builder/main.yml (gitignored, local-only);
+# `make host-init` creates it. One inventory host = one build MACHINE; each
+# machine's build variants live in host_vars/<machine>/main.yml
+# (`openwrt_variants`), so machine-wide settings stay here.
 
 # --- SSH connection identity -------------------------------------------------
 # `make host-bootstrap` probes [ansible, admin, root] and uses the first that
-# works; normal runs (build/info) always connect as `ansible`. Each identity may
-# set a password AND/OR a private key file; SSH prefers the key, then falls back
-# to a password. Only paths are accepted, never raw key strings.
-#
-# `pubkey` is an optional control-node path to the matching public key. When set,
-# host-bootstrap authorizes it for that account on the target; when empty it is
-# ignored (keys are never auto-generated).
+# works; build/info always connect as `ansible`. Each identity sets a password
+# and/or a key path (SSH prefers the key); paths only, never raw key strings.
+# `pubkey` is an optional control-node path, authorized for that account.
 host_ssh_identities:
   root:
     user: "{{ vault_host_root_user | default('root', true) }}"
@@ -57,7 +35,7 @@ host_ssh_user: "{{ host_ssh_identity.user }}"
 host_ssh_password: "{{ host_ssh_identity.password }}"
 host_ssh_privkey_file: "{{ host_ssh_identity.privkey }}"
 host_ssh_become: "{{ host_ssh_identity.become }}"
-# Prefer key, then password, at the SSH layer (single password prompt max).
+# Prefer key, then password, at the SSH layer (one password prompt max).
 host_ssh_common_args: "-o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
 
 # Ansible connection-plugin interface (fixed names; sourced from host_ssh_*).
@@ -67,37 +45,27 @@ ansible_ssh_private_key_file: "{{ host_ssh_privkey_file }}"
 ansible_become: "{{ host_ssh_become }}"
 ansible_ssh_common_args: "{{ host_ssh_common_args }}"
 
-# --- 'ansible' automation user (created by `make host-bootstrap`) ------------
-# host-bootstrap creates/repairs the 'ansible' service account: a missing
-# password is generated into this same vault unless
-# vault_host_ansible_ssh_pubkey_file is set (which switches it to key auth);
-# passwordless sudo is granted, and the user is added to the docker group when
-# it exists.
-# [OPTIONAL] fixed uid/gid (kept stable across rebuilds). Project-wide scheme:
-# shared data identity (5000-5999), service/automation accounts (6000-6499).
+# --- 'ansible' automation account (created by `make host-bootstrap`) ---------
+# host-bootstrap creates/repairs the account with NOPASSWD sudo and, when it
+# exists, the docker group. A missing password is generated into the shared vault
+# unless a pubkey is set (which switches the account to key auth).
+# [OPTIONAL] fixed uid/gid; project-wide service accounts use 6000-6499.
 host_ansible_uid: 6000
 host_ansible_gid: 6000
-# [OPTIONAL] docker group to add the automation user to when it exists.
+# [OPTIONAL] docker group to add the account to when it exists.
 host_ansible_docker_group: docker
 
-# Create/repair the optional human 'admin' operator account during
-# `make host-bootstrap`. When true the account is created and ALWAYS gets a
-# password (generated into the shared builder vault when left empty) for console
-# login and sudo; a configured public key is installed additionally. Default
-# false: no admin account is managed (least privilege).
+# Create/repair the optional human 'admin' account during `make host-bootstrap`.
+# It always gets a password (generated into the shared vault when empty) plus any
+# configured key. Default false: no admin account is managed (least privilege).
 host_admin_enabled: false
 
 # --- Shared connection vault -------------------------------------------------
-# The connection identity and its secrets belong to the MACHINE, so all variants
-# read/write one vault here (overriding the role's per-host default). A generated
-# secret (e.g. the `ansible` service account password) is merged back into this
-# same vault under the same variable name, so no separate managed vault exists.
-# Per-variant firmware secrets (root/PPPoE passwords) live in each
-# host_vars/<variant>/vault.yml instead.
+# Connection secrets belong to the MACHINE, so every variant on it shares one
+# vault, and a generated secret (e.g. the `ansible` password) is merged back here
+# under the same name. Per-machine firmware secrets live in
+# host_vars/<machine>/vault.yml.
 host_vault_file: "{{ project_root }}/inventory/group_vars/builder/vault.yml"
 
-# Per-variant isolation (scratch/output/artifact directories derived from
-# inventory_hostname, and a variant-scoped container name) is a role default/vars
-# value so it applies consistently whether or not this group_vars file is used;
-# see roles/imagebuilder/defaults/main.yml, roles/imagebuilder/vars/main.yml and
-# tasks/setup.yml.
+# Per-variant isolation (scratch/output/artifact dirs and a container name) is a
+# role default/vars value keyed on the build id (machine + variant).
