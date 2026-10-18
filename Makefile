@@ -37,11 +37,11 @@ QUIET ?=
 # `$(say) "text"` echoes normally, or is a no-op when QUIET is set.
 say = $(if $(QUIET),:,echo)
 
-# Refresh SSH host keys before connecting (HOST_KEY=1). Useful after the build
+# Refresh SSH host keys before connecting (REFRESH=1). Useful after the build
 # host is rebuilt: its new host key would otherwise fail the "host key changed"
 # check. hostkey-init scans every inventory host and (re)writes its key into
 # the control node's known_hosts. deploy/host-bootstrap call it when set.
-HOST_KEY ?=
+REFRESH ?=
 # known_hosts file to write (control node). Defaults to OpenSSH's user file.
 KNOWN_HOSTS ?= $(HOME)/.ssh/known_hosts
 
@@ -127,7 +127,7 @@ ANSIBLE_PYTHON ?= $(shell \
 .PHONY: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections \
         ensure-passlib keychain-fetch verify-keychain-pin run-playbook \
         agent-needed agent-fallback agent-ensure agent-load agent-check \
-        vault-edit-file lint hostkey-init
+        vault-edit-file lint
 
 help: ## Show this help
 	@printf '\nUsage: make <target> [VAR=value ...]\n\n'
@@ -163,10 +163,10 @@ host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples
 	@echo "scaffolded inventory/host_vars/$(HOST)/ (machine registered under the builder group; edit openwrt_variants[] in main.yml)"
 	@echo "next: make vault-edit HOST=$(HOST)"
 
-host-bootstrap: ## Create the ansible service account (bootstrap.yml; EXTRA=<extra -e vars>; HOST_KEY=1 refreshes host keys first)
+host-bootstrap: ## Create the ansible service account (bootstrap.yml; EXTRA=<extra -e vars>; REFRESH=1 refreshes host keys first)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
-	@if [ -n "$(HOST_KEY)" ]; then $(MAKE) --no-print-directory hostkey-init; fi
+	@if [ -n "$(REFRESH)" ]; then $(MAKE) --no-print-directory hostkey-init; fi
 	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/bootstrap.yml
 
 vault-init: ## One-time: generate the vault password (idempotent)
@@ -234,10 +234,11 @@ lint: install vault-init
 		echo "WARN: ansible-lint not installed, skipped"; \
 	fi
 
-# (internal) Scan every inventory host and (re)write its SSH host key into the
-# control node's known_hosts (removing any stale entry first). Invoked by
-# deploy/host-bootstrap when HOST_KEY=1, and usable standalone.
-hostkey-init: vault-init
+# Refresh every managed host's SSH host key in the control node's known_hosts
+# (removing any stale entry first). Also run automatically when REFRESH=1 is set
+# on deploy / host-bootstrap.
+.PHONY: hostkey-init
+hostkey-init: vault-init ## Refresh every managed host's SSH host key in known_hosts
 	@set -e; \
 	nh="$(KNOWN_HOSTS)"; mkdir -p "$$(dirname "$$nh")"; tmp=$$(mktemp); \
 	$(ANS_PLAY) -i $(INV) playbooks/host_keys.yml -e host_keys_out="$$tmp" >/dev/null; \
@@ -279,8 +280,8 @@ build: ## Build a customized OpenWrt firmware image, run host-bootstrap first (E
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/build.yml
 
-deploy: host-bootstrap build ## One-click: bootstrap the build host, then build every variant (EXTRA=<extra -e vars>; HOST_KEY=1 refreshes host keys first)
-	@if [ -n "$(HOST_KEY)" ]; then $(MAKE) --no-print-directory hostkey-init; fi
+deploy: host-bootstrap build ## One-click: bootstrap the build host, then build every variant (EXTRA=<extra -e vars>; REFRESH=1 refreshes host keys first)
+	@if [ -n "$(REFRESH)" ]; then $(MAKE) --no-print-directory hostkey-init; fi
 
 # ==============================================================================
 # Internal helpers (not part of the public interface)

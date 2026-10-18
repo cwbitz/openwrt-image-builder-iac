@@ -28,6 +28,9 @@ machine), `playbooks/build.yml` (builds every variant) and `playbooks/info.yml`
 - `make deploy` — one-click: `host-bootstrap` then `build`.
 - `make build` / `make info` — build every variant (machines in parallel) / query
   ImageBuilder info; limit to one machine with `EXTRA='--limit <machine>'`.
+- `make hostkey-init` — refresh every machine's SSH host key in the control node's
+  `known_hosts` (drop the stale entry, re-add); `host-bootstrap`/`deploy` run it
+  first when `REFRESH=1` is set.
 - `make vault-init` — generate the vault password file (outside the repo).
 - `make vault-edit HOST=<name>` / `make vault-edit-group` — edit a machine vault /
   the shared builder connection vault; a plaintext vault is encrypted first.

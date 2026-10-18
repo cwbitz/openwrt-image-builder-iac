@@ -3,7 +3,7 @@
 # Emit each managed host's resolved SSH connection target as JSON
 # (playbooks/host_keys.yml)
 # ==============================================================================
-# Used by `make hostkey-init` (and HOST_KEY=1) to refresh the control node's
+# Used by `make hostkey-init` (and REFRESH=1) to refresh the control node's
 # known_hosts after a managed host is rebuilt. It only RESOLVES the inventory
 # vars (no SSH connection), so it works even when the host's key is unknown or
 # changed. Writes a JSON list of {name, host, port} to `host_keys_out`.
