@@ -22,7 +22,7 @@ back to the control node.
 |-------|------|----------------|
 | Build host | **Docker** | runs the official `openwrt/imagebuilder` container |
 | Firmware image | **Ansible** (role `imagebuilder`) | module resolution, package collection, uci-defaults overlay, container orchestration |
-| Operator config | `host_vars/<machine>/main.yml` + `group_vars/builder/main.yml` | per-machine build variants; machine-wide connection identity |
+| Operator config | `host_vars/<machine>/main.yml` + `group_vars/builder/main.yml` | per-machine build variants; machine-wide operator overrides (e.g. `host_admin_enabled`) |
 
 The control node (where `make` runs) and the build host (the machine running
 Docker) are separate LAN machines by default; building on the control node itself
@@ -75,8 +75,9 @@ openwrt-image-builder-iac/
 ├── inventory/
 │   ├── hosts.yml.example              # builder group: one host per build machine
 │   ├── group_vars/
-│   │   └── builder/                   # machine-wide shared config (main.yml local-only)
-│   │       ├── main.yml.example       # SSH identity, service account, shared vault
+│   │   ├── all/                       # committed project-owned baseline (SSH identity wiring, uid/gid, shared vault path)
+│   │   └── builder/                   # machine-wide operator overrides (main.yml local-only)
+│   │       ├── main.yml.example       # operator knob template (main.yml is local-only)
 │   │       └── vault.yml.example      # shared connection secrets template
 │   └── host_vars/
 │       └── builder.example/           # machine template; real machines gitignored

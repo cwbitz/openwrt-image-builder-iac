@@ -17,9 +17,8 @@ vault_host_admin_user: "admin"
 vault_host_admin_password: ""
 vault_host_admin_ssh_privkey_file: ""
 vault_host_admin_ssh_pubkey_file: ""
-# The service account host-bootstrap creates/repairs. Its pubkey switches the
-# account to key auth; otherwise an empty password is generated here.
-vault_host_ansible_user: "ansible"
+# The service account host-bootstrap creates/repairs (name fixed). Its pubkey
+# switches the account to key auth; otherwise an empty password is generated here.
 vault_host_ansible_password: ""
 vault_host_ansible_ssh_privkey_file: /home/example/.ssh/id_ed25519_ansible
 vault_host_ansible_ssh_pubkey_file: /home/example/.ssh/id_ed25519_ansible.pub

@@ -9,7 +9,7 @@ model, the secrets model, and how host bootstrap and variant isolation work.
 |-------|------|----------------|
 | Control node | **Ansible** (+ Make) | resolves modules/packages, renders the overlay, orchestrates the container |
 | Build host | **Docker** | runs the official `openwrt/imagebuilder` container per variant |
-| Operator config | `host_vars/<machine>/main.yml` + `group_vars/builder/main.yml` | per-machine build variants; machine-wide connection identity |
+| Operator config | `host_vars/<machine>/main.yml` + `group_vars/builder/main.yml` | per-machine build variants; machine-wide operator overrides |
 
 - **Control node** — where `make` runs. Needs `python`/`ansible-core` (pinned in
   `.tool-versions`), the `community.docker` collection, `openssl`, `sshpass`
@@ -29,12 +29,16 @@ model, the secrets model, and how host bootstrap and variant isolation work.
 - `inventory/host_vars/<machine>/main.yml` — that machine's `openwrt_variants` list
   (per-variant build config) and, next to it, `vault.yml` (per-machine firmware
   secrets).
-- `inventory/group_vars/builder/` — machine-wide settings shared by every machine:
-  the SSH identity map (`host_ssh_identities`), the service account, and the
-  shared connection vault path.
+- `inventory/group_vars/all/main.yml` — the committed project-owned baseline for
+  every machine: the SSH identity map (`host_ssh_identities`) plus the
+  connection-plugin interface derived from it, the `ansible` account's fixed
+  uid/gid + docker group, and the shared connection vault path.
+- `inventory/group_vars/builder/` — machine-wide operator overrides, local-only
+  (e.g. `host_admin_enabled`).
 
-Only `host_vars/builder.example/` and the `group_vars/builder/*.example` templates
-are committed; the real `main.yml` and `vault*.yml` are local-only.
+Committed: `group_vars/all/main.yml`, `host_vars/builder.example/` and the
+`group_vars/builder/*.example` templates; the real `group_vars/builder/main.yml`
+and `vault*.yml` are local-only.
 
 ## Dependency model
 
@@ -65,7 +69,7 @@ are committed; the real `main.yml` and `vault*.yml` are local-only.
 
 Normal runs (`build`/`info`) connect as the `ansible` service account; only
 `make host-bootstrap` probes. The identity map `host_ssh_identities` in
-`group_vars/builder/main.yml` resolves the Ansible connection vars from the
+`group_vars/all/main.yml` resolves the Ansible connection vars from the
 shared vault (`vault_host_<id>_{user,password,ssh_privkey_file,ssh_pubkey_file}`)
 for every machine.
 

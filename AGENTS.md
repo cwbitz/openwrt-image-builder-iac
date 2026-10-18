@@ -58,8 +58,13 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
 
 ## Secrets and local-only files
 
-- `inventory/group_vars/builder/main.yml` — machine-wide non-secret config, local
+- `inventory/group_vars/all/main.yml` — committed project-owned baseline for
+  every build machine: the SSH connection identity wiring, the connection-plugin
+  interface derived from it, the `ansible` account's fixed uid/gid + docker group,
+  and the shared connection vault path.
+- `inventory/group_vars/builder/main.yml` — machine-wide operator overrides, local
   only; the committed template is `main.yml.example` (scaffolded by `host-init`).
+  The project-owned wiring lives in the committed `group_vars/all/main.yml`.
 - `inventory/group_vars/builder/vault.yml` — machine-wide connection secrets
   (`vault_host_<id>_{user,password,ssh_privkey_file,ssh_pubkey_file}`),
   operator-owned; a missing generated value (the `ansible` password when no key is
@@ -78,9 +83,10 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
 
 ## Gotchas
 
-- Only `host_vars/builder.example/` and the `group_vars/builder/*.example`
-  templates are committed. `inventory/hosts.yml`, real machine directories, and
-  `group_vars/builder/main.yml` / real `vault*.yml` are gitignored.
+- Committed: `group_vars/all/main.yml` (project-owned baseline),
+  `host_vars/builder.example/` and the `group_vars/builder/*.example` templates.
+  `inventory/hosts.yml`, real machine directories, and `group_vars/builder/main.yml`
+  / real `vault*.yml` are gitignored.
 - `bootstrap.yml` targets the `builder` group (one play per machine) and injects
   the probed identity per host with `add_host`; `build.yml`/`info.yml` loop each
   machine's `openwrt_variants` (build id = `<machine>-<variant>`).

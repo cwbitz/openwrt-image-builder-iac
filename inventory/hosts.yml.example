@@ -8,7 +8,7 @@
 # `make build` builds them in parallel on it.
 #
 # Do NOT set ansible_user here: the connection identity comes from
-# group_vars/builder/main.yml. Run `make host-bootstrap` once per machine first.
+# group_vars/all/main.yml. Run `make host-bootstrap` once per machine first.
 #
 # Building on the control node is also possible (`ansible_connection: local`,
 # `ansible_host: 127.0.0.1`). Add another machine as a sibling under `builder`.

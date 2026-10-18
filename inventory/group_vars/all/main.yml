@@ -1,0 +1,71 @@
+---
+# ==============================================================================
+# Project-owned baseline for EVERY managed host
+# (inventory/group_vars/all/main.yml)
+# ==============================================================================
+# Committed, project-owned values that are not operator input: the SSH
+# connection identity wiring, the connection-plugin interface derived from it,
+# the `ansible` automation account's fixed uid/gid + docker group, and the shared
+# connection vault path. Topology lives in inventory/hosts.yml (local-only) and
+# operator knobs in inventory/group_vars/builder/main.yml (local-only) and
+# inventory/host_vars/<machine>/main.yml.
+# ==============================================================================
+
+# --- SSH connection identity ---------------------------------------------------
+# `make host-bootstrap` probes [ansible, admin, root] and uses the first that
+# works; build/info always connect as `ansible`. Each identity sets a password
+# and/or a key path (SSH prefers the key); paths only, never raw key strings.
+# `pubkey` is an optional control-node path, authorized for that account. The
+# `ansible` account name is a fixed constant; only `admin` may be renamed
+# (vault_host_admin_user).
+host_ssh_identities:
+  root:
+    user: "{{ vault_host_root_user | default('root', true) }}"
+    password: "{{ vault_host_root_password | default('', true) }}"
+    privkey: "{{ vault_host_root_ssh_privkey_file | default('', true) }}"
+    pubkey: "{{ vault_host_root_ssh_pubkey_file | default('', true) }}"
+    become: false
+  admin:
+    user: "{{ vault_host_admin_user | default('admin', true) }}"
+    password: "{{ vault_host_admin_password | default('', true) }}"
+    privkey: "{{ vault_host_admin_ssh_privkey_file | default('', true) }}"
+    pubkey: "{{ vault_host_admin_ssh_pubkey_file | default('', true) }}"
+    become: true
+  ansible:
+    user: "ansible"
+    password: "{{ vault_host_ansible_password | default('', true) }}"
+    privkey: "{{ vault_host_ansible_ssh_privkey_file | default('', true) }}"
+    pubkey: "{{ vault_host_ansible_ssh_pubkey_file | default('', true) }}"
+    become: false
+
+host_ssh_identity: "{{ host_ssh_identities['ansible'] }}"
+host_ssh_user: "{{ host_ssh_identity.user }}"
+host_ssh_password: "{{ host_ssh_identity.password }}"
+host_ssh_privkey_file: "{{ host_ssh_identity.privkey }}"
+host_ssh_become: "{{ host_ssh_identity.become }}"
+# Prefer key, then password, at the SSH layer (one password prompt max).
+host_ssh_common_args: "-o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
+
+# Ansible connection-plugin interface (fixed names; sourced from host_ssh_*).
+ansible_user: "{{ host_ssh_user }}"
+ansible_password: "{{ host_ssh_password }}"
+ansible_ssh_private_key_file: "{{ host_ssh_privkey_file }}"
+ansible_become: "{{ host_ssh_become }}"
+ansible_ssh_common_args: "{{ host_ssh_common_args }}"
+
+# --- 'ansible' automation account (created by `make host-bootstrap`) ------------
+# host-bootstrap creates/repairs the account with NOPASSWD sudo and, when it
+# exists, the docker group. A missing password is generated into the shared vault
+# unless a pubkey is set (which switches the account to key auth). Fixed uid/gid;
+# project-wide service accounts use 6000-6499.
+host_ansible_uid: 6000
+host_ansible_gid: 6000
+# Docker group to add the account to when it exists.
+host_ansible_docker_group: docker
+
+# --- Shared connection vault ---------------------------------------------------
+# Connection secrets belong to the MACHINE, so every variant on it shares one
+# vault, and a generated secret (e.g. the `ansible` password) is merged back here
+# under the same name. Per-machine firmware secrets live in
+# host_vars/<machine>/vault.yml.
+host_vault_file: "{{ project_root }}/inventory/group_vars/builder/vault.yml"

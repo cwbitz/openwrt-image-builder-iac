@@ -2,7 +2,8 @@
 # hosts.yml is local-only (contains your real build host); hosts.yml.example is committed.
 inventory/hosts.yml
 # group_vars/builder/main.yml is local-only (operators may customize it); the
-# committed template is group_vars/builder/main.yml.example.
+# committed template is group_vars/builder/main.yml.example. The project-owned
+# baseline (group_vars/all/main.yml) is committed.
 inventory/group_vars/builder/main.yml
 # host_vars/ is machine-scoped and local-only; ONLY the builder.example/ folder
 # is committed (its main.yml and vault.yml.example templates).

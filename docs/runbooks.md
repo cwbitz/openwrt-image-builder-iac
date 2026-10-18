@@ -48,7 +48,8 @@ make deploy
 Configuration is split by scope (machine-wide vs per-machine); see
 [configuration](configuration.md). `hosts.yml`, the real
 `group_vars/builder/main.yml`, and every `host_vars/<machine>/` directory are
-gitignored; only the committed `*.example` templates are tracked.
+gitignored; the committed `group_vars/all/main.yml` baseline and `*.example`
+templates are tracked.
 
 ### `host-bootstrap`
 
@@ -181,4 +182,4 @@ The same knob also works for release images; combined with
 | Build hangs at "Building package index..." (25.12+, APK) | The container `nofile` ulimit is unbounded and fakeroot's `faked` spins; the role pins `nofile:65536:65536`, keep it bounded |
 | Artifacts owned by root | The in-container `chown` needs `HOST_UID`/`HOST_GID` (from facts) |
 | Artifacts not in the control node's `artifacts/` | Check `openwrt_fetch_artifacts` (default true); they are also kept on the builder at `openwrt_output_dir` |
-| Cannot reach a builder over SSH | Fix its `ansible_host` in `hosts.yml`; the connection identity comes from `group_vars/builder/main.yml` |
+| Cannot reach a builder over SSH | Fix its `ansible_host` in `hosts.yml`; the connection identity comes from the committed `group_vars/all/main.yml` |

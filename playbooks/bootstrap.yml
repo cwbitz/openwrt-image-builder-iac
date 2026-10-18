@@ -159,7 +159,7 @@
     # --------------------------------------------------------------------------
     - name: "[Bootstrap] Resolve the service account settings"
       ansible.builtin.set_fact:
-        bootstrap_service_user: "{{ host_ansible_user | default('ansible') }}"
+        bootstrap_service_user: "ansible"
         bootstrap_use_key: "{{ vault_host_ansible_ssh_pubkey_file | default('', true) | length > 0 }}"
 
     - name: "[Bootstrap] Generate the service-account password (no key supplied)"

@@ -11,14 +11,15 @@ own `host_vars`.
 | Location | Purpose |
 |----------|---------|
 | `inventory/hosts.yml` | the `builder` group: one host per machine, each with its `ansible_host` |
-| `inventory/group_vars/builder/main.yml` | machine-wide: `host_ssh_identities`, service account, shared vault path |
+| `inventory/group_vars/all/main.yml` | committed project-owned baseline: `host_ssh_identities` + the connection-plugin interface, the `ansible` account's uid/gid + docker group, the shared vault path |
+| `inventory/group_vars/builder/main.yml` | machine-wide operator overrides, local-only (e.g. `host_admin_enabled`) |
 | `inventory/host_vars/<machine>/main.yml` | that machine's `openwrt_variants` list |
 | `inventory/host_vars/<machine>/vault.yml` | that machine's firmware secrets |
 | `inventory/group_vars/builder/vault.yml` | shared connection secrets (one per fleet) |
 
-The committed templates are `inventory/hosts.yml.example`,
-`group_vars/builder/*.example` and `host_vars/builder.example/`; real files are
-gitignored.
+The committed files are `inventory/hosts.yml.example`, the project-owned baseline
+`group_vars/all/main.yml`, and the `group_vars/builder/*.example` +
+`host_vars/builder.example/` templates; the real files are gitignored.
 
 ## Variant schema
 
