@@ -20,11 +20,12 @@ machine), `playbooks/build.yml` (builds every variant) and `playbooks/info.yml`
   `group_vars/builder/main.yml` comment-free from the examples, plus
   `host_vars/<name>/` (with an `openwrt_variants` list); add `<name>` under
   `builder.hosts` with `HOST_IP` as its `ansible_host`; encrypt the vault (dir
-  `0700`, file `0600`). HOST defaults to `openwrt-ib-prod-1`; re-running does not
-  overwrite existing files.
+  `0700`, file `0600`). HOST defaults to `openwrt-ib-prod-1` and `HOST_IP` to a
+  placeholder; re-running does not overwrite existing files.
 - `make host-bootstrap` — once: probe `ansible → admin → root` on every machine
   and create/repair the `ansible` service account (key-first, NOPASSWD sudo,
   `docker` group) plus the human `admin` account when `host_admin_enabled` is set.
+  `REFRESH=1` refreshes host keys first.
 - `make deploy` — one-click: `host-bootstrap` then `build`.
 - `make build` / `make info` — build every variant (machines in parallel) / query
   ImageBuilder info; limit to one machine with `EXTRA='--limit <machine>'`.

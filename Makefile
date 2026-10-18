@@ -147,8 +147,7 @@ help: ## Show this help
 
 install: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections ensure-passlib ## Install the pinned toolchain, collections, and control-node dependencies
 
-host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples (comment-free); adds HOST to builder (HOST default openwrt-ib-prod-1, HOST_IP = its address)
-	@test -n "$(HOST)" || { echo "ERROR: HOST is required, e.g. make host-init HOST=openwrt-ib-prod-1 HOST_IP=10.0.10.50"; exit 1; }
+host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples (comment-free); HOST default openwrt-ib-prod-1, HOST_IP default CHANGE_ME_HOST_IP
 	@[ -e $(INV) ] || { python3 $(CURDIR)/scripts/render_clean_template.py $(INV).example $(INV); echo "created $(INV) (comments stripped)"; }
 	@[ -e inventory/group_vars/builder/main.yml ] || { python3 $(CURDIR)/scripts/render_clean_template.py inventory/group_vars/builder/main.yml.example inventory/group_vars/builder/main.yml; echo "created inventory/group_vars/builder/main.yml (comments stripped)"; }
 	@install -d -m 0700 inventory/host_vars/$(HOST)
