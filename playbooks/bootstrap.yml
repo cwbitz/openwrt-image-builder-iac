@@ -70,10 +70,18 @@
           kopt=""; [ -n "$key" ] && kopt="-i $key"
           base="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -o Port=$PORT"
           base="$base -o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
+          # An identity other than root must also be able to escalate: a
+          # half-provisioned account can log in before its sudo access exists, and
+          # choosing it then blocks the bootstrap from repairing the host. The
+          # NOPASSWD service account is proven with `sudo -n true`; a password-sudo
+          # identity (the `admin` account) proves escalation at deploy time via
+          # ansible_become_password, so login is enough for it.
+          remote="true"
+          if [ "$id" != "ROOT" ] && [ -z "$pw" ]; then remote="sudo -n true"; fi
           if [ -n "$pw" ]; then
-            SSHPASS="$pw" sshpass -e ssh $base $kopt "$user@$HOST" true >/dev/null 2>&1 && return 0
+            SSHPASS="$pw" sshpass -e ssh $base $kopt "$user@$HOST" "$remote" >/dev/null 2>&1 && return 0
           else
-            ssh $base -o BatchMode=yes $kopt "$user@$HOST" true >/dev/null 2>&1 && return 0
+            ssh $base -o BatchMode=yes $kopt "$user@$HOST" "$remote" >/dev/null 2>&1 && return 0
           fi
           return 1
         }
@@ -347,6 +355,19 @@
                  and bootstrap_admin.user | default('', true) != 'root'
                  and bootstrap_admin.user | default('', true) != (bootstrap_service_user | default('ansible')))
              else [] }}
+
+    - name: "[Bootstrap] Ensure sudo is installed for the sudoers grants"
+      # Minimal Debian images ship without the sudo package (/etc/sudoers.d may
+      # not exist at all), yet the grants below, and the `become` the deploy
+      # relies on, both need it.
+      ansible.builtin.apt:
+        name: sudo
+        state: present
+        update_cache: true
+      when:
+        - ansible_os_family == 'Debian'
+        - (bootstrap_sudo_nopasswd_users | length
+           + bootstrap_sudo_password_users | length) > 0
 
     - name: "[Bootstrap] Grant the automation account passwordless sudo"
       ansible.builtin.copy:

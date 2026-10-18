@@ -55,6 +55,12 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
 - **Multi-host bootstrap** targets the real inventory group. `add_host` only
   injects the probed identity/vars onto a host already present in the inventory;
   it never creates a play target.
+- **The probe must verify escalation, not just login.** An identity other than
+  `root` is usable only when it can actually become root: proven with
+  `sudo -n true` for a password-less (NOPASSWD) identity, while a password-sudo
+  identity proves it at deploy time via `ansible_become_password`. A
+  half-provisioned account (login OK, sudoers not yet written) must never be
+  chosen, or the bootstrap can no longer repair that host.
 
 ## Secrets and local-only files
 
