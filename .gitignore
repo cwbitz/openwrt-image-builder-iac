@@ -6,9 +6,11 @@ inventory/hosts.yml
 # baseline (group_vars/all/main.yml) is committed.
 inventory/group_vars/builder/main.yml
 # host_vars/ is machine-scoped and local-only; ONLY the example/ folder
-# is committed (its main.yml and vault.yml.example templates).
+# is committed (its main.yml and vault.yml.example templates). Keep the negated
+# entry WITHOUT a trailing slash: with one, editor gitignore matchers (VS Code)
+# still dim the folder itself even though git tracks its contents.
 inventory/host_vars/*
-!inventory/host_vars/example/
+!inventory/host_vars/example
 collections/
 .cache/
 .ansible/
