@@ -148,6 +148,9 @@ The same knob also works for release images; combined with
 - **Connection credentials** are machine-wide (`inventory/group_vars/builder/vault.yml`).
 - The vault password file lives outside the repo and is never committed;
   `make vault-edit HOST=<machine>` encrypts a plaintext vault before editing.
+- Vault keys are kept in alphabetical order: `make vault-edit` re-sorts the
+  top-level keys after the editor closes (comment-preserving) and re-encrypts
+  only when the order changed. Hand edits should stay alphabetical too.
 - Values are Jinja-templated and shell-quoted automatically, so special
   characters are safe. Leave a secret empty to skip its module.
 - **The built image carries the secrets it was built with** — treat artifacts as

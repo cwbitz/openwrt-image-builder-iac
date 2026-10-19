@@ -185,20 +185,39 @@ vault-init: ## One-time: generate the vault password (idempotent)
 			|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
 	fi
 
-vault-edit: vault-init ## Edit a machine's vault, plaintext auto-encrypted first (HOST=<name>)
+vault-edit: vault-init ## Edit a machine's vault, plaintext auto-encrypted first (keys re-sorted; HOST=<name>)
 	@$(MAKE) --no-print-directory vault-edit-file VAULT_EDIT_FILE=inventory/host_vars/$(HOST)/vault.yml
 
-vault-edit-group: vault-init ## Edit the shared builder connection vault (plaintext auto-encrypted first)
+vault-edit-group: vault-init ## Edit the shared builder connection vault (plaintext auto-encrypted first; keys re-sorted)
 	@$(MAKE) --no-print-directory vault-edit-file VAULT_EDIT_FILE=inventory/group_vars/builder/vault.yml
 
-# (internal) Encrypt a plaintext vault in place, then edit it.
+# (internal) Encrypt a plaintext vault in place, edit it, then re-sort its
+# top-level keys alphabetically. Key order carries no meaning, but one
+# deterministic layout keeps every rewrite reviewable; the sort is a
+# comment-preserving line permutation and leaves the file untouched when it
+# cannot verify the round-trip.
 vault-edit-file:
 	@test -f $(VAULT_EDIT_FILE) || { echo "No such vault file: $(VAULT_EDIT_FILE)" >&2; exit 1; }
 	@if grep -q 'ANSIBLE_VAULT' $(VAULT_EDIT_FILE); then :; else \
 		echo "Encrypting plaintext $(VAULT_EDIT_FILE) before editing..."; \
 		ansible-vault encrypt $(VAULT_EDIT_FILE); \
 	fi
-	ansible-vault edit $(VAULT_EDIT_FILE)
+	@set -e; \
+	edit_rc=0; ansible-vault edit $(VAULT_EDIT_FILE) || edit_rc=$$?; \
+	if [ $$edit_rc -eq 0 ]; then \
+		b=$$(mktemp); a=$$(mktemp); rc=0; \
+		trap 'rm -f "$$b" "$$a"' EXIT; \
+		ansible-vault view $(VAULT_EDIT_FILE) > "$$b" || rc=1; \
+		if [ $$rc -eq 0 ]; then cp "$$b" "$$a" || rc=1; fi; \
+		if [ $$rc -eq 0 ]; then python3 $(CURDIR)/scripts/sort_vault_keys.py "$$a" || rc=1; fi; \
+		if [ $$rc -ne 0 ]; then \
+			echo "ERROR: could not normalise the key order of $(VAULT_EDIT_FILE); it is unchanged (as edited)" >&2; \
+		elif ! cmp -s "$$b" "$$a"; then \
+			ansible-vault encrypt --output $(VAULT_EDIT_FILE) "$$a" \
+				&& echo "vault-edit: re-encrypted with the keys in alphabetical order"; \
+		fi; \
+	fi; \
+	exit $$edit_rc
 
 vault-view: vault-init ## View every variant's vault + the shared connection vault (read-only)
 	@test -f $(INV) || { echo "ERROR: $(INV) not found — copy $(INV).example and fill it in." >&2; exit 1; }
