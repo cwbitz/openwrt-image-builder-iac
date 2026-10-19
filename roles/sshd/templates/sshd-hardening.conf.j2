@@ -1,0 +1,23 @@
+# ==============================================================================
+# SSH hardening drop-in (roles/sshd) - MANAGED BY ANSIBLE, DO NOT EDIT.
+# ==============================================================================
+# Key-only SSH administration for this build machine.
+#
+# The file lives in sshd_config.d/ and is named `00-` on purpose: sshd keeps the
+# FIRST value obtained for a keyword and the main sshd_config Includes this
+# directory, so `00-` wins over a provider drop-in (e.g. 50-cloud-init.conf).
+# The role does not rely on that ordering: it verifies the EFFECTIVE
+# configuration with `sshd -T` and reverts this file when it did not take.
+#
+# Password logins are closed on every path: `PasswordAuthentication` (the ssh
+# auth method) and `KbdInteractiveAuthentication` (PAM keyboard-interactive,
+# which otherwise still accepts a password). Root SSH is off by design: `ansible`
+# is the host's SSH identity, and root stays reachable through the provider
+# console and `sudo`.
+# ==============================================================================
+
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+PermitRootLogin {{ sshd_permit_root_login }}

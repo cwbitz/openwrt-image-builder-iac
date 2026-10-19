@@ -9,6 +9,7 @@ model, the secrets model, and how host bootstrap and variant isolation work.
 |-------|------|----------------|
 | Control node | **Ansible** (+ Make) | resolves modules/packages, renders the overlay, orchestrates the container |
 | Build host | **Docker** | runs the official `openwrt/imagebuilder` container per variant |
+| Build-host security | **Ansible** (role `sshd`) | opt-in key-only SSH hardening (password login closed, root SSH off) |
 | Operator config | `host_vars/<machine>/main.yml` + `group_vars/builder/main.yml` | per-machine build variants; machine-wide operator overrides |
 
 - **Control node** — where `make` runs. Needs `python`/`ansible-core` (pinned in

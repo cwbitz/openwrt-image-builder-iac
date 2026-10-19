@@ -17,5 +17,11 @@
 # configured key. Default false: no admin account is managed (least privilege).
 # create_admin_account: false
 
+# --- Host security (roles/sshd, tag sshd) --------------------------------------
+# Key-only SSH administration, OFF by default: it closes password login, so it is
+# only safe once a keyed login survives it. Root policy is independent.
+# sshd_hardening_enabled: false
+# sshd_permit_root_login: "no"
+
 # Per-variant isolation (scratch/output/artifact dirs and a container name) is a
 # role default/vars value keyed on the build id (machine + variant).

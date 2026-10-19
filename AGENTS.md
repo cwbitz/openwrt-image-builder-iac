@@ -7,8 +7,10 @@ Ansible IaC that builds customized **OpenWrt firmware images** with the official
 **variants** (one `(target, profile, settings)` each), listed in its
 `host_vars/<machine>/main.yml` as `build_variants`. Entry playbooks:
 `playbooks/bootstrap.yml` (once, provisions the `ansible` service account on every
-machine), `playbooks/build.yml` (builds every variant) and `playbooks/info.yml`
-(read-only ImageBuilder query). The build logic lives in `roles/imagebuilder/`.
+machine), `playbooks/build.yml` (builds every variant, plus opt-in SSH
+hardening) and `playbooks/info.yml`
+(read-only ImageBuilder query). The build logic lives in `roles/imagebuilder/`;
+the opt-in key-only SSH hardening lives in `roles/sshd/`.
 
 ## Commands
 

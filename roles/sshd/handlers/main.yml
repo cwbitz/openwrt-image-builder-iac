@@ -1,0 +1,10 @@
+---
+# ==============================================================================
+# SSH hardening - handlers (roles/sshd/handlers/main.yml)
+# ==============================================================================
+# `reload` (SIGHUP): the daemon re-reads its configuration and existing sessions
+# — including the one this run is using — keep working.
+- name: Reload sshd
+  ansible.builtin.systemd_service:
+    name: "{{ sshd_service_name }}"
+    state: reloaded

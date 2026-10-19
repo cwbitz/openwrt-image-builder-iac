@@ -87,6 +87,24 @@ A domestic mirror that has not synced a new release can make a build fail; turn
 the mirror off and use the official source. `setup_use_mirror` also works
 for release images and is the recommended speed-up for SNAPSHOT images.
 
+## Host security (SSH hardening)
+
+`roles/sshd` optionally closes password login on the build machine and disables
+root SSH, applied as a drop-in under `/etc/ssh/sshd_config.d/` — the running
+`sshd_config` is never edited. It is OFF by default and runs at the end of
+`make build` / `make deploy` (tag `sshd`).
+
+| Knob | Default | Effect |
+|------|---------|--------|
+| `sshd_hardening_enabled` | `false` | Apply the hardening drop-in |
+| `sshd_permit_root_login` | `"no"` | `no` disables root SSH; `prohibit-password` keeps root reachable by key |
+
+It only proceeds when a key-only login survives it: the `ansible` account's
+public key (`vault_host_ansible_ssh_pubkey_file`) or, for a root-administered
+host, root's key with `sshd_permit_root_login: prohibit-password`. The role
+verifies the effective configuration (`sshd -T`), proves a key-only login from
+the control node and rolls the drop-in back if either check fails.
+
 ## Firmware secrets
 
 Per-machine firmware secrets live in `host_vars/<machine>/vault.yml`. Each secret

@@ -93,6 +93,7 @@ openwrt-image-builder-iac/
 │   ├── tasks/                         # preflight/modules/setup/packages/overlay/build/info
 │   ├── files/overlay/<module>/...     # static uci-defaults overlay
 │   └── templates/overlay/<module>/    # templated uci-defaults + build.sh.j2
+├── roles/sshd/                        # opt-in key-only SSH hardening (tag sshd)
 ├── requirements.yml                   # collections
 ├── artifacts/                         # fetched firmware (dir tracked; contents gitignored)
 ├── docs/                              # architecture / configuration / build-pipeline / runbooks

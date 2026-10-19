@@ -163,7 +163,24 @@ The same knob also works for release images; combined with
 4. Reference any operator variables in `host_vars/example/main.yml`.
 5. Run the internal `make lint`, then build with the module active.
 
-## 9. Troubleshooting
+## 9. SSH hardening
+
+`make build` (and therefore `make deploy`) also applies `roles/sshd` at the end
+when `sshd_hardening_enabled: true` is set in `group_vars/builder/main.yml`. It
+closes password login, so it needs a key-only login that survives it — the
+`ansible` account's key (`vault_host_ansible_ssh_pubkey_file`) or root's key
+with `sshd_permit_root_login: prohibit-password`. Run it alone with:
+
+```bash
+make build EXTRA='--tags sshd'
+```
+
+The role validates the drop-in (`sshd -t`), asserts the effective configuration
+(`sshd -T`) and proves a fresh key-only login from the control node; on any
+failure it restores the previous drop-in, reloads sshd and fails the run, so the
+host keeps its old login policy. The provider console remains the recovery path.
+
+## 10. Troubleshooting
 
 | Symptom | Cause / fix |
 |---------|-------------|
@@ -182,4 +199,5 @@ The same knob also works for release images; combined with
 | Build hangs at "Building package index..." (25.12+, APK) | The container `nofile` ulimit is unbounded and fakeroot's `faked` spins; the role pins `nofile:65536:65536`, keep it bounded |
 | Artifacts owned by root | The in-container `chown` needs `HOST_UID`/`HOST_GID` (from facts) |
 | Artifacts not in the control node's `artifacts/` | Check `fetch_artifacts` (default true); they are also kept on the builder at `output_dir` |
+| `--tags sshd` fails at "Prove a key-only login" | The chosen identity has no authorized key yet: set `vault_host_ansible_ssh_pubkey_file` (or root's) and run `make host-bootstrap`, or unset `sshd_hardening_enabled` |
 | Cannot reach a builder over SSH | Fix its `ansible_host` in `hosts.yml`; the connection identity comes from the committed `group_vars/all/main.yml` |

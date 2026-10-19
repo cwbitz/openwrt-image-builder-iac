@@ -1,0 +1,20 @@
+---
+# ==============================================================================
+# Role-owned constants (roles/sshd/vars/main.yml)
+# ==============================================================================
+# The drop-in path and the binaries/unit the role drives. The file is named
+# `00-` on purpose: sshd keeps the FIRST value obtained for a keyword, and the
+# main sshd_config Includes this directory, so `00-` wins over a provider drop-in
+# such as `50-cloud-init.conf`. The role does not trust that ordering: it asserts
+# the EFFECTIVE configuration with `sshd -T` and rolls back if it did not take.
+sshd_conf_dir: "/etc/ssh/sshd_config.d"
+sshd_conf: "{{ sshd_conf_dir }}/00-sshd-hardening.conf"
+sshd_bin: "/usr/sbin/sshd"
+sshd_ssh_bin: "/usr/bin/ssh"
+sshd_service_name: "ssh.service"
+
+# Earlier releases used a project-named drop-in; it is removed so only
+# one file ever sets the policy (sshd keeps the FIRST value obtained, so a
+# stale file could otherwise win the ordering).
+sshd_conf_legacy:
+  - "{{ sshd_conf_dir }}/00-openwrt-image-builder-hardening.conf"

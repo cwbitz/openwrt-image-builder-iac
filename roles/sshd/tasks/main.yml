@@ -1,0 +1,199 @@
+---
+# ==============================================================================
+# SSH hardening (roles/sshd/tasks)
+# ==============================================================================
+# Key-only SSH administration: `PasswordAuthentication no` (plus the PAM
+# keyboard-interactive and empty-password paths) and a configurable root-login
+# policy (`sshd_permit_root_login`, default off), applied as a drop-in under
+# /etc/ssh/sshd_config.d/ so the provider's and the operator's sshd_config are
+# never edited.
+#
+# Safety: hardening closes the password path the bootstrap probe falls back to,
+# so it only proceeds when a keyed login survives it — the `ansible` service
+# account, or root when sshd_permit_root_login allows it — AND a key-only login
+# as that identity is proven from the control node. Every
+# step is verified afterwards (`sshd -t` before loading, `sshd -T` for the
+# EFFECTIVE configuration, a fresh key-only login at the end) and any failure
+# reverts the drop-in and reloads sshd, so the host is never left without a
+# usable login. The provider console is the documented recovery path.
+# ==============================================================================
+
+- name: "[SSHD] Remove a legacy project-named drop-in"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ sshd_conf_legacy | default([]) }}"
+  when: not ansible_check_mode
+
+- name: "[SSHD] Validate the root-login policy"
+  ansible.builtin.assert:
+    that:
+      - sshd_permit_root_login in ['no', 'prohibit-password']
+    fail_msg: >-
+      sshd_permit_root_login must be 'no' (root SSH off) or 'prohibit-password'
+      (root by public key only); got '{{ sshd_permit_root_login }}'.
+
+- name: "[SSHD] Does the service account have a public key?"
+  ansible.builtin.set_fact:
+    sshd_ansible_keyed: >-
+      {{ (ssh_identities.ansible.pubkey | default('', true) | string | length) > 0 }}
+
+- name: "[SSHD] Pick the key-only login path that survives hardening"
+  ansible.builtin.set_fact:
+    sshd_probe_identity: >-
+      {{ ssh_identities.ansible if sshd_ansible_keyed | bool
+         else ssh_identities.root }}
+
+- name: "[SSHD] Assert a keyed login survives hardening"
+  ansible.builtin.assert:
+    that:
+      - >-
+        sshd_ansible_keyed | bool
+        or ((sshd_permit_root_login != 'no')
+            and (ssh_identities.root.pubkey | default('', true) | string | length) > 0)
+    fail_msg: >-
+      SSH hardening closes password login, so it needs at least one key-only
+      login that still works afterwards: the `ansible` service account public key
+      (vault_host_ansible_ssh_pubkey_file), or — for a root-administered host —
+      root's public key (vault_host_root_ssh_pubkey_file) with
+      sshd_permit_root_login=prohibit-password. Set one and run
+      `make host-bootstrap` to authorize it, or set sshd_hardening_enabled=false
+      to keep password login.
+
+- name: "[SSHD] Read the current drop-in (for the rollback)"
+  ansible.builtin.slurp:
+    src: "{{ sshd_conf }}"
+  register: sshd_current
+  failed_when: false
+  check_mode: false
+
+- name: "[SSHD] Build the key-only login probe"
+  ansible.builtin.set_fact:
+    sshd_probe_argv: >-
+      {{ [sshd_ssh_bin,
+          '-o', 'BatchMode=yes',
+          '-o', 'PreferredAuthentications=publickey',
+          '-o', 'StrictHostKeyChecking=accept-new',
+          '-o', 'ConnectTimeout=8',
+          '-p', (ansible_port | default(22)) | string]
+         + (['-i', sshd_probe_identity.privkey | expanduser]
+            if (sshd_probe_identity.privkey | default('', true) | length) > 0 else [])
+         + [sshd_probe_identity.user ~ '@' ~ (ansible_host | default(inventory_hostname)),
+            'true'] }}
+
+- name: "[SSHD] Apply and verify the hardening"
+  when: not ansible_check_mode
+  block:
+    - name: "[SSHD] Render the hardening drop-in"
+      ansible.builtin.template:
+        src: sshd-hardening.conf.j2
+        dest: "{{ sshd_conf }}"
+        owner: root
+        group: root
+        mode: "0644"
+      register: sshd_dropin
+      notify: Reload sshd
+
+    # Validate the file on disk BEFORE the daemon reads it: a bad drop-in fails
+    # here, while the running sshd still serves the previous configuration.
+    - name: "[SSHD] Validate the resulting sshd configuration"
+      ansible.builtin.command:
+        argv:
+          - "{{ sshd_bin }}"
+          - -t
+      changed_when: false
+      check_mode: false
+
+    # Runs only when the template notified the handler (i.e. only when it
+    # changed); flushing here — rather than at the end of the play — is what
+    # makes the verification below check the configuration that was loaded.
+    - name: "[SSHD] Load the drop-in"
+      ansible.builtin.meta: flush_handlers
+
+    - name: "[SSHD] Read the effective sshd configuration"
+      ansible.builtin.command:
+        argv:
+          - "{{ sshd_bin }}"
+          - -T
+      register: sshd_effective
+      changed_when: false
+      check_mode: false
+
+    - name: "[SSHD] Assert the effective configuration is the intended one"
+      ansible.builtin.assert:
+        that:
+          - sshd_effective.stdout | regex_search('(?m)^pubkeyauthentication yes$') is not none
+          - sshd_effective.stdout | regex_search('(?m)^passwordauthentication no$') is not none
+          - sshd_effective.stdout | regex_search('(?m)^kbdinteractiveauthentication no$') is not none
+          - >-
+            sshd_effective.stdout
+            | regex_search('(?m)^permitrootlogin ' ~ sshd_permit_root_login ~ '$')
+            is not none
+        fail_msg: >-
+          {{ sshd_conf }} is in place, but the EFFECTIVE sshd configuration
+          is not the intended one: something else wins sshd's
+          first-obtained-value rule (check /etc/ssh/sshd_config and the order of
+          its Include lines and drop-ins). Effective:
+          {{
+            sshd_effective.stdout | default('')
+            | regex_findall('(?m)^(?:pubkeyauthentication|passwordauthentication|kbdinteractiveauthentication|permitrootlogin) .+$')
+            | join('; ')
+          }}
+
+    # The precondition, re-proven against the NEW configuration: a passwordless
+    # (key-only) connection as the service account, from the control node.
+    - name: "[SSHD] Prove a key-only login as the service account"
+      ansible.builtin.command:
+        argv: "{{ sshd_probe_argv }}"
+      register: sshd_probe
+      delegate_to: localhost
+      become: false
+      changed_when: false
+      check_mode: false
+      failed_when: false
+
+    - name: "[SSHD] Fail when the key-only login did not work"
+      ansible.builtin.assert:
+        that:
+          - sshd_probe.rc | default(1) == 0
+        fail_msg: >-
+          After applying {{ sshd_conf }}, a key-only SSH login as
+          '{{ sshd_probe_identity.user }}@{{ ansible_host | default(inventory_hostname) }}'
+          from the control node failed (exit {{ sshd_probe.rc | default('?') }}:
+          {{ sshd_probe.stderr | default('') | trim }}), so password
+          authentication must not stay closed. Check that the probed account's
+          public-key path (vault_host_ansible_ssh_pubkey_file, or
+          vault_host_root_ssh_pubkey_file when root is the chosen identity) points
+          at the key authorized for it, and that OpenSSH accepts the configured
+          private key (under WSL a /mnt/c key needs the Keychain agent:
+          `make agent-load`). The optional human `admin` account is unaffected on
+          the console, but for SSH it needs vault_host_admin_ssh_pubkey_file set
+          as well.
+  rescue:
+    - name: "[SSHD] Restore the previous drop-in"
+      ansible.builtin.copy:
+        content: "{{ sshd_current.content | b64decode }}"
+        dest: "{{ sshd_conf }}"
+        owner: root
+        group: root
+        mode: "0644"
+      when: sshd_current.content is defined
+
+    - name: "[SSHD] Remove the drop-in when there was none"
+      ansible.builtin.file:
+        path: "{{ sshd_conf }}"
+        state: absent
+      when: sshd_current.content is not defined
+
+    - name: "[SSHD] Reload sshd after the rollback"
+      ansible.builtin.systemd_service:
+        name: "{{ sshd_service_name }}"
+        state: reloaded
+
+    - name: "[SSHD] Fail the run after the rollback"
+      ansible.builtin.fail:
+        msg: >-
+          SSH hardening was NOT applied: {{ sshd_conf }} was rolled back to
+          its previous state and sshd reloaded, so the host keeps its previous
+          login policy. Fix the cause reported above and re-run
+          `make build EXTRA='--tags sshd'`.
