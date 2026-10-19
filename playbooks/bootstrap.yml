@@ -92,15 +92,15 @@
       args:
         executable: /bin/bash
       environment:
-        PROBE_ANSIBLE_USER: "{{ hostvars[probe_host].host_ssh_identities.ansible.user }}"
-        PROBE_ANSIBLE_PW: "{{ hostvars[probe_host].host_ssh_identities.ansible.password }}"
-        PROBE_ANSIBLE_KEY: "{{ hostvars[probe_host].host_ssh_identities.ansible.privkey }}"
-        PROBE_ADMIN_USER: "{{ hostvars[probe_host].host_ssh_identities.admin.user }}"
-        PROBE_ADMIN_PW: "{{ hostvars[probe_host].host_ssh_identities.admin.password }}"
-        PROBE_ADMIN_KEY: "{{ hostvars[probe_host].host_ssh_identities.admin.privkey }}"
-        PROBE_ROOT_USER: "{{ hostvars[probe_host].host_ssh_identities.root.user }}"
-        PROBE_ROOT_PW: "{{ hostvars[probe_host].host_ssh_identities.root.password }}"
-        PROBE_ROOT_KEY: "{{ hostvars[probe_host].host_ssh_identities.root.privkey }}"
+        PROBE_ANSIBLE_USER: "{{ hostvars[probe_host].ssh_identities.ansible.user }}"
+        PROBE_ANSIBLE_PW: "{{ hostvars[probe_host].ssh_identities.ansible.password }}"
+        PROBE_ANSIBLE_KEY: "{{ hostvars[probe_host].ssh_identities.ansible.privkey }}"
+        PROBE_ADMIN_USER: "{{ hostvars[probe_host].ssh_identities.admin.user }}"
+        PROBE_ADMIN_PW: "{{ hostvars[probe_host].ssh_identities.admin.password }}"
+        PROBE_ADMIN_KEY: "{{ hostvars[probe_host].ssh_identities.admin.privkey }}"
+        PROBE_ROOT_USER: "{{ hostvars[probe_host].ssh_identities.root.user }}"
+        PROBE_ROOT_PW: "{{ hostvars[probe_host].ssh_identities.root.password }}"
+        PROBE_ROOT_KEY: "{{ hostvars[probe_host].ssh_identities.root.privkey }}"
       loop: "{{ groups['builder'] | default([]) }}"
       loop_control:
         loop_var: probe_host
@@ -131,11 +131,11 @@
         probe_identity: "{{ probe_result.stdout | trim }}"
         bootstrap_conn:
           user: >-
-            {{ hostvars[probe_result.probe_host].host_ssh_identities[(probe_result.stdout | trim | lower)].user }}
+            {{ hostvars[probe_result.probe_host].ssh_identities[(probe_result.stdout | trim | lower)].user }}
           password: >-
-            {{ hostvars[probe_result.probe_host].host_ssh_identities[(probe_result.stdout | trim | lower)].password }}
+            {{ hostvars[probe_result.probe_host].ssh_identities[(probe_result.stdout | trim | lower)].password }}
           privkey: >-
-            {{ hostvars[probe_result.probe_host].host_ssh_identities[(probe_result.stdout | trim | lower)].privkey }}
+            {{ hostvars[probe_result.probe_host].ssh_identities[(probe_result.stdout | trim | lower)].privkey }}
           become: "{{ (probe_result.stdout | trim | lower) != 'root' }}"
       loop: "{{ probe.results | default([]) }}"
       loop_control:
@@ -176,8 +176,8 @@
         tasks_from: generate_shared_secrets
       vars:
         secrets_component: bootstrap
-        secrets_vault_dir: "{{ host_vault_file | dirname }}"
-        secrets_vault_file: "{{ host_vault_file | basename }}"
+        secrets_vault_dir: "{{ vault_file | dirname }}"
+        secrets_vault_file: "{{ vault_file | basename }}"
         secrets_list:
           - var: vault_host_ansible_password
             type: hex
@@ -191,7 +191,7 @@
       when: not (bootstrap_use_key | bool)
 
     - name: "[Bootstrap] Check whether the docker group exists"
-      ansible.builtin.command: "getent group {{ host_ansible_docker_group | default('docker') }}"
+      ansible.builtin.command: "getent group {{ ansible_service_docker_group | default('docker') }}"
       register: bootstrap_docker_group
       changed_when: false
       failed_when: false
@@ -199,18 +199,18 @@
     - name: "[Bootstrap] Resolve the service account's supplementary groups"
       ansible.builtin.set_fact:
         bootstrap_service_groups: >-
-          {{ [host_ansible_docker_group | default('docker')]
+          {{ [ansible_service_docker_group | default('docker')]
              if bootstrap_docker_group.rc == 0 else [] }}
 
     - name: "[Bootstrap] Ensure the service account's group exists"
       ansible.builtin.group:
         name: "{{ bootstrap_service_user }}"
-        gid: "{{ host_ansible_gid | default(6000) }}"
+        gid: "{{ ansible_service_gid | default(6000) }}"
 
     - name: "[Bootstrap] Create/repair the service account"
       ansible.builtin.user:
         name: "{{ bootstrap_service_user }}"
-        uid: "{{ host_ansible_uid | default(6000) }}"
+        uid: "{{ ansible_service_uid | default(6000) }}"
         group: "{{ bootstrap_service_user }}"
         groups: "{{ bootstrap_service_groups }}"
         append: true
@@ -225,15 +225,15 @@
       when: hostvars[inventory_hostname].probe_identity | lower != 'ansible'
 
     # --------------------------------------------------------------------------
-    # Admin identity (optional, opt-in via host_admin_enabled). A HUMAN operator
+    # Admin identity (optional, opt-in via create_admin_account). A HUMAN operator
     # account: always gets a password (generated when empty) for console login
     # and sudo; a configured public key is installed additionally. Root always
     # exists and is never created.
     # --------------------------------------------------------------------------
     - name: "[Bootstrap] Resolve the admin identity settings"
       ansible.builtin.set_fact:
-        bootstrap_admin: "{{ host_ssh_identities.admin }}"
-        bootstrap_admin_defined: "{{ host_admin_enabled | default(false) | bool }}"
+        bootstrap_admin: "{{ ssh_identities.admin }}"
+        bootstrap_admin_defined: "{{ create_admin_account | default(false) | bool }}"
 
     - name: "[Bootstrap] Provision the admin password (enabled, none supplied)"
       ansible.builtin.include_role:
@@ -241,8 +241,8 @@
         tasks_from: generate_shared_secrets
       vars:
         secrets_component: bootstrap_admin
-        secrets_vault_dir: "{{ host_vault_file | dirname }}"
-        secrets_vault_file: "{{ host_vault_file | basename }}"
+        secrets_vault_dir: "{{ vault_file | dirname }}"
+        secrets_vault_file: "{{ vault_file | basename }}"
         secrets_list:
           - var: vault_host_admin_password
             type: hex
@@ -274,7 +274,7 @@
       ansible.builtin.set_fact:
         bootstrap_pubkey_specs: >-
           {%- set ns = namespace(specs=[]) -%}
-          {%- for id, ident in host_ssh_identities.items() -%}
+          {%- for id, ident in ssh_identities.items() -%}
           {%-   if (id != 'admin' or (bootstrap_admin_defined | default(false) | bool))
                  and (ident.pubkey | default('') | string | trim) | length > 0 -%}
           {%-     set ns.specs = ns.specs + [{'id': id, 'user': ident.user, 'path': ident.pubkey}] -%}
@@ -378,7 +378,7 @@
         mode: "0440"
         validate: "visudo -cf %s"
       loop: "{{ bootstrap_sudo_nopasswd_users }}"
-      when: host_bootstrap_sudo_nopasswd | default(true) | bool
+      when: bootstrap_sudo_nopasswd | default(true) | bool
 
     - name: "[Bootstrap] Grant the admin account password sudo"
       ansible.builtin.copy:

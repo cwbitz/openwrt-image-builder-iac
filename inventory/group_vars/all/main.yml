@@ -18,7 +18,7 @@
 # `pubkey` is an optional control-node path, authorized for that account. The
 # `ansible` account name is a fixed constant; only `admin` may be renamed
 # (vault_host_admin_user).
-host_ssh_identities:
+ssh_identities:
   root:
     user: "{{ vault_host_root_user | default('root', true) }}"
     password: "{{ vault_host_root_password | default('', true) }}"
@@ -38,34 +38,34 @@ host_ssh_identities:
     pubkey: "{{ vault_host_ansible_ssh_pubkey_file | default('', true) }}"
     become: false
 
-host_ssh_identity: "{{ host_ssh_identities['ansible'] }}"
-host_ssh_user: "{{ host_ssh_identity.user }}"
-host_ssh_password: "{{ host_ssh_identity.password }}"
-host_ssh_privkey_file: "{{ host_ssh_identity.privkey }}"
-host_ssh_become: "{{ host_ssh_identity.become }}"
+ssh_identity: "{{ ssh_identities['ansible'] }}"
+ssh_user: "{{ ssh_identity.user }}"
+ssh_password: "{{ ssh_identity.password }}"
+ssh_privkey_file: "{{ ssh_identity.privkey }}"
+ssh_become: "{{ ssh_identity.become }}"
 # Prefer key, then password, at the SSH layer (one password prompt max).
-host_ssh_common_args: "-o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
+ssh_common_args: "-o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
 
-# Ansible connection-plugin interface (fixed names; sourced from host_ssh_*).
-ansible_user: "{{ host_ssh_user }}"
-ansible_password: "{{ host_ssh_password }}"
-ansible_ssh_private_key_file: "{{ host_ssh_privkey_file }}"
-ansible_become: "{{ host_ssh_become }}"
-ansible_ssh_common_args: "{{ host_ssh_common_args }}"
+# Ansible connection-plugin interface (fixed names; sourced from ssh_*).
+ansible_user: "{{ ssh_user }}"
+ansible_password: "{{ ssh_password }}"
+ansible_ssh_private_key_file: "{{ ssh_privkey_file }}"
+ansible_become: "{{ ssh_become }}"
+ansible_ssh_common_args: "{{ ssh_common_args }}"
 
 # --- 'ansible' automation account (created by `make host-bootstrap`) ------------
 # host-bootstrap creates/repairs the account with NOPASSWD sudo and, when it
 # exists, the docker group. A missing password is generated into the shared vault
 # unless a pubkey is set (which switches the account to key auth). Fixed uid/gid;
 # project-wide service accounts use 6000-6499.
-host_ansible_uid: 6000
-host_ansible_gid: 6000
+ansible_service_uid: 6000
+ansible_service_gid: 6000
 # Docker group to add the account to when it exists.
-host_ansible_docker_group: docker
+ansible_service_docker_group: docker
 
 # --- Shared connection vault ---------------------------------------------------
 # Connection secrets belong to the MACHINE, so every variant on it shares one
 # vault, and a generated secret (e.g. the `ansible` password) is merged back here
 # under the same name. Per-machine firmware secrets live in
 # host_vars/<machine>/vault.yml.
-host_vault_file: "{{ project_root }}/inventory/group_vars/builder/vault.yml"
+vault_file: "{{ project_root }}/inventory/group_vars/builder/vault.yml"

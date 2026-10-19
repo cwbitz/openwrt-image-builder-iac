@@ -3,7 +3,7 @@
 #   make vault-edit HOST=<machine>   # encrypts plaintext first, then edits
 # Connection secrets are machine-wide: see group_vars/builder/vault.yml.example.
 #
-# Each secret is a DICT keyed by VARIANT name (the `name` in openwrt_variants);
+# Each secret is a DICT keyed by VARIANT name (the `name` in build_variants);
 # the matching variant entry reads its own sub-key. A variant whose sub-key is
 # empty (or absent) skips the module. Add one sub-key per variant.
 

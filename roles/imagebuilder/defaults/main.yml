@@ -1,68 +1,66 @@
 ---
 # imagebuilder role: per-variant fallbacks. The build/info plays loop over each
-# machine's `openwrt_variants` list and pass the current entry as
-# `openwrt_variant`; these defaults read it (empty when unset). Machine-wide
+# machine's `build_variants` list and pass the current entry as
+# `build_variant`; these defaults read it (empty when unset). Machine-wide
 # settings live in inventory/group_vars/builder/main.yml; role-internal constants
 # in roles/imagebuilder/vars/main.yml.
 
 # --- Build target (per variant) ----------------------------------------------
-# [REQUIRED] openwrt_image (e.g. openwrt/imagebuilder:x86-64-v23.05.5); the empty
+# [REQUIRED] imagebuilder_image (e.g. openwrt/imagebuilder:x86-64-v23.05.5); the empty
 # fallback fails the preflight.
-openwrt_image: "{{ (openwrt_variant | default({})).openwrt_image | default('') }}"
-openwrt_profile: "{{ (openwrt_variant | default({})).openwrt_profile | default('') }}"
-openwrt_force_pull: "{{ (openwrt_variant | default({})).openwrt_force_pull | default(false) }}"
+imagebuilder_image: "{{ (build_variant | default({})).imagebuilder_image | default('') }}"
+target_profile: "{{ (build_variant | default({})).target_profile | default('') }}"
+force_pull: "{{ (build_variant | default({})).force_pull | default(false) }}"
 
 # --- Vaults (secrets) ---------------------------------------------------------
 # Fallback per-host vault path (hand-editable). group_vars/builder/main.yml
 # overrides it with the machine-wide connection vault shared by every variant;
 # per-variant firmware secrets stay in host_vars/<machine>/vault.yml.
-host_vault_file: "{{ project_root }}/inventory/host_vars/{{ inventory_hostname }}/vault.yml"
+vault_file: "{{ project_root }}/inventory/host_vars/{{ inventory_hostname }}/vault.yml"
 
 # --- Builder-side paths (on the managed build host) --------------------------
 # The build host is normally a SEPARATE LAN machine from the control node, so
 # these paths live on the builder. Paths are namespaced by build id (machine +
 # variant), so variants on the same machine build in parallel without clobbering
 # each other.
-openwrt_build_dir: "{{ ansible_facts.user_dir }}/.cache/openwrt-builder"
+build_dir: "{{ ansible_facts.user_dir }}/.cache/openwrt-builder"
 # Firmware output on the builder (mounted as /builder/bin in the container).
-openwrt_output_dir: "{{ openwrt_build_dir }}/artifacts/{{ openwrt_build_id }}"
+output_dir: "{{ build_dir }}/artifacts/{{ build_id }}"
 
 # --- Artifact retrieval (to the control node) --------------------------------
 # When enabled, the built artifacts are pulled from the builder into
-# openwrt_artifacts_dir on the CONTROL node, namespaced per build id under the
+# artifacts_dir on the CONTROL node, namespaced per build id under the
 # project-root artifacts/ directory.
-openwrt_fetch_artifacts: "{{ (openwrt_variant | default({})).openwrt_fetch_artifacts | default(true) }}"
-openwrt_artifacts_dir: "{{ project_root }}/artifacts/{{ openwrt_build_id }}"
+fetch_artifacts: "{{ (build_variant | default({})).fetch_artifacts | default(true) }}"
+artifacts_dir: "{{ project_root }}/artifacts/{{ build_id }}"
 
 # --- Module selection --------------------------------------------------------
-openwrt_modules_adjust: "{{ (openwrt_variant | default({})).openwrt_modules_adjust | default([]) }}"
-openwrt_modules_override: "{{ (openwrt_variant | default({})).openwrt_modules_override | default([]) }}"
+modules_adjust: "{{ (build_variant | default({})).modules_adjust | default([]) }}"
+modules_override: "{{ (build_variant | default({})).modules_override | default([]) }}"
 
 # --- Packages ----------------------------------------------------------------
-openwrt_extra_packages: "{{ (openwrt_variant | default({})).openwrt_extra_packages | default([]) }}"
+extra_packages: "{{ (build_variant | default({})).extra_packages | default([]) }}"
 
 # --- Image customisation -----------------------------------------------------
-openwrt_extra_image_name: "{{ (openwrt_variant | default({})).openwrt_extra_image_name | default('') }}"
-openwrt_disabled_services: "{{ (openwrt_variant | default({})).openwrt_disabled_services | default('') }}"
-openwrt_rootfs_partsize: "{{ (openwrt_variant | default({})).openwrt_rootfs_partsize | default('') }}"
+extra_image_name: "{{ (build_variant | default({})).extra_image_name | default('') }}"
+disabled_services: "{{ (build_variant | default({})).disabled_services | default('') }}"
+rootfs_partsize: "{{ (build_variant | default({})).rootfs_partsize | default('') }}"
 
 # --- Mirrors -----------------------------------------------------------------
-openwrt_setup_use_mirror: "{{ (openwrt_variant | default({})).openwrt_setup_use_mirror | default(false) }}"
-openwrt_use_mirror: "{{ (openwrt_variant | default({})).openwrt_use_mirror | default(false) }}"
+setup_use_mirror: "{{ (build_variant | default({})).setup_use_mirror | default(false) }}"
+use_mirror: "{{ (build_variant | default({})).use_mirror | default(false) }}"
 # Rewrites only the host of the repository URLs, which already carry the
 # 'releases/...' or 'snapshots/...' path; include the mirror's OpenWrt prefix.
-openwrt_mirror: "{{ (openwrt_variant | default({})).openwrt_mirror | default('mirrors.tuna.tsinghua.edu.cn/openwrt') }}"
+mirror: "{{ (build_variant | default({})).mirror | default('mirrors.tuna.tsinghua.edu.cn/openwrt') }}"
 
 # --- Module variables (per variant; empty fallbacks) -------------------------
-openwrt_main_lan_ip: "{{ (openwrt_variant | default({})).openwrt_main_lan_ip | default('') }}"
-openwrt_pppoe_username: "{{ (openwrt_variant | default({})).openwrt_pppoe_username | default('') }}"
-openwrt_pppoe_password: "{{ (openwrt_variant | default({})).openwrt_pppoe_password | default('') }}"
-openwrt_root_password: "{{ (openwrt_variant | default({})).openwrt_root_password | default('') }}"
-openwrt_ap_lan_ip: "{{ (openwrt_variant | default({})).openwrt_ap_lan_ip | default('') }}"
-openwrt_ap_gateway: "{{ (openwrt_variant | default({})).openwrt_ap_gateway | default('') }}"
-openwrt_ap_dns: "{{ (openwrt_variant | default({})).openwrt_ap_dns | default([]) }}"
-openwrt_ap_disable_dhcp: "{{ (openwrt_variant | default({})).openwrt_ap_disable_dhcp | default(false) }}"
-openwrt_bypass_lan_ip: "{{ (openwrt_variant | default({})).openwrt_bypass_lan_ip | default('') }}"
-openwrt_bypass_gateway: "{{ (openwrt_variant | default({})).openwrt_bypass_gateway | default('') }}"
-openwrt_bypass_dns: "{{ (openwrt_variant | default({})).openwrt_bypass_dns | default([]) }}"
-openwrt_bypass_disable_dhcp: "{{ (openwrt_variant | default({})).openwrt_bypass_disable_dhcp | default(false) }}"
+# Generic keys shared by the variant templates: the ImageBuilder module set picks
+# which uci-defaults script runs (main-router / ap / bypass-router), and every
+# such script reads these same names.
+lan_ip: "{{ (build_variant | default({})).lan_ip | default('') }}"
+gateway: "{{ (build_variant | default({})).gateway | default('') }}"
+dns: "{{ (build_variant | default({})).dns | default([]) }}"
+disable_dhcp: "{{ (build_variant | default({})).disable_dhcp | default(false) }}"
+pppoe_username: "{{ (build_variant | default({})).pppoe_username | default('') }}"
+pppoe_password: "{{ (build_variant | default({})).pppoe_password | default('') }}"
+root_password: "{{ (build_variant | default({})).root_password | default('') }}"

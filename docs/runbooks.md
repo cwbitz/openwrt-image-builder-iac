@@ -34,7 +34,7 @@ mise install
 # One inventory host = one build machine; list its variants in the machine's main.yml.
 make host-init HOST=openwrt-ib-prod-1 HOST_IP=10.0.10.50   # scaffolds group_vars + host_vars/<machine>/
 make host-init HOST=openwrt-ib-prod-2 HOST_IP=10.0.10.51   # repeat for each machine
-# edit each host_vars/<machine>/main.yml (openwrt_variants: build config)
+# edit each host_vars/<machine>/main.yml (build_variants: build config)
 # and each host_vars/<machine>/vault.yml (firmware secrets)
 make install
 make vault-init
@@ -71,7 +71,7 @@ make deploy                           # host-bootstrap, then build (fresh host t
 ```
 
 `make build` targets `hosts: builder`; the role loops each machine's
-`openwrt_variants`, so machines build concurrently and a machine's variants
+`build_variants`, so machines build concurrently and a machine's variants
 sequentially. See [build-pipeline](build-pipeline.md) for the per-variant steps,
 container orchestration and overlay rendering.
 
@@ -79,9 +79,9 @@ container orchestration and overlay rendering.
 
 | Knob | Default | Effect |
 |------|---------|--------|
-| `openwrt_fetch_artifacts` | `true` | Pull built artifacts from the builder to the control node |
-| `openwrt_artifacts_dir` | `<repo>/artifacts/<machine>-<variant>` | Control-node destination |
-| `openwrt_output_dir` | `~/.cache/openwrt-builder/artifacts/<machine>-<variant>` | Builder-side output directory |
+| `fetch_artifacts` | `true` | Pull built artifacts from the builder to the control node |
+| `artifacts_dir` | `<repo>/artifacts/<machine>-<variant>` | Control-node destination |
+| `output_dir` | `~/.cache/openwrt-builder/artifacts/<machine>-<variant>` | Builder-side output directory |
 
 The `artifacts/` directory itself is tracked (via `.gitkeep`); its contents are
 gitignored. Disable retrieval for large builds or when the builder is the control
@@ -109,7 +109,7 @@ make info EXTRA='--limit openwrt-ib-prod-1'   # single machine
 ```
 
 Runs `make info` inside the container without building; use it to discover the
-target's profiles before setting a variant's `openwrt_profile`. It prints one
+target's profiles before setting a variant's `target_profile`. It prints one
 `== <machine>-<variant> ==` block per variant, with the dependency-helper chatter
 silenced (`QUIET=1`). The query pulls the image/profile index over the network and
 the shared runner buffers the output, so the terminal can pause (a `Querying
@@ -122,7 +122,7 @@ Both knobs are off by default (official OpenWrt sources); see
 mirror for a build:
 
 ```bash
-make build EXTRA='-e openwrt_use_mirror=true -e openwrt_setup_use_mirror=true'
+make build EXTRA='-e use_mirror=true -e setup_use_mirror=true'
 ```
 
 A mirror that has not yet synced a new release can cause build failures: turn it
@@ -130,15 +130,15 @@ off and use the official source.
 
 ## 6. SNAPSHOT images
 
-Use `openwrt_setup_use_mirror: true` (USTC by default) to speed up the
+Use `setup_use_mirror: true` (USTC by default) to speed up the
 ImageBuilder tarball download without changing the package repositories:
 
 ```bash
-make build EXTRA='-e openwrt_setup_use_mirror=true'
+make build EXTRA='-e setup_use_mirror=true'
 ```
 
 The same knob also works for release images; combined with
-`openwrt_use_mirror: true` it keeps every download off `downloads.openwrt.org`.
+`use_mirror: true` it keeps every download off `downloads.openwrt.org`.
 
 ## 7. Secrets
 
@@ -157,10 +157,10 @@ The same knob also works for release images; combined with
 
 1. Add overlay files under `roles/imagebuilder/files/overlay/<name>/...` (static)
    or `templates/overlay/<name>/...` (Jinja).
-2. Add its packages to `openwrt_module_packages` in
+2. Add its packages to `module_packages` in
    `roles/imagebuilder/vars/main.yml` (if any).
-3. Add `<name>` to `openwrt_known_modules`.
-4. Reference any operator variables in `host_vars/builder.example/main.yml`.
+3. Add `<name>` to `known_modules`.
+4. Reference any operator variables in `host_vars/example/main.yml`.
 5. Run the internal `make lint`, then build with the module active.
 
 ## 9. Troubleshooting
@@ -178,8 +178,8 @@ The same knob also works for release images; combined with
 | `Module ... does not expose VERSION_PATH/TARGET` | Use an official `openwrt/imagebuilder` tag |
 | `Packages are both added and removed` | Remove the `-pkg`/`pkg` conflict in a variant's packages |
 | `Duplicate overlay target files across modules` | Two active modules ship the same file path; rename or disable one |
-| Build fails after enabling a mirror | Mirror sync lag; disable `openwrt_use_mirror`. For 25.12+ (APK) the mirror path must include the OpenWrt prefix |
+| Build fails after enabling a mirror | Mirror sync lag; disable `use_mirror`. For 25.12+ (APK) the mirror path must include the OpenWrt prefix |
 | Build hangs at "Building package index..." (25.12+, APK) | The container `nofile` ulimit is unbounded and fakeroot's `faked` spins; the role pins `nofile:65536:65536`, keep it bounded |
 | Artifacts owned by root | The in-container `chown` needs `HOST_UID`/`HOST_GID` (from facts) |
-| Artifacts not in the control node's `artifacts/` | Check `openwrt_fetch_artifacts` (default true); they are also kept on the builder at `openwrt_output_dir` |
+| Artifacts not in the control node's `artifacts/` | Check `fetch_artifacts` (default true); they are also kept on the builder at `output_dir` |
 | Cannot reach a builder over SSH | Fix its `ansible_host` in `hosts.yml`; the connection identity comes from the committed `group_vars/all/main.yml` |

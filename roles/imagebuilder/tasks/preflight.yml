@@ -2,36 +2,36 @@
 - name: Assert an ImageBuilder image is configured
   ansible.builtin.assert:
     that:
-      - openwrt_image | length > 0
+      - imagebuilder_image | length > 0
     fail_msg: >-
-      openwrt_image is not set for this variant. Configure it under
-      openwrt_variants in inventory/host_vars/<machine>/main.yml (copy
-      host_vars/builder.example/), e.g. openwrt/imagebuilder:x86-64-v23.05.5.
+      imagebuilder_image is not set for this variant. Configure it under
+      build_variants in inventory/host_vars/<machine>/main.yml (copy
+      host_vars/example/), e.g. openwrt/imagebuilder:x86-64-v23.05.5.
 
 - name: Check the Docker CLI is available on the build host
   ansible.builtin.command: docker --version
-  register: openwrt_docker_cli
+  register: docker_cli
   changed_when: false
   failed_when: false
 
 - name: Assert the Docker CLI is available
   ansible.builtin.assert:
     that:
-      - openwrt_docker_cli.rc == 0
+      - docker_cli.rc == 0
     fail_msg: >-
       Docker CLI not found on {{ inventory_hostname }}. Install Docker and
       ensure it is on PATH.
 
 - name: Check the Docker daemon is reachable
   ansible.builtin.command: docker info
-  register: openwrt_docker_daemon
+  register: docker_daemon
   changed_when: false
   failed_when: false
 
 - name: Assert the Docker daemon is reachable
   ansible.builtin.assert:
     that:
-      - openwrt_docker_daemon.rc == 0
+      - docker_daemon.rc == 0
     fail_msg: >-
       Cannot reach the Docker daemon on {{ inventory_hostname }}. Start Docker
       and ensure the connection user can access it.
@@ -39,14 +39,14 @@
 - name: Check the Docker Python SDK on the build host
   ansible.builtin.command: >-
     {{ ansible_python_interpreter | default('python3') }} -c 'import docker'
-  register: openwrt_docker_sdk
+  register: docker_sdk
   changed_when: false
   failed_when: false
 
 - name: Assert the Docker Python SDK is available on the build host
   ansible.builtin.assert:
     that:
-      - openwrt_docker_sdk.rc == 0
+      - docker_sdk.rc == 0
     fail_msg: >-
       The community.docker modules need the 'docker' Python SDK on the build
       host. Install it there, e.g.:

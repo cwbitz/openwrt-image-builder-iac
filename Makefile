@@ -5,7 +5,7 @@ ANS_PLAY := ansible-playbook
 INV      := inventory/hosts.yml
 
 # Extra Ansible args appended to every playbook invocation, e.g.
-#   make build EXTRA='-e openwrt_modules_adjust=["statistics"]'
+#   make build EXTRA='-e modules_adjust=["statistics"]'
 EXTRA ?=
 
 # Ansible Vault password file, kept OUTSIDE the repo and exported under Ansible's
@@ -151,15 +151,15 @@ host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples
 	@[ -e $(INV) ] || { python3 $(CURDIR)/scripts/render_clean_template.py $(INV).example $(INV); echo "created $(INV) (comments stripped)"; }
 	@[ -e inventory/group_vars/builder/main.yml ] || { python3 $(CURDIR)/scripts/render_clean_template.py inventory/group_vars/builder/main.yml.example inventory/group_vars/builder/main.yml; echo "created inventory/group_vars/builder/main.yml (comments stripped)"; }
 	@install -d -m 0700 inventory/host_vars/$(HOST)
-	@[ -e inventory/host_vars/$(HOST)/main.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py inventory/host_vars/builder.example/main.yml inventory/host_vars/$(HOST)/main.yml
-	@[ -e inventory/host_vars/$(HOST)/vault.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py inventory/host_vars/builder.example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml
+	@[ -e inventory/host_vars/$(HOST)/main.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py inventory/host_vars/example/main.yml inventory/host_vars/$(HOST)/main.yml
+	@[ -e inventory/host_vars/$(HOST)/vault.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py inventory/host_vars/example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml
 	@if ! grep -q 'ANSIBLE_VAULT' inventory/host_vars/$(HOST)/vault.yml; then \
 		echo "encrypting inventory/host_vars/$(HOST)/vault.yml"; \
 		ansible-vault encrypt inventory/host_vars/$(HOST)/vault.yml; \
 	fi
 	@chmod 0600 inventory/host_vars/$(HOST)/vault.yml
 	@python3 $(CURDIR)/scripts/ensure_inventory_host.py $(INV) "$(HOST)" --group builder --ansible-host "$(HOST_IP)" $(if $(FORCE_IP),--force)
-	@echo "scaffolded inventory/host_vars/$(HOST)/ (machine registered under the builder group; edit openwrt_variants[] in main.yml)"
+	@echo "scaffolded inventory/host_vars/$(HOST)/ (machine registered under the builder group; edit build_variants[] in main.yml)"
 	@echo "next: make vault-edit HOST=$(HOST)"
 
 host-bootstrap: ## Create the ansible service account (bootstrap.yml; EXTRA=<extra -e vars>; REFRESH=1 refreshes host keys first)

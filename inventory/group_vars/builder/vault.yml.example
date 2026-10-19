@@ -11,7 +11,7 @@
 vault_host_root_password: ""
 vault_host_root_ssh_privkey_file: ""
 vault_host_root_ssh_pubkey_file: ""
-# Optional human 'admin' account, created only when host_admin_enabled is true;
+# Optional human 'admin' account, created only when create_admin_account is true;
 # always gets a password (generated here when empty) plus any configured key.
 vault_host_admin_user: "admin"
 vault_host_admin_password: ""
@@ -22,3 +22,12 @@ vault_host_admin_ssh_pubkey_file: ""
 vault_host_ansible_password: ""
 vault_host_ansible_ssh_privkey_file: /home/example/.ssh/id_ed25519_ansible
 vault_host_ansible_ssh_pubkey_file: /home/example/.ssh/id_ed25519_ansible.pub
+
+# ==============================================================================
+# Secrets written by the role (fill-if-empty; never rotated)
+# ==============================================================================
+#   vault_host_ansible_password   service-account password, generated when no
+#                                 public key is given
+#   vault_host_admin_password     admin password, generated when create_admin_account
+#                                 is true and the value is empty
+# ==============================================================================

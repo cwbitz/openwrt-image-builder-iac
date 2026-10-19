@@ -9,13 +9,13 @@
 # account's uid/gid + docker group, and the shared connection vault path — lives
 # in the committed inventory/group_vars/all/main.yml, so an empty copy is valid.
 # One inventory host = one build MACHINE; each machine's build variants live in
-# host_vars/<machine>/main.yml (`openwrt_variants`).
+# host_vars/<machine>/main.yml (`build_variants`).
 
 # --- Optional human 'admin' account -------------------------------------------
 # Create/repair the optional human 'admin' account during `make host-bootstrap`.
 # It always gets a password (generated into the shared vault when empty) plus any
 # configured key. Default false: no admin account is managed (least privilege).
-# host_admin_enabled: false
+# create_admin_account: false
 
 # Per-variant isolation (scratch/output/artifact dirs and a container name) is a
 # role default/vars value keyed on the build id (machine + variant).

@@ -35,9 +35,9 @@
       ansible.builtin.set_fact:
         agent_privkey_files: >-
           {{ (agent_privkey_files | default([])) +
-             [ hostvars[item].host_ssh_identities.ansible.privkey | default('', true),
-               hostvars[item].host_ssh_identities.admin.privkey | default('', true),
-               hostvars[item].host_ssh_identities.root.privkey | default('', true) ] }}
+             [ hostvars[item].ssh_identities.ansible.privkey | default('', true),
+               hostvars[item].ssh_identities.admin.privkey | default('', true),
+               hostvars[item].ssh_identities.root.privkey | default('', true) ] }}
       loop: "{{ agent_load_hosts }}"
       loop_control:
         label: "{{ item }}"

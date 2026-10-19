@@ -4,7 +4,7 @@
 #
 # One inventory host = ONE physical build machine. A machine builds one or more
 # VARIANTS (target/profile/settings), declared in host_vars/<machine>/main.yml
-# as `openwrt_variants`; every variant shares the machine's `ansible_host`, so
+# as `build_variants`; every variant shares the machine's `ansible_host`, so
 # `make build` builds them in parallel on it.
 #
 # Do NOT set ansible_user here: the connection identity comes from

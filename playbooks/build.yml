@@ -3,7 +3,7 @@
 # container. Run via `make build`.
 #
 # One inventory host = one build MACHINE; its build VARIANTS (target/profile/
-# settings) are listed in host_vars/<machine>/main.yml as `openwrt_variants`.
+# settings) are listed in host_vars/<machine>/main.yml as `build_variants`.
 # Machine-wide connection settings/secrets live in group_vars/builder/. Run
 # `make host-bootstrap` once per machine first (the connection identity is the
 # `ansible` account). Re-running converges on the same output.
@@ -15,8 +15,8 @@
     - name: "Build each variant of the machine"
       ansible.builtin.include_role:
         name: imagebuilder
-      loop: "{{ openwrt_variants }}"
+      loop: "{{ build_variants }}"
       loop_control:
-        loop_var: openwrt_variant
-        label: "{{ openwrt_variant.name }}"
+        loop_var: build_variant
+        label: "{{ build_variant.name }}"
       tags: [always]

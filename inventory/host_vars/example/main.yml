@@ -1,0 +1,49 @@
+---
+# Per-machine build variants. Copy this directory to host_vars/<machine>/ (the
+# name MUST match the inventory host); it is gitignored. Each list entry is one
+# (target, profile, settings) build; keys are optional and fall back to the role
+# defaults. Machine-wide settings live in group_vars/builder/main.yml; firmware
+# secrets in the vault.yml next to this file, referenced as {{ vault_* }}.
+
+build_variants:
+  - name: main
+    # [REQUIRED] official ImageBuilder image, e.g.
+    # openwrt/imagebuilder:x86-64-25.12.5 (tags: hub.docker.com/r/openwrt/imagebuilder/tags).
+    imagebuilder_image: openwrt/imagebuilder:generic-arm64
+    # [OPTIONAL] profile; empty => the target's first profile (`make info` lists them).
+    target_profile: ""
+    # [OPTIONAL] force a fresh pull of the ImageBuilder image before building.
+    force_pull: false
+    # [OPTIONAL] add/remove from the default module set ('-' removes), or replace
+    # it entirely; default set = base system root-password pppoe main-router
+    # disable-ipv6 extras.
+    modules_adjust: []
+    modules_override: []
+    # [OPTIONAL] extra packages ('-' removes), output-filename suffix and image knobs.
+    extra_packages: []
+    extra_image_name: "-main"
+    disabled_services: ""
+    rootfs_partsize: ""
+    # [OPTIONAL] pull built artifacts back to the control node (default true).
+    fetch_artifacts: true
+    # [OPTIONAL] mirrors; include the mirror's OpenWrt prefix for mirror.
+    use_mirror: false
+    mirror: mirrors.tuna.tsinghua.edu.cn/openwrt
+    setup_use_mirror: false
+    # Module knobs (only the active modules' knobs apply).
+    lan_ip: ""
+    gateway: ""
+    dns: []
+    disable_dhcp: false
+    pppoe_username: ""
+    # Firmware secrets are vault dicts keyed by the variant name (this entry: `.main`).
+    pppoe_password: "{{ (vault_openwrt_pppoe_password | default({})).main | default('', true) }}"
+    root_password: "{{ (vault_openwrt_root_password | default({})).main | default('', true) }}"
+
+  # A second variant on the same machine; omitted keys use the role defaults.
+  - name: side
+    imagebuilder_image: openwrt/imagebuilder:generic-arm64
+    modules_override: [base, system, root-password, disable-ipv6, extras, bypass-router]
+    extra_image_name: "-side"
+    pppoe_password: "{{ (vault_openwrt_pppoe_password | default({})).side | default('', true) }}"
+    root_password: "{{ (vault_openwrt_root_password | default({})).side | default('', true) }}"

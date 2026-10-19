@@ -2,47 +2,47 @@
 - name: Assert override entries are module names (no '-' prefix)
   ansible.builtin.assert:
     that:
-      - openwrt_modules_override | select('match', '^-') | list | length == 0
+      - modules_override | select('match', '^-') | list | length == 0
     fail_msg: >-
-      openwrt_modules_override must list module names only; removals are not
-      allowed there (use openwrt_modules_adjust for add/remove).
+      modules_override must list module names only; removals are not
+      allowed there (use modules_adjust for add/remove).
 
 - name: Start from the default module set
   ansible.builtin.set_fact:
-    openwrt_modules_active: "{{ openwrt_default_modules }}"
-  when: openwrt_modules_override | length == 0
+    modules_active: "{{ default_modules }}"
+  when: modules_override | length == 0
 
 - name: Start from the explicit override list
   ansible.builtin.set_fact:
-    openwrt_modules_active: "{{ openwrt_modules_override }}"
-  when: openwrt_modules_override | length > 0
+    modules_active: "{{ modules_override }}"
+  when: modules_override | length > 0
 
 - name: Apply add/remove adjustments to the module set
   ansible.builtin.set_fact:
-    openwrt_modules_active: >-
+    modules_active: >-
       {{
-        (openwrt_modules_active | reject('eq', item[1:]) | list)
+        (modules_active | reject('eq', item[1:]) | list)
         if (item.startswith('-'))
         else
-        (openwrt_modules_active if item in openwrt_modules_active
-         else openwrt_modules_active + [item])
+        (modules_active if item in modules_active
+         else modules_active + [item])
       }}
-  loop: "{{ openwrt_modules_adjust }}"
+  loop: "{{ modules_adjust }}"
   loop_control:
     label: "{{ item }}"
-  when: openwrt_modules_override | length == 0
+  when: modules_override | length == 0
 
 - name: Assert every active module is known
   ansible.builtin.assert:
     that:
-      - item in openwrt_known_modules
+      - item in known_modules
     fail_msg: >-
       Unknown module '{{ item }}'. Known modules:
-      {{ openwrt_known_modules | join(', ') }}.
-  loop: "{{ openwrt_modules_active }}"
+      {{ known_modules | join(', ') }}.
+  loop: "{{ modules_active }}"
   loop_control:
     label: "{{ item }}"
 
 - name: Show the resolved module set
   ansible.builtin.debug:
-    msg: "Active modules: {{ openwrt_modules_active | join(' ') }}"
+    msg: "Active modules: {{ modules_active | join(' ') }}"

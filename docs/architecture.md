@@ -26,17 +26,17 @@ model, the secrets model, and how host bootstrap and variant isolation work.
 
 - `inventory/hosts.yml` — the `builder` group; one host per machine, each with its
   own `ansible_host`.
-- `inventory/host_vars/<machine>/main.yml` — that machine's `openwrt_variants` list
+- `inventory/host_vars/<machine>/main.yml` — that machine's `build_variants` list
   (per-variant build config) and, next to it, `vault.yml` (per-machine firmware
   secrets).
 - `inventory/group_vars/all/main.yml` — the committed project-owned baseline for
-  every machine: the SSH identity map (`host_ssh_identities`) plus the
+  every machine: the SSH identity map (`ssh_identities`) plus the
   connection-plugin interface derived from it, the `ansible` account's fixed
   uid/gid + docker group, and the shared connection vault path.
 - `inventory/group_vars/builder/` — machine-wide operator overrides, local-only
-  (e.g. `host_admin_enabled`).
+  (e.g. `create_admin_account`).
 
-Committed: `group_vars/all/main.yml`, `host_vars/builder.example/` and the
+Committed: `group_vars/all/main.yml`, `host_vars/example/` and the
 `group_vars/builder/*.example` templates; the real `group_vars/builder/main.yml`
 and `vault*.yml` are local-only.
 
@@ -68,7 +68,7 @@ and `vault*.yml` are local-only.
 ## Connection identity and host bootstrap
 
 Normal runs (`build`/`info`) connect as the `ansible` service account; only
-`make host-bootstrap` probes. The identity map `host_ssh_identities` in
+`make host-bootstrap` probes. The identity map `ssh_identities` in
 `group_vars/all/main.yml` resolves the Ansible connection vars from the
 shared vault (`vault_host_<id>_{user,password,ssh_privkey_file,ssh_pubkey_file}`)
 for every machine.
@@ -86,7 +86,7 @@ for every machine.
    to key auth; otherwise an empty `vault_host_ansible_password` is generated into
    the shared vault under the same name (existing non-empty values are never
    rotated). It optionally provisions the human `admin` account when
-   `host_admin_enabled` is set.
+   `create_admin_account` is set.
 4. **Grants sudo**: NOPASSWD for the automation account, password sudo for the
    human admin. Password hashes use a per-account random salt with
    `update_password: on_create`, so re-runs are idempotent.
@@ -112,7 +112,7 @@ for every machine.
 The inventory host is the machine, so the role appends the variant name to form a
 **build id** (`<machine>-<variant>`). Every per-variant artifact uses it:
 
-- builder-side scratch: `{{ openwrt_build_dir }}/work/<machine>-<variant>`
+- builder-side scratch: `{{ build_dir }}/work/<machine>-<variant>`
 - builder-side output: `~/.cache/openwrt-builder/artifacts/<machine>-<variant>`
 - control-node copy: `<repo>/artifacts/<machine>-<variant>`
 - container name: `openwrt-bw-<target>-<version>-<machine>-<variant>`

@@ -1,55 +1,55 @@
 ---
 - name: Ensure the ImageBuilder Docker image is present
   community.docker.docker_image:
-    name: "{{ openwrt_image }}"
+    name: "{{ imagebuilder_image }}"
     source: pull
-    force_source: "{{ openwrt_force_pull | bool }}"
-  register: openwrt_image_pull
+    force_source: "{{ force_pull | bool }}"
+  register: image_pull
 
 - name: Read the ImageBuilder image metadata
   community.docker.docker_image_info:
-    name: "{{ openwrt_image }}"
-  register: openwrt_image_info
+    name: "{{ imagebuilder_image }}"
+  register: image_info
 
 - name: Extract the image environment
   ansible.builtin.set_fact:
-    openwrt_image_env: "{{ openwrt_image_info.images[0].Config.Env | default([]) }}"
+    image_env: "{{ image_info.images[0].Config.Env | default([]) }}"
 
 - name: Assert the image exposes VERSION_PATH and TARGET
   ansible.builtin.assert:
     that:
-      - openwrt_image_info.images | length > 0
-      - openwrt_image_env | select('match', '^VERSION_PATH=') | list | length > 0
-      - openwrt_image_env | select('match', '^TARGET=') | list | length > 0
+      - image_info.images | length > 0
+      - image_env | select('match', '^VERSION_PATH=') | list | length > 0
+      - image_env | select('match', '^TARGET=') | list | length > 0
     fail_msg: >-
-      The image '{{ openwrt_image }}' does not expose VERSION_PATH/TARGET in its
+      The image '{{ imagebuilder_image }}' does not expose VERSION_PATH/TARGET in its
       environment. Use an official openwrt/imagebuilder tag.
 
 - name: Derive the raw version path, target and version from the image
   ansible.builtin.set_fact:
-    openwrt_version_path: >-
-      {{ (openwrt_image_env | select('match', '^VERSION_PATH=') | first).split('=', 1)[1] }}
-    openwrt_target: >-
-      {{ (openwrt_image_env | select('match', '^TARGET=') | first).split('=', 1)[1] }}
-    openwrt_version: >-
-      {{ ((openwrt_image_env | select('match', '^VERSION_PATH=') | first).split('=', 1)[1]) | basename }}
-    openwrt_target_name: >-
-      {{ ((openwrt_image_env | select('match', '^TARGET=') | first).split('=', 1)[1]) | replace('/', '-') }}
-    openwrt_version_is_numeric: >-
-      {{ (((openwrt_image_env | select('match', '^VERSION_PATH=') | first).split('=', 1)[1]) | basename)
+    builder_version_path: >-
+      {{ (image_env | select('match', '^VERSION_PATH=') | first).split('=', 1)[1] }}
+    build_target: >-
+      {{ (image_env | select('match', '^TARGET=') | first).split('=', 1)[1] }}
+    builder_version: >-
+      {{ ((image_env | select('match', '^VERSION_PATH=') | first).split('=', 1)[1]) | basename }}
+    build_target_name: >-
+      {{ ((image_env | select('match', '^TARGET=') | first).split('=', 1)[1]) | replace('/', '-') }}
+    builder_version_is_numeric: >-
+      {{ (((image_env | select('match', '^VERSION_PATH=') | first).split('=', 1)[1]) | basename)
          is match('^[0-9.]+$') }}
 
 - name: Derive the setup path, package-manager switch and container name
   ansible.builtin.set_fact:
-    openwrt_setup_version_path: >-
-      {{ 'snapshots' if 'SNAPSHOT' in openwrt_version_path else openwrt_version_path }}
-    openwrt_use_package_manager: >-
-      {{ (not (openwrt_version_is_numeric | bool))
-         or (openwrt_version is version(openwrt_package_manager_min_version, '>=')) }}
-    openwrt_container_name: "openwrt-bw-{{ openwrt_target_name }}-{{ openwrt_version }}-{{ openwrt_build_id }}"
+    setup_version_path: >-
+      {{ 'snapshots' if 'SNAPSHOT' in builder_version_path else builder_version_path }}
+    use_package_manager: >-
+      {{ (not (builder_version_is_numeric | bool))
+         or (builder_version is version(package_manager_min_version, '>=')) }}
+    container_name: "openwrt-bw-{{ build_target_name }}-{{ builder_version }}-{{ build_id }}"
 
 - name: Show the detected build target
   ansible.builtin.debug:
     msg: >-
-      Image {{ openwrt_image }} => target {{ openwrt_target }},
-      version {{ openwrt_version }} (container {{ openwrt_container_name }})
+      Image {{ imagebuilder_image }} => target {{ build_target }},
+      version {{ builder_version }} (container {{ container_name }})

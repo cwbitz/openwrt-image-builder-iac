@@ -2,7 +2,7 @@
 
 # Main router first-boot configuration: set the LAN IP address.
 
-{% if openwrt_main_lan_ip | length > 0 %}
-uci set network.lan.ipaddr={{ openwrt_main_lan_ip | quote }}
+{% if lan_ip | length > 0 %}
+uci set network.lan.ipaddr={{ lan_ip | quote }}
 uci commit network
 {% endif %}

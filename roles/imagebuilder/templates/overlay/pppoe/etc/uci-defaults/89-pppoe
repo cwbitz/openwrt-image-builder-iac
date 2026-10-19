@@ -2,9 +2,9 @@
 
 # PPPoE WAN first-boot configuration: set the dial-up username and password.
 
-{% if (openwrt_pppoe_username | length > 0) and (openwrt_pppoe_password | length > 0) %}
+{% if (pppoe_username | length > 0) and (pppoe_password | length > 0) %}
 uci set network.wan.proto='pppoe'
-uci set network.wan.username={{ openwrt_pppoe_username | quote }}
-uci set network.wan.password={{ openwrt_pppoe_password | quote }}
+uci set network.wan.username={{ pppoe_username | quote }}
+uci set network.wan.password={{ pppoe_password | quote }}
 uci commit network
 {% endif %}

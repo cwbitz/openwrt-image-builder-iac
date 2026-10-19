@@ -12,7 +12,7 @@
       ansible.builtin.include_role:
         name: imagebuilder
         tasks_from: info
-      loop: "{{ openwrt_variants }}"
+      loop: "{{ build_variants }}"
       loop_control:
-        loop_var: openwrt_variant
-        label: "{{ openwrt_variant.name }}"
+        loop_var: build_variant
+        label: "{{ build_variant.name }}"

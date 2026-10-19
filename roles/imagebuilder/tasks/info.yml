@@ -9,18 +9,18 @@
 
 - name: Query ImageBuilder image and profile information
   community.docker.docker_container:
-    name: "{{ openwrt_container_name }}-info"
-    image: "{{ openwrt_image }}"
+    name: "{{ container_name }}-info"
+    image: "{{ imagebuilder_image }}"
     user: "0:0"
     working_dir: /builder
     command: ["make", "info"]
     detach: false
     cleanup: true
     output_logs: true
-    ulimits: "{{ openwrt_container_ulimits }}"
-  register: openwrt_info
+    ulimits: "{{ container_ulimits }}"
+  register: target_info
 
 - name: Show the ImageBuilder information
   ansible.builtin.debug:
-    msg: "{{ ['== ' ~ openwrt_build_id ~ ' =='] + (openwrt_info.container.Output | default('', true) | split('\n')) }}"
+    msg: "{{ ['== ' ~ build_id ~ ' =='] + (target_info.container.Output | default('', true) | split('\n')) }}"
   tags: [imagebuilder_info]

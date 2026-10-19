@@ -22,7 +22,7 @@ back to the control node.
 |-------|------|----------------|
 | Build host | **Docker** | runs the official `openwrt/imagebuilder` container |
 | Firmware image | **Ansible** (role `imagebuilder`) | module resolution, package collection, uci-defaults overlay, container orchestration |
-| Operator config | `host_vars/<machine>/main.yml` + `group_vars/builder/main.yml` | per-machine build variants; machine-wide operator overrides (e.g. `host_admin_enabled`) |
+| Operator config | `host_vars/<machine>/main.yml` + `group_vars/builder/main.yml` | per-machine build variants; machine-wide operator overrides (e.g. `create_admin_account`) |
 
 The control node (where `make` runs) and the build host (the machine running
 Docker) are separate LAN machines by default; building on the control node itself
@@ -39,7 +39,7 @@ mise install           # or: asdf install
 #    inventory host name). Then list its variants in the machine's main.yml.
 make host-init HOST=openwrt-ib-prod-1 HOST_IP=10.0.10.50
 #    (comment-free; openwrt-ib-prod-1 is added under builder.hosts automatically)
-#    -> edit inventory/host_vars/openwrt-ib-prod-1/main.yml (openwrt_variants)
+#    -> edit inventory/host_vars/openwrt-ib-prod-1/main.yml (build_variants)
 #    -> add another machine: make host-init HOST=openwrt-ib-prod-2 HOST_IP=10.0.10.51
 
 # 2) Secrets: connection secrets go in the shared vault (once per fleet);
@@ -64,7 +64,7 @@ make deploy
 Each variant is built on its machine under
 `~/.cache/openwrt-builder/artifacts/<machine>-<variant>/`, then fetched to the
 control node's `artifacts/<machine>-<variant>/targets/<target>/<subtarget>/` when
-`openwrt_fetch_artifacts` is enabled (the default). Use `make info` to inspect the
+`fetch_artifacts` is enabled (the default). Use `make info` to inspect the
 ImageBuilder image and profile information without building.
 
 ## Directory Layout
@@ -80,8 +80,8 @@ openwrt-image-builder-iac/
 │   │       ├── main.yml.example       # operator knob template (main.yml is local-only)
 │   │       └── vault.yml.example      # shared connection secrets template
 │   └── host_vars/
-│       └── builder.example/           # machine template; real machines gitignored
-│           ├── main.yml               # per-machine build variants (openwrt_variants)
+│       └── example/                   # machine template; real machines gitignored
+│           ├── main.yml               # per-machine build variants (build_variants)
 │           └── vault.yml.example      # per-machine firmware secrets template
 ├── playbooks/
 │   ├── bootstrap.yml                  # probe + provision the service account (make host-bootstrap)

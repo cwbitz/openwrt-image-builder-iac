@@ -28,13 +28,13 @@ if [ ! -f ./Makefile ] || \
    [ ! -d ./target ] || \
    [ ! -d ./include ] || \
    { [ ! -f ./repositories ] && [ ! -f ./repositories.conf ]; }; then
-    export VERSION_PATH="{{ openwrt_setup_version_path }}"
+    export VERSION_PATH="{{ setup_version_path }}"
 
     setup_success=0
-{% if openwrt_setup_use_mirror | bool %}
+{% if setup_use_mirror | bool %}
     # The ImageBuilder tarball is fetched from the mirror first, with a
     # fallback to the official source. Works for release and SNAPSHOT images.
-    export UPSTREAM_URL="{{ openwrt_setup_mirror_url }}"
+    export UPSTREAM_URL="{{ setup_mirror_url }}"
     set +e
     ( . ./setup.sh )
     setup_status=$?
@@ -50,9 +50,9 @@ if [ ! -f ./Makefile ] || \
 fi
 
 # ImageBuilder needs the real release path (SNAPSHOT was rewritten above).
-export VERSION_PATH="{{ openwrt_version_path }}"
+export VERSION_PATH="{{ builder_version_path }}"
 
-{% if openwrt_use_mirror | bool %}
+{% if use_mirror | bool %}
 # Replace the package repository host with the configured mirror.
 repo_file=""
 if [ -f ./repositories.conf ]; then
@@ -61,7 +61,7 @@ elif [ -f ./repositories ]; then
     repo_file="./repositories"
 fi
 if [ -n "$repo_file" ]; then
-    sed -i -E "s|https?://downloads.openwrt.org|https://{{ openwrt_mirror }}|g" "$repo_file"
+    sed -i -E "s|https?://downloads.openwrt.org|https://{{ mirror }}|g" "$repo_file"
 fi
 {% endif %}
 

@@ -5,7 +5,7 @@ Ansible IaC that builds customized **OpenWrt firmware images** with the official
 
 **One inventory host = one build machine**; each machine builds one or more
 **variants** (one `(target, profile, settings)` each), listed in its
-`host_vars/<machine>/main.yml` as `openwrt_variants`. Entry playbooks:
+`host_vars/<machine>/main.yml` as `build_variants`. Entry playbooks:
 `playbooks/bootstrap.yml` (once, provisions the `ansible` service account on every
 machine), `playbooks/build.yml` (builds every variant) and `playbooks/info.yml`
 (read-only ImageBuilder query). The build logic lives in `roles/imagebuilder/`.
@@ -18,13 +18,13 @@ machine), `playbooks/build.yml` (builds every variant) and `playbooks/info.yml`
   `sshpass`, `passlib`, Keychain). Every other target depends on it.
 - `make host-init HOST=<name> HOST_IP=<addr>` — scaffold `inventory/hosts.yml` and
   `group_vars/builder/main.yml` comment-free from the examples, plus
-  `host_vars/<name>/` (with an `openwrt_variants` list); add `<name>` under
+  `host_vars/<name>/` (with a `build_variants` list); add `<name>` under
   `builder.hosts` with `HOST_IP` as its `ansible_host`; encrypt the vault (dir
   `0700`, file `0600`). HOST defaults to `openwrt-ib-prod-1` and `HOST_IP` to a
   placeholder; re-running does not overwrite existing files.
 - `make host-bootstrap` — once: probe `ansible → admin → root` on every machine
   and create/repair the `ansible` service account (key-first, NOPASSWD sudo,
-  `docker` group) plus the human `admin` account when `host_admin_enabled` is set.
+  `docker` group) plus the human `admin` account when `create_admin_account` is set.
   `REFRESH=1` refreshes host keys first.
 - `make deploy` — one-click: `host-bootstrap` then `build`.
 - `make build` / `make info` — build every variant (machines in parallel) / query
@@ -78,7 +78,7 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
 - `inventory/group_vars/builder/vault.yml` — machine-wide connection secrets
   (`vault_host_<id>_{user,password,ssh_privkey_file,ssh_pubkey_file}`),
   operator-owned; a missing generated value (the `ansible` password when no key is
-  set, the `admin` password when `host_admin_enabled`) is merged in place by
+  set, the `admin` password when `create_admin_account`) is merged in place by
   `make host-bootstrap` under the same name.
 - `inventory/host_vars/<machine>/vault.yml` — per-machine firmware secrets
   (`vault_openwrt_root_password` / `vault_openwrt_pppoe_password`, each a dict
@@ -94,12 +94,12 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
 ## Gotchas
 
 - Committed: `group_vars/all/main.yml` (project-owned baseline),
-  `host_vars/builder.example/` and the `group_vars/builder/*.example` templates.
+  `host_vars/example/` and the `group_vars/builder/*.example` templates.
   `inventory/hosts.yml`, real machine directories, and `group_vars/builder/main.yml`
   / real `vault*.yml` are gitignored.
 - `bootstrap.yml` targets the `builder` group (one play per machine) and injects
   the probed identity per host with `add_host`; `build.yml`/`info.yml` loop each
-  machine's `openwrt_variants` (build id = `<machine>-<variant>`).
+  machine's `build_variants` (build id = `<machine>-<variant>`).
 - A machine's variants build sequentially; machines build in parallel.
 - The built image carries the secrets it was built with — treat fetched artifacts
   as sensitive.
