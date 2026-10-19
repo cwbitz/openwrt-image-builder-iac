@@ -251,6 +251,9 @@ lint: install vault-init
 	else \
 		echo "WARN: ansible-lint not installed, skipped"; \
 	fi
+	# The operator templates are what `host-init` scaffolds: audit them against
+	# the knobs the roles read (stdlib-only, so a plain python3 runs it).
+	@python3 scripts/audit_example_knobs.py
 
 # Refresh every managed host's SSH host key in the control node's known_hosts
 # (removing any stale entry first). Also run automatically when REFRESH=1 is set
