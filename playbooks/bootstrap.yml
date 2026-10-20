@@ -378,7 +378,6 @@
         mode: "0440"
         validate: "visudo -cf %s"
       loop: "{{ bootstrap_sudo_nopasswd_users }}"
-      when: bootstrap_sudo_nopasswd | default(true) | bool
 
     - name: "[Bootstrap] Grant the admin account password sudo"
       ansible.builtin.copy:
