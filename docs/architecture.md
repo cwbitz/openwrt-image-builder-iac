@@ -61,7 +61,7 @@ and `vault*.yml` are local-only.
   runs through the shared `scripts/run-with-ssh-agent.sh` (driven by the
   `SSH_AGENT_*` variables): `agent-fallback` prepares the agent only when
   `agent-needed` finds a key whose permissions OpenSSH would refuse (e.g. `0777`
-  on the WSL `/mnt/c` mount), loads the vault keys via
+  on the WSL `/mnt/c` mount), loads the configured keys via
   `playbooks/ssh_agent_load.yml` (stdin fallback), and the runner retries once on
   a refused key. Correctly permissioned keys and password auth connect directly,
   with no agent.
@@ -70,9 +70,10 @@ and `vault*.yml` are local-only.
 
 Normal runs (`build`/`info`) connect as the `ansible` service account; only
 `make host-bootstrap` probes. The identity map `ssh_identities` in
-`group_vars/all/main.yml` resolves the Ansible connection vars from the
-shared vault (`vault_host_<id>_{user,password,ssh_privkey_file,ssh_pubkey_file}`)
-for every machine.
+`group_vars/all/main.yml` resolves the Ansible connection vars from the shared
+vault (`vault_host_<id>_password`) and the non-secret group knobs
+(`host_admin_username`, `host_<id>_ssh_{privkey,pubkey}_file` in
+`group_vars/builder/main.yml`) for every machine.
 
 `make host-bootstrap` (once per machine):
 
@@ -83,7 +84,7 @@ for every machine.
    the probed identity; when it already is `ansible`, it only applies the optional
    pubkey/sudo state. This self-heals a deleted/rotated credential.
 3. **Sets credentials**: a supplied public key
-   (`vault_host_<id>_ssh_pubkey_file`, a control-node path) switches the account
+   (`host_<id>_ssh_pubkey_file`, a control-node path) switches the account
    to key auth; otherwise an empty `vault_host_ansible_password` is generated into
    the shared vault under the same name (existing non-empty values are never
    rotated). It optionally provisions the human `admin` account when
@@ -95,7 +96,8 @@ for every machine.
 ## Secrets model
 
 - **Connection credentials** are machine-wide and live in the shared vault
-  `inventory/group_vars/builder/vault.yml`.
+  `inventory/group_vars/builder/vault.yml`; the account name and the key paths
+  are non-secret and live in `inventory/group_vars/builder/main.yml`.
 - **Firmware secrets** (root/PPPoE passwords) are per machine and live in
   `host_vars/<machine>/vault.yml`, keyed by variant name (see
   [configuration](configuration.md)). The committed `firmware_secrets` bridge in

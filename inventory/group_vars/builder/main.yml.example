@@ -8,6 +8,19 @@
 # inventory host = one build machine; its variants live in
 # host_vars/<machine>/main.yml (`build_variants`).
 
+# --- SSH connection identities (non-secret; passwords stay in vault.yml) ------
+# Probed in order [ansible, admin, root] by `make host-bootstrap`; build/info
+# connect as `ansible`. Each identity takes its password from the shared vault
+# and/or a key path here (SSH prefers the key; empty = not used). A pubkey path
+# is authorized for that account during bootstrap.
+host_admin_username: "admin"
+host_ansible_ssh_pubkey_file: ""
+host_ansible_ssh_privkey_file: ""
+host_admin_ssh_pubkey_file: ""
+host_admin_ssh_privkey_file: ""
+host_root_ssh_pubkey_file: ""
+host_root_ssh_privkey_file: ""
+
 # --- Optional human 'admin' account -------------------------------------------
 # Create/repair the optional human 'admin' account during `make host-bootstrap`.
 # It always gets a password (generated into the shared vault when empty) plus any
@@ -19,4 +32,3 @@ create_admin_account: false
 # only safe once a keyed login survives it. Root policy is independent.
 sshd_hardening_enabled: false
 sshd_permit_root_login: "no"
-

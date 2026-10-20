@@ -10,9 +10,10 @@
 # deleted/rotated credential.
 #
 # SSH public keys (per identity, opt-in): for every identity whose
-# vault_host_{root,admin,ansible}_ssh_pubkey_file is set, the key at that
-# control-node path is authorized for the matching account. Unset/empty ->
-# skipped (keys are never auto-generated); paths only, never raw key strings.
+# host_{root,admin,ansible}_ssh_pubkey_file is set in
+# inventory/group_vars/builder/main.yml, the key at that control-node path is
+# authorized for the matching account. Unset/empty -> skipped (keys are never
+# auto-generated); paths only, never raw key strings.
 #
 # Service-account auth is exactly one of: a supplied public key (key auth), or a
 # password; an empty vault_host_ansible_password is generated and merged back
@@ -118,8 +119,9 @@
           {{ probe_result.probe_host }}: could not log in as ansible, admin or
           root with the configured credentials. Check
           inventory/group_vars/builder/vault.yml
-          (vault_host_{ansible,admin,root}_password / _ssh_privkey_file) and the
-          host.
+          (vault_host_{ansible,admin,root}_password),
+          inventory/group_vars/builder/main.yml
+          (host_{ansible,admin,root}_ssh_privkey_file) and the host.
       loop: "{{ probe.results | default([]) }}"
       loop_control:
         loop_var: probe_result
@@ -168,7 +170,7 @@
     - name: "[Bootstrap] Resolve the service account settings"
       ansible.builtin.set_fact:
         bootstrap_service_user: "ansible"
-        bootstrap_use_key: "{{ vault_host_ansible_ssh_pubkey_file | default('', true) | length > 0 }}"
+        bootstrap_use_key: "{{ host_ansible_ssh_pubkey_file | default('', true) | length > 0 }}"
 
     - name: "[Bootstrap] Generate the service-account password (no key supplied)"
       ansible.builtin.include_role:
@@ -267,7 +269,7 @@
 
     # --------------------------------------------------------------------------
     # SSH public keys (per identity, opt-in): authorize every explicitly
-    # supplied vault_host_<id>_ssh_pubkey_file for its account. Empty/unset ->
+    # configured host_<id>_ssh_pubkey_file for its account. Empty/unset ->
     # ignored (never generated).
     # --------------------------------------------------------------------------
     - name: "[Bootstrap] Resolve the explicitly supplied public keys"
@@ -310,7 +312,7 @@
           - bootstrap_pubkey_users.results | default([])
             | selectattr('msg', 'defined') | selectattr('msg', 'ne', '') | list | length == 0
         fail_msg: >-
-          vault_host_<id>_ssh_pubkey_file is set for account(s) that are not
+          host_<id>_ssh_pubkey_file is set for account(s) that are not
           managed by this bootstrap and do not exist on {{ inventory_hostname }}:
           {{ bootstrap_pubkey_users.results | default([])
              | selectattr('msg', 'defined') | selectattr('msg', 'ne', '')
@@ -395,5 +397,6 @@
           Probed as '{{ hostvars[inventory_hostname].probe_identity }}'. Service
           account '{{ bootstrap_service_user }}'{{ " and admin account '" ~
           bootstrap_admin.user ~ "'" if bootstrap_admin_defined | bool else "" }}
-          should exist; subsequent runs connect via vault_host_{ansible,admin,root}_*
-          in inventory/host_vars/{{ inventory_hostname }}/vault.yml.
+          should exist; subsequent runs connect as 'ansible' with the
+          credentials in inventory/group_vars/builder/vault.yml and the key
+          paths in inventory/group_vars/builder/main.yml.

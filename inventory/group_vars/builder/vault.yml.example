@@ -3,25 +3,20 @@
 #   make vault-init          # one-time
 #   make vault-edit-group    # edit the shared vault
 # The identity belongs to the machine, so every variant on it shares the vault.
-# Values are control -> builder credentials; paths only, never raw key strings.
+# Values are control -> builder credentials; only PASSWORDS live here, while the
+# account name and the key paths are non-secret and live in
+# inventory/group_vars/builder/main.yml.
 # Per-machine firmware secrets live in host_vars/<machine>/vault.yml.
 
-# Probed [ansible, admin, root]; build/info use `ansible`. Each identity sets a
-# password and/or a key path (key preferred). `pubkey` is authorized for it.
+# Probed [ansible, admin, root]; build/info use `ansible`. Each identity needs a
+# password here and/or a key path in the group main.yml (SSH prefers the key).
 vault_host_root_password: ""
-vault_host_root_ssh_privkey_file: ""
-vault_host_root_ssh_pubkey_file: ""
 # Optional human 'admin' account, created only when create_admin_account is true;
-# always gets a password (generated here when empty) plus any configured key.
-vault_host_admin_user: "admin"
+# always gets a password (generated here when empty) for console login and sudo.
 vault_host_admin_password: ""
-vault_host_admin_ssh_privkey_file: ""
-vault_host_admin_ssh_pubkey_file: ""
-# The service account host-bootstrap creates/repairs (name fixed). Its pubkey
-# switches the account to key auth; otherwise an empty password is generated here.
+# The service account host-bootstrap creates/repairs (name fixed). Its password
+# is generated here when no public key path is set in the group main.yml.
 vault_host_ansible_password: ""
-vault_host_ansible_ssh_privkey_file: /home/example/.ssh/id_ed25519_ansible
-vault_host_ansible_ssh_pubkey_file: /home/example/.ssh/id_ed25519_ansible.pub
 
 # ==============================================================================
 # Secrets written by the role (fill-if-empty; never rotated)

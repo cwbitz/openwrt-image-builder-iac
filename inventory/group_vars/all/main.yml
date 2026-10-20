@@ -14,29 +14,30 @@
 
 # --- SSH connection identity ---------------------------------------------------
 # `make host-bootstrap` probes [ansible, admin, root] and uses the first that
-# works; build/info always connect as `ansible`. Each identity sets a password
-# and/or a key path (SSH prefers the key); paths only, never raw key strings.
-# `pubkey` is an optional control-node path, authorized for that account. The
-# `ansible` account name is a fixed constant; only `admin` may be renamed
-# (vault_host_admin_user).
+# works; build/info always connect as `ansible`. Each identity takes its
+# password from the shared vault and its key paths from
+# inventory/group_vars/builder/main.yml (SSH prefers the key); paths only, never
+# raw key strings. `pubkey` is an optional control-node path, authorized for
+# that account. The `ansible` account name is a fixed constant; only `admin`
+# may be renamed (host_admin_username).
 ssh_identities:
   root:
-    user: "{{ vault_host_root_user | default('root', true) }}"
+    user: "root"
     password: "{{ vault_host_root_password | default('', true) }}"
-    privkey: "{{ vault_host_root_ssh_privkey_file | default('', true) }}"
-    pubkey: "{{ vault_host_root_ssh_pubkey_file | default('', true) }}"
+    privkey: "{{ host_root_ssh_privkey_file | default('', true) }}"
+    pubkey: "{{ host_root_ssh_pubkey_file | default('', true) }}"
     become: false
   admin:
-    user: "{{ vault_host_admin_user | default('admin', true) }}"
+    user: "{{ host_admin_username | default('admin', true) }}"
     password: "{{ vault_host_admin_password | default('', true) }}"
-    privkey: "{{ vault_host_admin_ssh_privkey_file | default('', true) }}"
-    pubkey: "{{ vault_host_admin_ssh_pubkey_file | default('', true) }}"
+    privkey: "{{ host_admin_ssh_privkey_file | default('', true) }}"
+    pubkey: "{{ host_admin_ssh_pubkey_file | default('', true) }}"
     become: true
   ansible:
     user: "ansible"
     password: "{{ vault_host_ansible_password | default('', true) }}"
-    privkey: "{{ vault_host_ansible_ssh_privkey_file | default('', true) }}"
-    pubkey: "{{ vault_host_ansible_ssh_pubkey_file | default('', true) }}"
+    privkey: "{{ host_ansible_ssh_privkey_file | default('', true) }}"
+    pubkey: "{{ host_ansible_ssh_pubkey_file | default('', true) }}"
     become: false
 
 ssh_identity: "{{ ssh_identities['ansible'] }}"

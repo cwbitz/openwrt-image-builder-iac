@@ -103,7 +103,7 @@ root SSH, applied as a drop-in under `/etc/ssh/sshd_config.d/` — the running
 | `sshd_permit_root_login` | `"no"` | `no` disables root SSH; `prohibit-password` keeps root reachable by key |
 
 It only proceeds when a key-only login survives it: the `ansible` account's
-public key (`vault_host_ansible_ssh_pubkey_file`) or, for a root-administered
+public key (`host_ansible_ssh_pubkey_file`) or, for a root-administered
 host, root's key with `sshd_permit_root_login: prohibit-password`. The role
 verifies the effective configuration (`sshd -T`), proves a key-only login from
 the control node and rolls the drop-in back if either check fails.

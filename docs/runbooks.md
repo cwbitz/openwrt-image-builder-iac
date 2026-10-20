@@ -57,7 +57,7 @@ templates are tracked.
 uses the first identity that works on each; when that is not `ansible`, it
 (re)creates the `ansible` service account (key-first, NOPASSWD sudo, the `docker`
 group when present) and the optional human `admin` account. It self-heals a
-rotated/deleted credential. With no `vault_host_ansible_ssh_pubkey_file`, an empty
+rotated/deleted credential. With no `host_ansible_ssh_pubkey_file`, an empty
 `vault_host_ansible_password` is generated into the shared vault under the same
 name. Passwords use a per-account random salt with `update_password: on_create`.
 See [architecture](architecture.md) for the full model.
@@ -171,7 +171,7 @@ The same knob also works for release images; combined with
 `make build` (and therefore `make deploy`) also applies `roles/sshd` at the end
 when `sshd_hardening_enabled: true` is set in `group_vars/builder/main.yml`. It
 closes password login, so it needs a key-only login that survives it — the
-`ansible` account's key (`vault_host_ansible_ssh_pubkey_file`) or root's key
+`ansible` account's key (`host_ansible_ssh_pubkey_file`) or root's key
 with `sshd_permit_root_login: prohibit-password`. Run it alone with:
 
 ```bash
@@ -187,8 +187,8 @@ host keeps its old login policy. The provider console remains the recovery path.
 
 | Symptom | Cause / fix |
 |---------|-------------|
-| `host-bootstrap`: "could not log in as ansible, admin or root" | Configure one of `vault_host_ansible_*` / `vault_host_admin_*` / `vault_host_root_*` (`password` / `ssh_privkey_file`), or load a key into the SSH agent. If only `root` works, set `vault_host_root_password` (or a root private key) |
-| `build`/`info` cannot connect as `ansible` | Run `make host-bootstrap` once; the effective password is `vault_host_ansible_password` (generated when empty), else set `vault_host_ansible_ssh_privkey_file`/pubkey |
+| `host-bootstrap`: "could not log in as ansible, admin or root" | Configure the connection passwords in the shared vault and/or the key paths in `group_vars/builder/main.yml`, or load a key into the SSH agent. If only `root` works, set the root password (or a root private key) |
+| `build`/`info` cannot connect as `ansible` | Run `make host-bootstrap` once; the effective password is `vault_host_ansible_password` (generated when empty), else set `host_ansible_ssh_privkey_file`/pubkey |
 | Need the auto-generated password | `make vault-view` |
 | `build` fails: vault password file missing | Run `make vault-init` |
 | `host-bootstrap` user tasks fail (sudo/become) | The probed identity needs sudo or root; the first run must reach the host as `root` or a sudo-capable `admin` |
@@ -202,5 +202,5 @@ host keeps its old login policy. The provider console remains the recovery path.
 | Build hangs at "Building package index..." (25.12+, APK) | The container `nofile` ulimit is unbounded and fakeroot's `faked` spins; the role pins `nofile:65536:65536`, keep it bounded |
 | Artifacts owned by root | The in-container `chown` needs `HOST_UID`/`HOST_GID` (from facts) |
 | Artifacts not in the control node's `artifacts/` | Check `fetch_artifacts` (default true); they are also kept on the builder at `output_dir` |
-| `--tags sshd` fails at "Prove a key-only login" | The chosen identity has no authorized key yet: set `vault_host_ansible_ssh_pubkey_file` (or root's) and run `make host-bootstrap`, or unset `sshd_hardening_enabled` |
+| `--tags sshd` fails at "Prove a key-only login" | The chosen identity has no authorized key yet: set `host_ansible_ssh_pubkey_file` (or root's) and run `make host-bootstrap`, or unset `sshd_hardening_enabled` |
 | Cannot reach a builder over SSH | Fix its `ansible_host` in `hosts.yml`; the connection identity comes from the committed `group_vars/all/main.yml` |

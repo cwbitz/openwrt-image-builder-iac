@@ -4,9 +4,9 @@
 # (playbooks/ssh_agent_load.yml)
 # ==============================================================================
 # The agent is key-based: it holds private keys, and the target's authorized_keys
-# decides which is accepted. This playbook loads the private-key paths recorded
-# per identity in the vault (vault_host_<id>_ssh_privkey_file), so the operator
-# does not have to remember them.
+# decides which is accepted. This playbook loads the private-key paths configured
+# per identity in inventory/group_vars/builder/main.yml
+# (host_<id>_ssh_privkey_file), so the operator does not have to remember them.
 #
 # Run via the internal `make agent-load`, or automatically by `run-playbook`.
 # Keys that OpenSSH rejects due to file permissions (e.g. on the WSL /mnt/c
@@ -50,7 +50,7 @@
     - name: "[SSHAgent] Warn when no private-key paths are configured"
       ansible.builtin.debug:
         msg: >-
-          No vault_host_<id>_ssh_privkey_file values found (no hosts, or empty
+          No host_<id>_ssh_privkey_file values found (no hosts, or empty
           vaults). Nothing to load.
       when: agent_privkeys | length == 0
 

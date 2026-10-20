@@ -80,7 +80,7 @@ export ANSIBLE_CONFIG := ansible.cfg
 SSH_AGENT_ENV   ?= $(HOME)/.cache/iac/ssh-agent.env
 SSH_AGENT_RUN   ?= $(CURDIR)/scripts/run-with-ssh-agent.sh
 # Hostvars holding the control-node private-key paths.
-SSH_AGENT_KEY_VARS ?= vault_host_ansible_ssh_privkey_file vault_host_admin_ssh_privkey_file vault_host_root_ssh_privkey_file
+SSH_AGENT_KEY_VARS ?= host_ansible_ssh_privkey_file host_admin_ssh_privkey_file host_root_ssh_privkey_file
 export SSH_AGENT_ENV
 export SSH_AGENT_KEYCHAIN_BIN  := $(KEYCHAIN_BIN)
 export SSH_AGENT_ANS_PLAY      := $(ANS_PLAY)
@@ -369,7 +369,7 @@ ensure-sshpass:
 	if ! command -v apt-get >/dev/null 2>&1 || ! command -v dpkg-deb >/dev/null 2>&1; then \
 		echo "ERROR: cannot auto-install sshpass (apt-get/dpkg-deb not found)." >&2; \
 		echo "  Install sshpass manually, or use key-only bootstrap credentials" >&2; \
-		echo "  (vault_host_<id>_ssh_privkey_file)." >&2; \
+		echo "  (host_<id>_ssh_privkey_file)." >&2; \
 		exit 1; \
 	fi; \
 	tmp=$$(mktemp -d); trap 'rm -rf "$$tmp"' EXIT; cd "$$tmp"; \
