@@ -14,6 +14,7 @@ by comparing the line multisets before and after - content can never be lost, an
 a mismatch leaves the file untouched.
 
 Usage: sort_vault_keys.py <plaintext-vault.yml>
+Output: the number of top-level keys (stdout).
 Exit:  0 sorted (or already sorted), 1 refused (file untouched).
 """
 
@@ -83,14 +84,10 @@ def main(argv):
         return refuse(path, "the sorted text would not round-trip")
 
     keys = [key for key, _ in blocks]
-    already_sorted = after == content
+    print(len(keys))
+
     if after == before:
-        print(f"vault key order: already alphabetical ({len(keys)} keys)")
         return 0
-    if already_sorted:
-        print(f"vault key order: already alphabetical ({len(keys)} keys), added a final newline")
-    else:
-        print(f"vault key order: sorted alphabetically ({len(keys)} keys)")
 
     mode = os.stat(path).st_mode & 0o777
     handle, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(path)), suffix=".yml")

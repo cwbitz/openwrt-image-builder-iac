@@ -200,7 +200,7 @@ vault-edit-file:
 	@test -f $(VAULT_EDIT_FILE) || { echo "No such vault file: $(VAULT_EDIT_FILE)" >&2; exit 1; }
 	@if grep -q 'ANSIBLE_VAULT' $(VAULT_EDIT_FILE); then :; else \
 		echo "Encrypting plaintext $(VAULT_EDIT_FILE) before editing..."; \
-		ansible-vault encrypt $(VAULT_EDIT_FILE); \
+		ansible-vault encrypt $(VAULT_EDIT_FILE) >/dev/null; \
 	fi
 	@set -e; \
 	edit_rc=0; ansible-vault edit $(VAULT_EDIT_FILE) || edit_rc=$$?; \
@@ -209,13 +209,14 @@ vault-edit-file:
 		trap 'rm -f "$$b" "$$a"' EXIT; \
 		ansible-vault view $(VAULT_EDIT_FILE) > "$$b" || rc=1; \
 		if [ $$rc -eq 0 ]; then cp "$$b" "$$a" || rc=1; fi; \
-		if [ $$rc -eq 0 ]; then python3 $(CURDIR)/scripts/sort_vault_keys.py "$$a" || rc=1; fi; \
+		if [ $$rc -eq 0 ]; then keys=$$(python3 $(CURDIR)/scripts/sort_vault_keys.py "$$a") || rc=1; fi; \
 		if [ $$rc -ne 0 ]; then \
 			echo "ERROR: could not normalise the key order of $(VAULT_EDIT_FILE); it is unchanged (as edited)" >&2; \
 		elif ! cmp -s "$$b" "$$a"; then \
-			ansible-vault encrypt --output $(VAULT_EDIT_FILE) "$$a" \
-				&& echo "vault-edit: re-encrypted with the keys in alphabetical order"; \
+			ansible-vault encrypt --output $(VAULT_EDIT_FILE) "$$a" >/dev/null || rc=1; \
 		fi; \
+		if [ $$rc -ne 0 ]; then exit $$rc; fi; \
+		echo "Encryption successful! (Total keys: $$keys)"; \
 	fi; \
 	exit $$edit_rc
 
