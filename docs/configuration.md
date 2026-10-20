@@ -119,10 +119,10 @@ inline plaintext secret:
 # host_vars/<machine>/vault.yml
 vault_openwrt_root_password:
   main: CHANGE_ME_main_root_password
-  side: CHANGE_ME_side_root_password
+  ap: CHANGE_ME_ap_root_password
 vault_openwrt_pppoe_password:
   main: CHANGE_ME_main_pppoe_password
-  side: CHANGE_ME_side_pppoe_password
+  ap: CHANGE_ME_ap_pppoe_password
 ```
 
 The committed bridge in `inventory/group_vars/all/main.yml` maps those vault keys

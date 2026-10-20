@@ -11,9 +11,9 @@
 # Root login password baked into the images (module: root-password).
 vault_openwrt_root_password:
   main: CHANGE_ME_main_root_password
-  side: CHANGE_ME_side_root_password
+  ap: CHANGE_ME_ap_root_password
 
 # PPPoE WAN password baked into the images (module: pppoe).
 vault_openwrt_pppoe_password:
   main: CHANGE_ME_main_pppoe_password
-  side: CHANGE_ME_side_pppoe_password
+  ap: CHANGE_ME_ap_pppoe_password
