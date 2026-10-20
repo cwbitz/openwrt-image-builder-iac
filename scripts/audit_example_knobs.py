@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Audit the OpenWrt-image-builder operator templates against the project's knobs.
 
-Two committed templates are the scaffold the operators copy:
+Three committed templates are the scaffold the operators copy:
 
 * ``inventory/host_vars/example/main.yml`` — the per-machine build
   variants (``build_variants``); each YAML key inside a variant is a knob the
   role reads as ``(variant | default({})).<key>``.
 * ``inventory/group_vars/builder/main.yml.example`` — the machine-wide overrides
   (e.g. ``create_admin_account``).
+* ``inventory/host_vars/example/vault.yml.example`` — the firmware-secret dicts
+  the role joins by variant name.
 
 This audit (run by ``make lint`` / CI) keeps them complete:
 
@@ -17,6 +19,9 @@ This audit (run by ``make lint`` / CI) keeps them complete:
   entry with its default in ``group_vars/builder/main.yml.example``.
 * **Declared knobs** — any other non-internal knob declared in
   ``roles/*/defaults/main.yml`` must be represented in the example.
+* **Vault keys** — every example variant must have a sub-key in both firmware
+  dicts, and every sub-key must name one of the example's variants (the role
+  joins secrets by variant name; a typo would silently skip a module).
 
 Standard library only (like the other scripts/), so a plain `python3` can run it.
 
@@ -31,6 +36,7 @@ import sys
 
 VARIANT_EXAMPLE = "inventory/host_vars/example/main.yml"
 GROUP_EXAMPLE = "inventory/group_vars/builder/main.yml.example"
+VAULT_EXAMPLE = "inventory/host_vars/example/vault.yml.example"
 VARIANT_ROOTS = ["roles/imagebuilder/defaults/main.yml", "roles/imagebuilder/vars/main.yml"]
 
 # Control-node tooling: never an operator knob.
@@ -43,10 +49,14 @@ INTERNAL = {"build_dir", "output_dir", "artifacts_dir", "package_manager_min_ver
 GROUP_KNOBS = {"create_admin_account", "sshd_hardening_enabled", "sshd_permit_root_login"}
 # The list itself must be an ACTIVE top-level key of the host example.
 EXTRA = {"build_variants"}
+# Firmware-secret dicts the role joins by variant name (bridged through
+# `firmware_secrets` in group_vars/all); the example vault documents each one.
+VAULT_DICTS = ("vault_openwrt_root_password", "vault_openwrt_pppoe_password")
 
 KEY_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$")
 INDENTED_KEY_RE = re.compile(r"^\s+(?:-\s+)?([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$")
 VARIANT_REF_RE = re.compile(r"build_variant\s*\|\s*default\(\{\}\)\)?\.([A-Za-z0-9_]+)")
+VARIANT_NAME_RE = re.compile(r"^\s*-\s+name:\s*([^\s#]+)\s*(?:#.*)?$")
 
 
 def read(path: str) -> str:
@@ -65,11 +75,27 @@ def declared_knobs(root: str) -> dict[str, str]:
     return knobs
 
 
+def vault_dict_keys(text: str) -> dict[str, list[str]]:
+    """Return the sub-keys of each firmware-secret dict in the vault example."""
+    found: dict[str, list[str]] = {}
+    current = ""
+    for line in text.splitlines():
+        if (m := KEY_RE.match(line)):
+            current = m.group(1)
+            if current in VAULT_DICTS:
+                found[current] = []
+            continue
+        if current in VAULT_DICTS and (m := INDENTED_KEY_RE.match(line)):
+            found[current].append(m.group(1))
+    return found
+
+
 def main(argv: list[str]) -> int:
     root = argv[1] if len(argv) > 1 else os.getcwd()
     variant_example = os.path.join(root, VARIANT_EXAMPLE)
     group_example = os.path.join(root, GROUP_EXAMPLE)
-    for path in (variant_example, group_example):
+    vault_example = os.path.join(root, VAULT_EXAMPLE)
+    for path in (variant_example, group_example, vault_example):
         if not os.path.isfile(path):
             print(f"ERROR: {path} does not exist", file=sys.stderr)
             return 1
@@ -114,13 +140,33 @@ def main(argv: list[str]) -> int:
         if key not in top_level and key not in provided:
             problems.append(f"{key}: missing from {VARIANT_EXAMPLE} (default in {source})")
 
+    # --- 4. Firmware-secret keys -----------------------------------------------
+    # The role joins each secret by variant name; a typo or a missing sub-key is
+    # otherwise silent (the module is skipped and the image ships without it).
+    variant_names = [m.group(1) for line in example.splitlines()
+                     if (m := VARIANT_NAME_RE.match(line))]
+    vault = vault_dict_keys(read(vault_example))
+    for dict_name in VAULT_DICTS:
+        keys = vault.get(dict_name)
+        if keys is None:
+            problems.append(f"{dict_name}: firmware-secret dict missing from {VAULT_EXAMPLE}")
+            continue
+        for name in variant_names:
+            if name not in keys:
+                problems.append(f"{dict_name}.{name}: variant has no secret in {VAULT_EXAMPLE} "
+                                f"(the role joins by variant name)")
+        for key in keys:
+            if key not in variant_names:
+                problems.append(f"{dict_name}.{key}: not a variant name in {VARIANT_EXAMPLE} "
+                                f"(the role joins by variant name)")
+
     if problems:
         print(f"audit_example_knobs: {len(problems)} problem(s):")
         for problem in problems:
             print(f"  - {problem}")
         return 1
     print(f"audit_example_knobs: OK ({len(referenced)} variant keys, "
-          f"{len(GROUP_KNOBS)} group knobs checked)")
+          f"{len(GROUP_KNOBS)} group knobs, {len(VAULT_DICTS)} vault dicts checked)")
     return 0
 
 

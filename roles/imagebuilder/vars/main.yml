@@ -5,6 +5,15 @@
 # Values the role owns; kept out of defaults/main.yml so inventory cannot
 # override them.
 
+# --- Firmware secrets bridge ---------------------------------------------------
+# The machine vault stores each firmware secret as a dict keyed by variant name;
+# `firmware_secrets` (group_vars/all) maps those vault keys onto the generic
+# names below. The role joins the current variant by its `name`, so the build
+# play never wires secrets per variant and a variant cannot carry inline
+# plaintext. An absent or empty sub-key skips the matching module.
+pppoe_password: "{{ ((firmware_secrets | default({})).pppoe_password | default({}))[build_variant.name | default('')] | default('', true) }}"
+root_password: "{{ ((firmware_secrets | default({})).root_password | default({}))[build_variant.name | default('')] | default('', true) }}"
+
 # --- Internal path bases -----------------------------------------------------
 # The repo root IS the Ansible root (flat layout). Derived from playbook_dir
 # (playbooks/) via `dirname` so no path ever contains '..'.

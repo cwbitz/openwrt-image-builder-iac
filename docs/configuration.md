@@ -42,7 +42,10 @@ falls back to the role default.
 | `fetch_artifacts` | Pull built artifacts back to the control node (default `true`) |
 | `use_mirror` / `mirror` | Rewrite package repositories to a mirror (build phase) |
 | `setup_use_mirror` | Fetch the ImageBuilder tarball from the setup mirror |
-| `lan_ip` / `gateway` / `dns` / `disable_dhcp` / `pppoe_username` / `pppoe_password` / `root_password` | Module variables shared by the role's templates (see below) |
+| `lan_ip` / `gateway` / `dns` / `disable_dhcp` / `pppoe_username` | Module variables shared by the role's templates (see below) |
+
+`pppoe_password` / `root_password` are **not** variant keys: they come from the
+machine vault, joined by variant name (see [Firmware secrets](#firmware-secrets)).
 
 ## Modules
 
@@ -59,10 +62,10 @@ uci-defaults files.
 | `disable-ipv6` | ✔ | Disable IPv6 / RA / DHCPv6 on LAN and WAN | — |
 | `extras` | ✔ | Common diagnostics (`curl`, `vim-full`, `tcpdump`, `conntrack`, ...) | — |
 | `main-router` | ✔ | Set the main router LAN IP | `lan_ip` |
-| `pppoe` | ✔ | Configure WAN PPPoE credentials | `pppoe_username`, `pppoe_password` |
+| `pppoe` | ✔ | Configure WAN PPPoE credentials | `pppoe_username`; `pppoe_password` from the vault |
 | `prefer-ipv6` | ✘ | IPv6 preference / RA tuning | — |
 | `python` | ✘ | Lightweight Python 3 runtime (`python3-light`) | — |
-| `root-password` | ✔ | Set the root login password | `root_password` |
+| `root-password` | ✔ | Set the root login password | `root_password` from the vault |
 | `ssh-permission` | ✘ | Fix `authorized_keys` permissions (600) | — |
 | `statistics` | ✘ | collectd + LuCI statistics | — |
 | `system` | ✔ | Timezone (`Asia/Shanghai` / `CST-8`) and log levels | — |
@@ -108,8 +111,9 @@ the control node and rolls the drop-in back if either check fails.
 ## Firmware secrets
 
 Per-machine firmware secrets live in `host_vars/<machine>/vault.yml`. Each secret
-is a **dict keyed by variant name**, and the matching variant entry reads its own
-sub-key, e.g.:
+is a **dict keyed by variant name**; the role looks the current variant up by its
+`name`, so `host_vars/<machine>/main.yml` carries no wiring and cannot hold an
+inline plaintext secret:
 
 ```yaml
 # host_vars/<machine>/vault.yml
@@ -121,19 +125,22 @@ vault_openwrt_pppoe_password:
   side: CHANGE_ME_side_pppoe_password
 ```
 
+The committed bridge in `inventory/group_vars/all/main.yml` maps those vault keys
+onto the role's generic `firmware_secrets` input, and the role joins each variant
+by name:
+
 ```yaml
-# host_vars/<machine>/main.yml (excerpt)
-build_variants:
-  - name: main
-    root_password: "{{ (vault_openwrt_root_password | default({})).main | default('', true) }}"
-    pppoe_password: "{{ (vault_openwrt_pppoe_password | default({})).main | default('', true) }}"
-  - name: side
-    root_password: "{{ (vault_openwrt_root_password | default({})).side | default('', true) }}"
-    pppoe_password: "{{ (vault_openwrt_pppoe_password | default({})).side | default('', true) }}"
+# inventory/group_vars/all/main.yml (excerpt)
+firmware_secrets:
+  root_password: "{{ vault_openwrt_root_password | default({}) }}"
+  pppoe_password: "{{ vault_openwrt_pppoe_password | default({}) }}"
 ```
 
-A variant whose sub-key is empty or absent skips the corresponding module. Edit the
-vault with `make vault-edit HOST=<machine>` (it encrypts a plaintext vault first).
+A variant whose sub-key is empty or absent skips the corresponding module, so one
+vault can serve a PPPoE router and an AP on the same machine. `make lint` checks
+that every example variant has a sub-key in both dicts (and that no sub-key names
+a missing variant). Edit the vault with `make vault-edit HOST=<machine>` (it
+encrypts a plaintext vault first).
 
 ## Growth path
 

@@ -4,8 +4,9 @@
 # Connection secrets are machine-wide: see group_vars/builder/vault.yml.example.
 #
 # Each secret is a DICT keyed by VARIANT name (the `name` in build_variants);
-# the matching variant entry reads its own sub-key. A variant whose sub-key is
-# empty (or absent) skips the module. Add one sub-key per variant.
+# the role looks the current variant's value up by that name, so main.yml needs
+# no wiring. A variant whose sub-key is empty (or absent) skips the module. Add
+# one sub-key per variant.
 
 # Root login password baked into the images (module: root-password).
 vault_openwrt_root_password:

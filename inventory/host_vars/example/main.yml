@@ -3,7 +3,7 @@
 # name MUST match the inventory host). Each entry is one (target, profile,
 # settings) build; keys are optional and fall back to the role defaults.
 # Machine-wide settings live in group_vars/builder/main.yml; firmware secrets in
-# the vault.yml next to this file, referenced as {{ vault_* }}.
+# the vault.yml next to this file (the role matches them by variant name).
 
 build_variants:
   - name: main
@@ -36,14 +36,9 @@ build_variants:
     dns: []
     disable_dhcp: false
     pppoe_username: ""
-    # Firmware secrets are vault dicts keyed by the variant name (this entry: `.main`).
-    pppoe_password: "{{ (vault_openwrt_pppoe_password | default({})).main | default('', true) }}"
-    root_password: "{{ (vault_openwrt_root_password | default({})).main | default('', true) }}"
 
   # A second variant on the same machine; omitted keys use the role defaults.
   - name: side
     imagebuilder_image: openwrt/imagebuilder:generic-arm64
     modules_override: [base, system, root-password, disable-ipv6, extras, bypass-router]
     extra_image_name: "-side"
-    pppoe_password: "{{ (vault_openwrt_pppoe_password | default({})).side | default('', true) }}"
-    root_password: "{{ (vault_openwrt_root_password | default({})).side | default('', true) }}"

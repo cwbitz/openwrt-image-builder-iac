@@ -5,9 +5,10 @@
 # ==============================================================================
 # Committed, project-owned values that are not operator input: the SSH
 # connection identity wiring, the connection-plugin interface derived from it,
-# the `ansible` automation account's fixed uid/gid + docker group, and the shared
-# connection vault path. Topology lives in inventory/hosts.yml (local-only) and
-# operator knobs in inventory/group_vars/builder/main.yml (local-only) and
+# the `ansible` automation account's fixed uid/gid + docker group, the shared
+# connection vault path, and the firmware-secret bridge. Topology lives in
+# inventory/hosts.yml (local-only) and operator knobs in
+# inventory/group_vars/builder/main.yml (local-only) and
 # inventory/host_vars/<machine>/main.yml.
 # ==============================================================================
 
@@ -69,3 +70,13 @@ ansible_service_docker_group: docker
 # under the same name. Per-machine firmware secrets live in
 # host_vars/<machine>/vault.yml.
 vault_file: "{{ project_root }}/inventory/group_vars/builder/vault.yml"
+
+# --- Firmware secrets bridge ---------------------------------------------------
+# The machine vault (host_vars/<machine>/vault.yml) stores every firmware secret
+# as a dict keyed by VARIANT name. Map it onto the generic input the
+# imagebuilder role joins by variant name, so host_vars/<machine>/main.yml never
+# repeats the wiring and a variant cannot carry inline plaintext. A missing or
+# empty sub-key skips the matching module.
+firmware_secrets:
+  root_password: "{{ vault_openwrt_root_password | default({}) }}"
+  pppoe_password: "{{ vault_openwrt_pppoe_password | default({}) }}"

@@ -56,11 +56,11 @@ mirror: "{{ (build_variant | default({})).mirror | default('mirrors.tuna.tsinghu
 # --- Module variables (per variant; empty fallbacks) -------------------------
 # Generic keys shared by the variant templates: the ImageBuilder module set picks
 # which uci-defaults script runs (main-router / ap / bypass-router), and every
-# such script reads these same names.
+# such script reads these same names. Firmware secrets (`pppoe_password` /
+# `root_password`) are NOT variant knobs: the role joins them from the machine
+# vault by variant name (vars/main.yml).
 lan_ip: "{{ (build_variant | default({})).lan_ip | default('') }}"
 gateway: "{{ (build_variant | default({})).gateway | default('') }}"
 dns: "{{ (build_variant | default({})).dns | default([]) }}"
 disable_dhcp: "{{ (build_variant | default({})).disable_dhcp | default(false) }}"
 pppoe_username: "{{ (build_variant | default({})).pppoe_username | default('') }}"
-pppoe_password: "{{ (build_variant | default({})).pppoe_password | default('') }}"
-root_password: "{{ (build_variant | default({})).root_password | default('') }}"
