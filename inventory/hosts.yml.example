@@ -1,6 +1,5 @@
 ---
-# Static inventory: the build machine(s). Copy this file to `hosts.yml`
-# (gitignored, local-only).
+# Static inventory: the build machine(s); `make host-init` creates it.
 #
 # One inventory host = ONE physical build machine. A machine builds one or more
 # VARIANTS (target/profile/settings), declared in host_vars/<machine>/main.yml

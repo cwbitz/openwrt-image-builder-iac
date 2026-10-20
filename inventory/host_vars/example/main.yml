@@ -1,9 +1,9 @@
 ---
-# Per-machine build variants. Copy this directory to host_vars/<machine>/ (the
-# name MUST match the inventory host); it is gitignored. Each list entry is one
-# (target, profile, settings) build; keys are optional and fall back to the role
-# defaults. Machine-wide settings live in group_vars/builder/main.yml; firmware
-# secrets in the vault.yml next to this file, referenced as {{ vault_* }}.
+# Per-machine build variants (`make host-init` creates host_vars/<machine>/; the
+# name MUST match the inventory host). Each entry is one (target, profile,
+# settings) build; keys are optional and fall back to the role defaults.
+# Machine-wide settings live in group_vars/builder/main.yml; firmware secrets in
+# the vault.yml next to this file, referenced as {{ vault_* }}.
 
 build_variants:
   - name: main

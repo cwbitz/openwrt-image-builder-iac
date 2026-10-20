@@ -13,8 +13,8 @@ This audit (run by ``make lint`` / CI) keeps them complete:
 
 * **Variant schema** — every variant key referenced by ``roles/imagebuilder/**``
   must appear inside at least one ``build_variants`` entry of the example.
-* **Group knobs** — every machine-wide knob the project exposes must be documented
-  (active or commented) in ``group_vars/builder/main.yml.example``.
+* **Group knobs** — every machine-wide knob the project exposes must be an ACTIVE
+  entry with its default in ``group_vars/builder/main.yml.example``.
 * **Declared knobs** — any other non-internal knob declared in
   ``roles/*/defaults/main.yml`` must be represented in the example.
 
@@ -46,7 +46,6 @@ EXTRA = {"build_variants"}
 
 KEY_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$")
 INDENTED_KEY_RE = re.compile(r"^\s+(?:-\s+)?([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$")
-CKEY_RE = re.compile(r"^#\s*([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$")
 VARIANT_REF_RE = re.compile(r"build_variant\s*\|\s*default\(\{\}\)\)?\.([A-Za-z0-9_]+)")
 
 
@@ -102,11 +101,10 @@ def main(argv: list[str]) -> int:
     # --- 2. Machine-wide knobs -------------------------------------------------
     group = read(group_example)
     group_active = {m.group(1) for line in group.splitlines() if (m := KEY_RE.match(line))}
-    group_commented = {m.group(1) for line in group.splitlines() if (m := CKEY_RE.match(line))}
     for key in sorted(GROUP_KNOBS):
-        if key not in group_active and key not in group_commented:
-            problems.append(f"{key}: machine-wide knob missing from {GROUP_EXAMPLE} "
-                            f"(document it active or commented)")
+        if key not in group_active:
+            problems.append(f"{key}: machine-wide knob missing (or commented) in "
+                            f"{GROUP_EXAMPLE} — list it as an active entry")
 
     # --- 3. Any other declared knob --------------------------------------------
     for key, source in sorted(declared_knobs(root).items()):
