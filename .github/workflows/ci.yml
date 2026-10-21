@@ -13,41 +13,35 @@ jobs:
     name: Ansible lint / syntax
     runs-on: ubuntu-latest
     env:
-      # Point Ansible at the project's canonical config (repo root). It sets
-      # `vault_password_file` outside the repo; the "Prepare Ansible vault
-      # password" step generates a throwaway file there so ansible-core does not
-      # hard-fail on a missing vault password file. No secret is used in CI.
       ANSIBLE_CONFIG: ansible.cfg
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-      # Single source of truth for the control-node toolchain: `.tool-versions`
-      # pins python + ansible-core, so local and CI use the SAME versions.
       - name: Setup mise (python + ansible-core from .tool-versions)
         uses: jdx/mise-action@v4
         with:
           install: true
           cache: true
-      # Same entry point as local: installs control-node prerequisites + collections.
       - name: Install control-node prerequisites + collections
         run: make install
       - name: Show the running lint tool versions
         run: |
           ansible-lint --version
           yamllint --version
+
       - name: Prepare Ansible vault password (throwaway; CI has no secrets)
         run: make vault-init
       - name: Prepare inventory from example
         run: |
           cp inventory/hosts.yml.example inventory/hosts.yml
-          cp inventory/group_vars/builder/main.yml.example inventory/group_vars/builder/main.yml
+          cp inventory/group_vars/builders/main.yml.example inventory/group_vars/builders/main.yml
+
       - name: Lint (syntax check + ansible-lint)
         run: make lint
       - name: YAML lint
         run: yamllint -c .yamllint .ansible-lint requirements.yml playbooks roles inventory .github renovate.json
       - name: Verify the pinned Keychain asset (SHA256)
         run: make verify-keychain-pin
-
   gitleaks:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-latest

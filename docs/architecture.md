@@ -10,7 +10,7 @@ model, the secrets model, and how host bootstrap and variant isolation work.
 | Control node | **Ansible** (+ Make) | resolves modules/packages, renders the overlay, orchestrates the container |
 | Build host | **Docker** | runs the official `openwrt/imagebuilder` container per variant |
 | Build-host security | **Ansible** (role `sshd`) | opt-in key-only SSH hardening (password login closed, root SSH off) |
-| Operator config | `host_vars/<machine>/main.yml` + `group_vars/builder/main.yml` | per-machine build variants; machine-wide operator overrides |
+| Operator config | `host_vars/<machine>/main.yml` + `group_vars/builders/main.yml` | per-machine build variants; machine-wide operator overrides |
 
 - **Control node** — where `make` runs. Needs `python`/`ansible-core` (pinned in
   `.tool-versions`), the `community.docker` collection, `openssl`, `sshpass`
@@ -25,20 +25,20 @@ model, the secrets model, and how host bootstrap and variant isolation work.
 **One inventory host = one build machine.** Each machine builds one or more
 **variants** — one `(target, profile, settings)` combination each.
 
-- `inventory/hosts.yml` — the `builder` group; one host per machine, each with its
+- `inventory/hosts.yml` — the `builders` group; one host per machine, each with its
   own `ansible_host`.
 - `inventory/host_vars/<machine>/main.yml` — that machine's `build_variants` list
   (per-variant build config) and, next to it, `vault.yml` (per-machine firmware
   secrets).
 - `inventory/group_vars/all/main.yml` — the committed project-owned baseline for
   every machine: the SSH identity map (`ssh_identities`) plus the
-  connection-plugin interface derived from it, the `ansible` account's fixed
+  connection-plugin interface derived from it, the `iac` account's fixed
   uid/gid + docker group, and the shared connection vault path.
-- `inventory/group_vars/builder/` — machine-wide operator overrides, local-only
+- `inventory/group_vars/builders/` — machine-wide operator overrides, local-only
   (e.g. `create_admin_account`).
 
 Committed: `group_vars/all/main.yml`, `host_vars/example/` and the
-`group_vars/builder/*.example` templates; the real `group_vars/builder/main.yml`
+`group_vars/builders/*.example` templates; the real `group_vars/builders/main.yml`
 and `vault*.yml` are local-only.
 
 ## Dependency model
@@ -68,24 +68,31 @@ and `vault*.yml` are local-only.
 
 ## Connection identity and host bootstrap
 
-Normal runs (`build`/`info`) connect as the `ansible` service account; only
+The `iac` identity keeps `become: false` on purpose: `build`/`info` run as the
+unprivileged builder user (Docker group access only), and a `true` value would
+force root for those plays (the `ansible_become` variable outranks the play-level
+`become: false`), changing artifact ownership. The bootstrap play does not use
+that field for escalation — it injects `bootstrap_conn.become`, computed as
+“identity != root”.
+
+Normal runs (`build`/`info`) connect as the `iac` automation account; only
 `make host-bootstrap` probes. The identity map `ssh_identities` in
 `group_vars/all/main.yml` resolves the Ansible connection vars from the shared
 vault (`vault_host_<id>_password`) and the non-secret group knobs
 (`host_admin_username`, `host_<id>_ssh_{privkey,pubkey}_file` in
-`group_vars/builder/main.yml`) for every machine.
+`group_vars/builders/main.yml`) for every machine.
 
 `make host-bootstrap` (once per machine):
 
-1. **Probes** `ansible → admin → root` over SSH on every machine and uses the
+1. **Probes** `iac → admin → root` over SSH on every machine and uses the
    first identity that works on each.
-2. **Creates/repairs** the least-privilege `ansible` service account (fixed
+2. **Creates/repairs** the least-privilege `iac` automation account (fixed
    uid/gid, NOPASSWD sudo, and the `docker` group when present) when that is not
-   the probed identity; when it already is `ansible`, it only applies the optional
+   the probed identity; when it already is `iac`, it only applies the optional
    pubkey/sudo state. This self-heals a deleted/rotated credential.
 3. **Sets credentials**: a supplied public key
    (`host_<id>_ssh_pubkey_file`, a control-node path) switches the account
-   to key auth; otherwise an empty `vault_host_ansible_password` is generated into
+   to key auth; otherwise an empty `vault_host_iac_password` is generated into
    the shared vault under the same name (existing non-empty values are never
    rotated). It optionally provisions the human `admin` account when
    `create_admin_account` is set.
@@ -96,8 +103,8 @@ vault (`vault_host_<id>_password`) and the non-secret group knobs
 ## Secrets model
 
 - **Connection credentials** are machine-wide and live in the shared vault
-  `inventory/group_vars/builder/vault.yml`; the account name and the key paths
-  are non-secret and live in `inventory/group_vars/builder/main.yml`.
+  `inventory/group_vars/builders/vault.yml`; the account name and the key paths
+  are non-secret and live in `inventory/group_vars/builders/main.yml`.
 - **Firmware secrets** (root/PPPoE passwords) are per machine and live in
   `host_vars/<machine>/vault.yml`, keyed by variant name (see
   [configuration](configuration.md)). The committed `firmware_secrets` bridge in

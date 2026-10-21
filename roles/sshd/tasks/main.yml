@@ -1,23 +1,4 @@
 ---
-# ==============================================================================
-# SSH hardening (roles/sshd/tasks)
-# ==============================================================================
-# Key-only SSH administration: `PasswordAuthentication no` (plus the PAM
-# keyboard-interactive and empty-password paths) and a configurable root-login
-# policy (`sshd_permit_root_login`, default off), applied as a drop-in under
-# /etc/ssh/sshd_config.d/ so the provider's and the operator's sshd_config are
-# never edited.
-#
-# Safety: hardening closes the password path the bootstrap probe falls back to,
-# so it only proceeds when a keyed login survives it — the `ansible` service
-# account, or root when sshd_permit_root_login allows it — AND a key-only login
-# as that identity is proven from the control node. Every
-# step is verified afterwards (`sshd -t` before loading, `sshd -T` for the
-# EFFECTIVE configuration, a fresh key-only login at the end) and any failure
-# reverts the drop-in and reloads sshd, so the host is never left without a
-# usable login. The provider console is the documented recovery path.
-# ==============================================================================
-
 - name: "[SSHD] Remove a legacy project-named drop-in"
   ansible.builtin.file:
     path: "{{ item }}"
@@ -35,26 +16,26 @@
 
 - name: "[SSHD] Does the service account have a public key?"
   ansible.builtin.set_fact:
-    sshd_ansible_keyed: >-
-      {{ (ssh_identities.ansible.pubkey | default('', true) | string | length) > 0 }}
+    sshd_iac_keyed: >-
+      {{ (ssh_identities.iac.pubkey | default('', true) | string | length) > 0 }}
 
 - name: "[SSHD] Pick the key-only login path that survives hardening"
   ansible.builtin.set_fact:
     sshd_probe_identity: >-
-      {{ ssh_identities.ansible if sshd_ansible_keyed | bool
+      {{ ssh_identities.iac if sshd_iac_keyed | bool
          else ssh_identities.root }}
 
 - name: "[SSHD] Assert a keyed login survives hardening"
   ansible.builtin.assert:
     that:
       - >-
-        sshd_ansible_keyed | bool
+        sshd_iac_keyed | bool
         or ((sshd_permit_root_login != 'no')
             and (ssh_identities.root.pubkey | default('', true) | string | length) > 0)
     fail_msg: >-
       SSH hardening closes password login, so it needs at least one key-only
-      login that still works afterwards: the `ansible` service account public key
-      (host_ansible_ssh_pubkey_file), or — for a root-administered host —
+      login that still works afterwards: the `iac` automation account public key
+      (host_iac_ssh_pubkey_file), or — for a root-administered host —
       root's public key (host_root_ssh_pubkey_file) with
       sshd_permit_root_login=prohibit-password. Set one and run
       `make host-bootstrap` to authorize it, or set sshd_hardening_enabled=false
@@ -94,8 +75,6 @@
       register: sshd_dropin
       notify: Reload sshd
 
-    # Validate the file on disk BEFORE the daemon reads it: a bad drop-in fails
-    # here, while the running sshd still serves the previous configuration.
     - name: "[SSHD] Validate the resulting sshd configuration"
       ansible.builtin.command:
         argv:
@@ -104,9 +83,6 @@
       changed_when: false
       check_mode: false
 
-    # Runs only when the template notified the handler (i.e. only when it
-    # changed); flushing here — rather than at the end of the play — is what
-    # makes the verification below check the configuration that was loaded.
     - name: "[SSHD] Load the drop-in"
       ansible.builtin.meta: flush_handlers
 
@@ -140,8 +116,6 @@
             | join('; ')
           }}
 
-    # The precondition, re-proven against the NEW configuration: a passwordless
-    # (key-only) connection as the service account, from the control node.
     - name: "[SSHD] Prove a key-only login as the service account"
       ansible.builtin.command:
         argv: "{{ sshd_probe_argv }}"
@@ -162,7 +136,7 @@
           from the control node failed (exit {{ sshd_probe.rc | default('?') }}:
           {{ sshd_probe.stderr | default('') | trim }}), so password
           authentication must not stay closed. Check that the probed account's
-          public-key path (host_ansible_ssh_pubkey_file, or
+          public-key path (host_iac_ssh_pubkey_file, or
           host_root_ssh_pubkey_file when root is the chosen identity) points
           at the key authorized for it, and that OpenSSH accepts the configured
           private key (under WSL a /mnt/c key needs the Keychain agent:

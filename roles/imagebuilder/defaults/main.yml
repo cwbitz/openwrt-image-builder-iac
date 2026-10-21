@@ -1,64 +1,21 @@
 ---
-# imagebuilder role: per-variant fallbacks. The build/info plays loop over each
-# machine's `build_variants` list and pass the current entry as
-# `build_variant`; these defaults read it (empty when unset). Machine-wide
-# settings live in inventory/group_vars/builder/main.yml; role-internal constants
-# in roles/imagebuilder/vars/main.yml.
-
-# --- Build target (per variant) ----------------------------------------------
-# [REQUIRED] imagebuilder_image (e.g. openwrt/imagebuilder:x86-64-v23.05.5); the empty
-# fallback fails the preflight.
 imagebuilder_image: "{{ (build_variant | default({})).imagebuilder_image | default('') }}"
 target_profile: "{{ (build_variant | default({})).target_profile | default('') }}"
 force_pull: "{{ (build_variant | default({})).force_pull | default(false) }}"
-
-# --- Vaults (secrets) ---------------------------------------------------------
-# Fallback per-host vault path (hand-editable). group_vars/builder/main.yml
-# overrides it with the machine-wide connection vault shared by every variant;
-# per-variant firmware secrets stay in host_vars/<machine>/vault.yml.
 vault_file: "{{ project_root }}/inventory/host_vars/{{ inventory_hostname }}/vault.yml"
-
-# --- Builder-side paths (on the managed build host) --------------------------
-# The build host is normally a SEPARATE LAN machine from the control node, so
-# these paths live on the builder. Paths are namespaced by build id (machine +
-# variant), so variants on the same machine build in parallel without clobbering
-# each other.
 build_dir: "{{ ansible_facts.user_dir }}/.cache/openwrt-builder"
-# Firmware output on the builder (mounted as /builder/bin in the container).
 output_dir: "{{ build_dir }}/artifacts/{{ build_id }}"
-
-# --- Artifact retrieval (to the control node) --------------------------------
-# When enabled, the built artifacts are pulled from the builder into
-# artifacts_dir on the CONTROL node, namespaced per build id under the
-# project-root artifacts/ directory.
 fetch_artifacts: "{{ (build_variant | default({})).fetch_artifacts | default(true) }}"
 artifacts_dir: "{{ project_root }}/artifacts/{{ build_id }}"
-
-# --- Module selection --------------------------------------------------------
 modules_adjust: "{{ (build_variant | default({})).modules_adjust | default([]) }}"
 modules_override: "{{ (build_variant | default({})).modules_override | default([]) }}"
-
-# --- Packages ----------------------------------------------------------------
 extra_packages: "{{ (build_variant | default({})).extra_packages | default([]) }}"
-
-# --- Image customisation -----------------------------------------------------
 extra_image_name: "{{ (build_variant | default({})).extra_image_name | default('') }}"
 disabled_services: "{{ (build_variant | default({})).disabled_services | default('') }}"
 rootfs_partsize: "{{ (build_variant | default({})).rootfs_partsize | default('') }}"
-
-# --- Mirrors -----------------------------------------------------------------
 setup_use_mirror: "{{ (build_variant | default({})).setup_use_mirror | default(false) }}"
 use_mirror: "{{ (build_variant | default({})).use_mirror | default(false) }}"
-# Rewrites only the host of the repository URLs, which already carry the
-# 'releases/...' or 'snapshots/...' path; include the mirror's OpenWrt prefix.
 mirror: "{{ (build_variant | default({})).mirror | default('mirrors.tuna.tsinghua.edu.cn/openwrt') }}"
-
-# --- Module variables (per variant; empty fallbacks) -------------------------
-# Generic keys shared by the variant templates: the ImageBuilder module set picks
-# which uci-defaults script runs (main-router / ap / bypass-router), and every
-# such script reads these same names. Firmware secrets (`pppoe_password` /
-# `root_password`) are NOT variant knobs: the role joins them from the machine
-# vault by variant name (vars/main.yml).
 lan_ip: "{{ (build_variant | default({})).lan_ip | default('') }}"
 gateway: "{{ (build_variant | default({})).gateway | default('') }}"
 dns: "{{ (build_variant | default({})).dns | default([]) }}"

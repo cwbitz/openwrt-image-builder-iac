@@ -11,7 +11,7 @@ has none yet). The entry carries an ``ansible_host`` (``CHANGE_ME_HOST_IP`` by
 default; pass ``--ansible-host`` with the machine's real address).
 
 Usage:
-    ensure_inventory_host.py <inventory.yml> <host> [--group builder]
+    ensure_inventory_host.py <inventory.yml> <host> [--group builders]
 
 Uses only the standard library, so the control node's (possibly minimal)
 toolchain ``python3`` is enough.
@@ -22,7 +22,7 @@ import argparse
 import re
 import sys
 
-DEFAULT_GROUP = "builder"
+DEFAULT_GROUP = "builders"
 DEFAULT_ANSIBLE_HOST = "CHANGE_ME_HOST_IP"
 
 
@@ -170,7 +170,6 @@ def main() -> int:
         return 1
     hosts_indent = _indent(lines[hosts_index])
 
-    # Walk the hosts block: detect an existing entry and learn its indentation.
     entry_indent: int | None = None
     dup = re.compile(r"^[ ]*" + re.escape(args.host) + r"\s*:\s*(?:#.*)?$")
     for index in range(hosts_index + 1, len(lines)):

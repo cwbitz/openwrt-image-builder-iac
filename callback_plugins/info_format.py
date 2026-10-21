@@ -1,8 +1,3 @@
-# Minimal stdout callback for the `make info` run. Prints one
-# `host: <msg>` line per tagged debug result (see
-# roles/imagebuilder/tasks/info.yml) and for failures, with no task
-# banners, `ok: [...] => {...}` blocks or PLAY RECAP. Selected via
-# ANSIBLE_STDOUT_CALLBACK only by the `info` target.
 from __future__ import annotations
 
 from ansible.plugins.callback import CallbackBase

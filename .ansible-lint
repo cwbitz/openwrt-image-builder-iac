@@ -5,29 +5,16 @@ exclude_paths:
   - inventory/
   - .cache/
   - .build/
-  # Not Ansible content (scanned only because the lint root is the repo root).
   - .github/
   - docs/
   - artifacts/
 
-# Do not install a second, private copy of requirements.yml under
-# .ansible/collections: the project's collections/ dir (installed by the
-# `install` target) is the single source of truth, and ansible.cfg already
-# points collections_path at it.
 offline: true
 
-# Layout/style rules that false-positive on the Jinja/embedded shell here.
 skip_list:
   - yaml[comments]
   - yaml[braces]
-  # Operator-facing knobs live unprefixed in group_vars/builder/main.yml; the
-  # role defaults mirror them and role-internal constants (roles/imagebuilder/
-  # vars/main.yml) are unprefixed too, so the role-prefix rule is a false
-  # positive for this single-role project.
   - var-naming[no-role-prefix]
 
-# Not a false-positive, but must stay non-fatal: encrypted vault files cannot
-# have a YAML `---` document start (their first line is the $ANSIBLE_VAULT
-# header). Downgrade to warning, matching .yamllint's document-start=warning.
 warn_list:
   - yaml[document-start]

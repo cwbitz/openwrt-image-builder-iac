@@ -6,7 +6,7 @@ Three committed templates are the scaffold the operators copy:
 * ``inventory/host_vars/example/main.yml`` — the per-machine build
   variants (``build_variants``); each YAML key inside a variant is a knob the
   role reads as ``(variant | default({})).<key>``.
-* ``inventory/group_vars/builder/main.yml.example`` — the machine-wide overrides
+* ``inventory/group_vars/builders/main.yml.example`` — the machine-wide overrides
   (e.g. ``create_admin_account``).
 * ``inventory/host_vars/example/vault.yml.example`` — the firmware-secret dicts
   the role joins by variant name.
@@ -16,7 +16,7 @@ This audit (run by ``make lint`` / CI) keeps them complete:
 * **Variant schema** — every variant key referenced by ``roles/imagebuilder/**``
   must appear inside at least one ``build_variants`` entry of the example.
 * **Group knobs** — every machine-wide knob the project exposes must be an ACTIVE
-  entry with its default in ``group_vars/builder/main.yml.example``.
+  entry with its default in ``group_vars/builders/main.yml.example``.
 * **Declared knobs** — any other non-internal knob declared in
   ``roles/*/defaults/main.yml`` must be represented in the example.
 * **Vault keys** — every example variant must have a sub-key in both firmware
@@ -35,22 +35,14 @@ import re
 import sys
 
 VARIANT_EXAMPLE = "inventory/host_vars/example/main.yml"
-GROUP_EXAMPLE = "inventory/group_vars/builder/main.yml.example"
+GROUP_EXAMPLE = "inventory/group_vars/builders/main.yml.example"
 VAULT_EXAMPLE = "inventory/host_vars/example/vault.yml.example"
 VARIANT_ROOTS = ["roles/imagebuilder/defaults/main.yml", "roles/imagebuilder/vars/main.yml"]
 
-# Control-node tooling: never an operator knob.
 TOOLING = {"helper_vault_password_file", "helper_ansible_vault_bin"}
-# Role-internal paths/constants (build scratch, output and artifact dirs, the
-# apk-version gate): derived from the build id, not operator knobs.
 INTERNAL = {"build_dir", "output_dir", "artifacts_dir", "package_manager_min_version"}
-# Machine-wide knobs read by the bootstrap playbook (play vars, not defaults):
-# must be documented in the group example.
 GROUP_KNOBS = {"create_admin_account", "sshd_hardening_enabled", "sshd_permit_root_login"}
-# The list itself must be an ACTIVE top-level key of the host example.
 EXTRA = {"build_variants"}
-# Firmware-secret dicts the role joins by variant name (bridged through
-# `firmware_secrets` in group_vars/all); the example vault documents each one.
 VAULT_DICTS = ("vault_openwrt_root_password", "vault_openwrt_pppoe_password")
 
 KEY_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$")
@@ -102,7 +94,6 @@ def main(argv: list[str]) -> int:
 
     problems: list[str] = []
 
-    # --- 1. Variant schema -----------------------------------------------------
     referenced: dict[str, str] = {}
     for rel in VARIANT_ROOTS:
         path = os.path.join(root, rel)
@@ -118,13 +109,11 @@ def main(argv: list[str]) -> int:
             problems.append(f"{key}: variant key referenced by {source} is missing from "
                             f"{VARIANT_EXAMPLE}'s variants")
 
-    # The list itself must be an ACTIVE top-level key.
     top_level = {m.group(1) for line in example.splitlines() if (m := KEY_RE.match(line))}
     for key in sorted(EXTRA):
         if key not in top_level:
             problems.append(f"{key}: required top-level knob missing from {VARIANT_EXAMPLE}")
 
-    # --- 2. Machine-wide knobs -------------------------------------------------
     group = read(group_example)
     group_active = {m.group(1) for line in group.splitlines() if (m := KEY_RE.match(line))}
     for key in sorted(GROUP_KNOBS):
@@ -132,7 +121,6 @@ def main(argv: list[str]) -> int:
             problems.append(f"{key}: machine-wide knob missing (or commented) in "
                             f"{GROUP_EXAMPLE} — list it as an active entry")
 
-    # --- 3. Any other declared knob --------------------------------------------
     for key, source in sorted(declared_knobs(root).items()):
         if (key in TOOLING or key in INTERNAL or key in GROUP_KNOBS
                 or key in referenced or key == "vault_file" or key.startswith("openwrt_")):
@@ -140,9 +128,6 @@ def main(argv: list[str]) -> int:
         if key not in top_level and key not in provided:
             problems.append(f"{key}: missing from {VARIANT_EXAMPLE} (default in {source})")
 
-    # --- 4. Firmware-secret keys -----------------------------------------------
-    # The role joins each secret by variant name; a typo or a missing sub-key is
-    # otherwise silent (the module is skipped and the image ships without it).
     variant_names = [m.group(1) for line in example.splitlines()
                      if (m := VARIANT_NAME_RE.match(line))]
     vault = vault_dict_keys(read(vault_example))

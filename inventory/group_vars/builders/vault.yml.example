@@ -1,27 +1,27 @@
 # Shared builder connection vault. Copy to
-# inventory/group_vars/builder/vault.yml, fill in real values, then encrypt:
+# inventory/group_vars/builders/vault.yml, fill in real values, then encrypt:
 #   make vault-init          # one-time
 #   make vault-edit-group    # edit the shared vault
 # The identity belongs to the machine, so every variant on it shares the vault.
 # Values are control -> builder credentials; only PASSWORDS live here, while the
 # account name and the key paths are non-secret and live in
-# inventory/group_vars/builder/main.yml.
+# inventory/group_vars/builders/main.yml.
 # Per-machine firmware secrets live in host_vars/<machine>/vault.yml.
 
-# Probed [ansible, admin, root]; build/info use `ansible`. Each identity needs a
+# Probed [iac, admin, root]; build/info use `iac`. Each identity needs a
 # password here and/or a key path in the group main.yml (SSH prefers the key).
 vault_host_root_password: ""
 # Optional human 'admin' account, created only when create_admin_account is true;
 # always gets a password (generated here when empty) for console login and sudo.
 vault_host_admin_password: ""
-# The service account host-bootstrap creates/repairs (name fixed). Its password
-# is generated here when no public key path is set in the group main.yml.
-vault_host_ansible_password: ""
+# The automation account host-bootstrap creates/repairs (name fixed). Its
+# password is generated here when no public key path is set in the group main.yml.
+vault_host_iac_password: ""
 
 # ==============================================================================
 # Secrets written by the role (fill-if-empty; never rotated)
 # ==============================================================================
-#   vault_host_ansible_password   service-account password, generated when no
+#   vault_host_iac_password       automation-account password, generated when no
 #                                 public key is given
 #   vault_host_admin_password     admin password, generated when create_admin_account
 #                                 is true and the value is empty

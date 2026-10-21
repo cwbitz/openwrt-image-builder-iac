@@ -23,8 +23,6 @@ import re
 import sys
 import tempfile
 
-# A top-level key starts at column 0; indented lines, list items (`- `) and
-# comments belong to the block they follow.
 KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*:")
 
 

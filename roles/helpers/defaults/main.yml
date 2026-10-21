@@ -1,6 +1,1 @@
 ---
-# ==============================================================================
-# Shared helpers role defaults (roles/helpers/defaults/main.yml)
-# ==============================================================================
-# The ansible-vault plumbing (helper_vault_password_file / helper_ansible_vault_bin)
-# is a CONTROL-NODE constant and lives in vars/main.yml.

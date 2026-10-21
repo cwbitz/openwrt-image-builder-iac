@@ -11,7 +11,7 @@
 #
 # Building on the control node is also possible (`ansible_connection: local`,
 # `ansible_host: 127.0.0.1`). Add another machine as a sibling under `builder`.
-builder:
+builders:
   hosts:
     # `make host-init HOST=<machine> HOST_IP=<addr>` adds the entry; with no
     # arguments it scaffolds the default machine `openwrt-ib-prod-1` with a

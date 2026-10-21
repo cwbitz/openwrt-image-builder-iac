@@ -12,8 +12,8 @@ Operational procedures for building OpenWrt firmware with
 |-------------|-------|
 | Control node | Where you run `make`; hosts the repo and the Ansible toolchain |
 | Build host | A separate LAN machine (by default) running Docker Engine; SSH-reachable as the connection user, who must access the Docker daemon |
-| sudo (or root) on the build host | Required on the first `make host-bootstrap` run to create the `ansible` service account |
-| Docker Engine / Desktop | Must be running on the `builder` host(s) |
+| sudo (or root) on the build host | Required on the first `make host-bootstrap` run to create the `iac` automation account |
+| Docker Engine / Desktop | Must be running on the `builders` host(s) |
 | python >= 3.8 | Control node; runs `ansible-core` and the `community.docker` modules |
 | `ansible-core` + `python` | Pinned in `.tool-versions` (`mise install` / `asdf install`) |
 | `community.docker` | Installed into `collections/` by `make install` |
@@ -40,25 +40,25 @@ make install
 make vault-init
 make vault-edit-group                     # shared SSH identity vault
 make vault-edit HOST=openwrt-ib-prod-1    # that machine's firmware secrets
-make host-bootstrap                       # once; probe ansible -> admin -> root on every machine
+make host-bootstrap                       # once; probe iac -> admin -> root
 # or, to bootstrap and then build everything in one shot:
 make deploy
 ```
 
 Configuration is split by scope (machine-wide vs per-machine); see
 [configuration](configuration.md). `hosts.yml`, the real
-`group_vars/builder/main.yml`, and every `host_vars/<machine>/` directory are
+`group_vars/builders/main.yml`, and every `host_vars/<machine>/` directory are
 gitignored; the committed `group_vars/all/main.yml` baseline and `*.example`
 templates are tracked.
 
 ### `host-bootstrap`
 
-`make host-bootstrap` probes `ansible → admin → root` on **every** machine and
-uses the first identity that works on each; when that is not `ansible`, it
-(re)creates the `ansible` service account (key-first, NOPASSWD sudo, the `docker`
+`make host-bootstrap` probes `iac → admin → root` on **every**
+machine and uses the first identity that works on each; when that is not `iac`, it
+(re)creates the `iac` automation account (key-first, NOPASSWD sudo, the `docker`
 group when present) and the optional human `admin` account. It self-heals a
-rotated/deleted credential. With no `host_ansible_ssh_pubkey_file`, an empty
-`vault_host_ansible_password` is generated into the shared vault under the same
+rotated/deleted credential. With no `host_iac_ssh_pubkey_file`, an empty
+`vault_host_iac_password` is generated into the shared vault under the same
 name. Passwords use a per-account random salt with `update_password: on_create`.
 See [architecture](architecture.md) for the full model.
 
@@ -70,7 +70,7 @@ make build EXTRA='--limit openwrt-ib-prod-1'  # single machine
 make deploy                           # host-bootstrap, then build (fresh host to image)
 ```
 
-`make build` targets `hosts: builder`; the role loops each machine's
+`make build` targets `hosts: builders`; the role loops each machine's
 `build_variants`, so machines build concurrently and a machine's variants
 sequentially. See [build-pipeline](build-pipeline.md) for the per-variant steps,
 container orchestration and overlay rendering.
@@ -145,7 +145,7 @@ The same knob also works for release images; combined with
 - **Firmware secrets** are per machine
   (`inventory/host_vars/<machine>/vault.yml`) and keyed by variant name; see
   [configuration](configuration.md) for the layout.
-- **Connection credentials** are machine-wide (`inventory/group_vars/builder/vault.yml`).
+- **Connection credentials** are machine-wide (`inventory/group_vars/builders/vault.yml`).
 - The vault password file lives outside the repo and is never committed;
   `make vault-edit HOST=<machine>` encrypts a plaintext vault before editing.
 - Vault keys are kept in alphabetical order: `make vault-edit` re-sorts the
@@ -169,9 +169,9 @@ The same knob also works for release images; combined with
 ## 9. SSH hardening
 
 `make build` (and therefore `make deploy`) also applies `roles/sshd` at the end
-when `sshd_hardening_enabled: true` is set in `group_vars/builder/main.yml`. It
+when `sshd_hardening_enabled: true` is set in `group_vars/builders/main.yml`. It
 closes password login, so it needs a key-only login that survives it — the
-`ansible` account's key (`host_ansible_ssh_pubkey_file`) or root's key
+`iac` account's key (`host_iac_ssh_pubkey_file`) or root's key
 with `sshd_permit_root_login: prohibit-password`. Run it alone with:
 
 ```bash
@@ -187,13 +187,13 @@ host keeps its old login policy. The provider console remains the recovery path.
 
 | Symptom | Cause / fix |
 |---------|-------------|
-| `host-bootstrap`: "could not log in as ansible, admin or root" | Configure the connection passwords in the shared vault and/or the key paths in `group_vars/builder/main.yml`, or load a key into the SSH agent. If only `root` works, set the root password (or a root private key) |
-| `build`/`info` cannot connect as `ansible` | Run `make host-bootstrap` once; the effective password is `vault_host_ansible_password` (generated when empty), else set `host_ansible_ssh_privkey_file`/pubkey |
+| `host-bootstrap`: "no working identity" | Configure the connection passwords in the shared vault and/or the key paths in `group_vars/builders/main.yml`, or load a key into the SSH agent. If only `root` works, set the root password (or a root private key) |
+| `build`/`info` cannot connect as `iac` | Run `make host-bootstrap` once; the effective password is `vault_host_iac_password` (generated when empty), else set `host_iac_ssh_privkey_file`/pubkey |
 | Need the auto-generated password | `make vault-view` |
 | `build` fails: vault password file missing | Run `make vault-init` |
 | `host-bootstrap` user tasks fail (sudo/become) | The probed identity needs sudo or root; the first run must reach the host as `root` or a sudo-capable `admin` |
 | preflight: "Docker CLI not found" | Install Docker and ensure it is on PATH on the builder |
-| preflight: "Cannot reach the Docker daemon" | Start Docker; ensure the connection user can access the socket (the `ansible` user joins the `docker` group when present) |
+| preflight: "Cannot reach the Docker daemon" | Start Docker; ensure the connection user can access the socket (the `iac` user joins the `docker` group when present) |
 | preflight: "Docker Python SDK" | Install `docker` for the build host's Python: `<python> -m pip install docker` |
 | `Module ... does not expose VERSION_PATH/TARGET` | Use an official `openwrt/imagebuilder` tag |
 | `Packages are both added and removed` | Remove the `-pkg`/`pkg` conflict in a variant's packages |
@@ -202,5 +202,5 @@ host keeps its old login policy. The provider console remains the recovery path.
 | Build hangs at "Building package index..." (25.12+, APK) | The container `nofile` ulimit is unbounded and fakeroot's `faked` spins; the role pins `nofile:65536:65536`, keep it bounded |
 | Artifacts owned by root | The in-container `chown` needs `HOST_UID`/`HOST_GID` (from facts) |
 | Artifacts not in the control node's `artifacts/` | Check `fetch_artifacts` (default true); they are also kept on the builder at `output_dir` |
-| `--tags sshd` fails at "Prove a key-only login" | The chosen identity has no authorized key yet: set `host_ansible_ssh_pubkey_file` (or root's) and run `make host-bootstrap`, or unset `sshd_hardening_enabled` |
+| `--tags sshd` fails at "Prove a key-only login" | The chosen identity has no authorized key yet: set `host_iac_ssh_pubkey_file` (or root's) and run `make host-bootstrap`, or unset `sshd_hardening_enabled` |
 | Cannot reach a builder over SSH | Fix its `ansible_host` in `hosts.yml`; the connection identity comes from the committed `group_vars/all/main.yml` |

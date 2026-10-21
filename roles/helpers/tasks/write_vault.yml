@@ -1,21 +1,4 @@
 ---
-# ==============================================================================
-# Write a per-host vault file (roles/helpers/tasks/write_vault.yml)
-# ==============================================================================
-# Renders write_vault_data as YAML and encrypts it into
-# <write_vault_dir>/<write_vault_file> (mode 0600). Keys are written in
-# alphabetical order (sort_keys), so every rewrite produces the same deterministic
-# layout. Always writes through a throwaway plaintext temp file, so every vault
-# file stays encrypted at rest. Callers gate the call on a real change (it always
-# reports changed).
-#
-# Params (include vars):
-#   write_vault_dir   Absolute directory holding the vault file. Required (see
-#                     read_vault.yml).
-#   write_vault_file  Vault filename (e.g. vault.yml)
-#   write_vault_data  Mapping to persist
-# ==============================================================================
-
 - name: "[VaultWrite] Validate the write contract"
   tags: [always]
   ansible.builtin.assert:

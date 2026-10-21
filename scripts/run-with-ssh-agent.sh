@@ -1,25 +1,4 @@
 #!/usr/bin/env bash
-#
-# run-with-ssh-agent.sh — run a command; if it fails because OpenSSH refused a
-# private key, start the Keychain ssh-agent, load the configured keys, and retry
-# ONCE. Keep the SSH_AGENT_* interface below stable: it is the contract the
-# Makefile drives this script through.
-#
-# Output policy ("silent retry, show only on failure"):
-#   * the first attempt is buffered and replayed only when it SUCCEEDS, or when
-#     it fails for a reason OTHER than a refused key;
-#   * on a refused-key failure the first attempt is DISCARDED and the retry is
-#     run (streamed); if the retry also fails, the first attempt's log is shown
-#     for diagnosis.
-#
-# Environment (identical names in every project):
-#   SSH_AGENT_ENV            file exporting SSH_AUTH_SOCK of the prepared agent
-#   SSH_AGENT_KEYCHAIN_BIN   Keychain binary
-#   SSH_AGENT_ANS_PLAY       ansible-playbook binary
-#   SSH_AGENT_INVENTORY      inventory path
-#   SSH_AGENT_LOAD_PLAYBOOK  playbook that loads the vault keys into the agent
-#
-# Usage: run-with-ssh-agent.sh <command> [args...]
 
 if [ -n "${SSH_AGENT_ENV:-}" ] && [ -f "$SSH_AGENT_ENV" ]; then
   # shellcheck disable=SC1090

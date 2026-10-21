@@ -22,7 +22,7 @@ back to the control node.
 |-------|------|----------------|
 | Build host | **Docker** | runs the official `openwrt/imagebuilder` container |
 | Firmware image | **Ansible** (role `imagebuilder`) | module resolution, package collection, uci-defaults overlay, container orchestration |
-| Operator config | `host_vars/<machine>/main.yml` + `group_vars/builder/main.yml` | per-machine build variants; machine-wide operator overrides (e.g. `create_admin_account`) |
+| Operator config | `host_vars/<machine>/main.yml` + `group_vars/builders/main.yml` | per-machine build variants; machine-wide operator overrides (e.g. `create_admin_account`) |
 
 The control node (where `make` runs) and the build host (the machine running
 Docker) are separate LAN machines by default; building on the control node itself
@@ -49,11 +49,11 @@ make vault-init        # one-time: vault password (back it up)
 make vault-edit-group  # shared SSH identity vault
 make vault-edit HOST=openwrt-ib-prod-1   # that machine's firmware secrets
 
-# 3) Bootstrap the build machine(s) once (probe ansible -> admin -> root, provision
-#    the 'ansible' service account: generated password, keys, NOPASSWD sudo).
+# 3) Bootstrap the build machine(s) once (probe iac -> admin -> root,
+#    provision the 'iac' automation account: password, keys, NOPASSWD sudo).
 make host-bootstrap
 
-# 4) Build every variant (machines in parallel; connects as 'ansible')
+# 4) Build every variant (machines in parallel; connects as 'iac')
 make build
 make build EXTRA='--limit openwrt-ib-prod-1'   # or just one machine
 
@@ -73,10 +73,10 @@ ImageBuilder image and profile information without building.
 openwrt-image-builder-iac/
 ├── ansible.cfg                        # canonical Ansible config (repo root == Ansible root)
 ├── inventory/
-│   ├── hosts.yml.example              # builder group: one host per build machine
+│   ├── hosts.yml.example              # builders group: one host per build machine
 │   ├── group_vars/
 │   │   ├── all/                       # committed project-owned baseline (SSH identity wiring, uid/gid, shared vault path)
-│   │   └── builder/                   # machine-wide operator overrides (main.yml local-only)
+│   │   └── builders/                  # machine-wide operator overrides (main.yml local-only)
 │   │       ├── main.yml.example       # operator knob template (main.yml is local-only)
 │   │       └── vault.yml.example      # shared connection secrets template
 │   └── host_vars/
@@ -107,8 +107,8 @@ openwrt-image-builder-iac/
 | Command | Purpose |
 |---------|---------|
 | `make install` | **Sole dependency entry**: ensures the control-node toolchain, collections, `sshpass`, `passlib` and Keychain |
-| `make host-init HOST=<name>` | Scaffold `group_vars/builder/main.yml` + `host_vars/<name>/` from the examples (vault encrypted); add the machine with `HOST_IP=<addr>` |
-| `make host-bootstrap` | Probe ansible → admin → root on every machine and provision the service account |
+| `make host-init HOST=<name>` | Scaffold `group_vars/builders/main.yml` + `host_vars/<name>/` from the examples (vault encrypted); add the machine with `HOST_IP=<addr>` |
+| `make host-bootstrap` | Probe iac → admin → root on every machine and provision the automation account |
 | `make deploy` | One-click first build: `host-bootstrap` then `build` |
 | `make build` | Build every variant of every machine (ImageBuilder container) |
 | `make info` | Query image/profile information (no build) |

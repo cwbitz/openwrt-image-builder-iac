@@ -1,25 +1,30 @@
 ---
 # ==============================================================================
-# Machine-wide operator overrides for the `builder` group
-# (inventory/group_vars/builder/main.yml.example)
+# Machine-wide operator overrides for the `builders` group
+# (inventory/group_vars/builders/main.yml.example)
 # ==============================================================================
-# Copy to inventory/group_vars/builder/main.yml (`make host-init` creates it) to
+# Copy to inventory/group_vars/builders/main.yml (`make host-init` creates it) to
 # change a shared value for every build machine; an empty copy is valid. One
 # inventory host = one build machine; its variants live in
 # host_vars/<machine>/main.yml (`build_variants`).
 
 # --- SSH connection identities (non-secret; passwords stay in vault.yml) ------
-# Probed in order [ansible, admin, root] by `make host-bootstrap`; build/info
-# connect as `ansible`. Each identity takes its password from the shared vault
+# Probed in order [iac, admin, root] by `make host-bootstrap`;
+# build/info connect as `iac`. Each identity takes its password from the shared vault
 # and/or a key path here (SSH prefers the key; empty = not used). A pubkey path
 # is authorized for that account during bootstrap.
 host_admin_username: "admin"
-host_ansible_ssh_pubkey_file: ""
-host_ansible_ssh_privkey_file: ""
+host_iac_ssh_pubkey_file: ""
+host_iac_ssh_privkey_file: ""
 host_admin_ssh_pubkey_file: ""
 host_admin_ssh_privkey_file: ""
 host_root_ssh_pubkey_file: ""
 host_root_ssh_privkey_file: ""
+
+# --- 'iac' automation account (created by `make host-bootstrap`) --------------
+# Fixed service uid/gid; project-wide automation accounts use 6000-6499.
+iac_uid: 6000
+iac_gid: 6000
 
 # --- Optional human 'admin' account -------------------------------------------
 # Create/repair the optional human 'admin' account during `make host-bootstrap`.

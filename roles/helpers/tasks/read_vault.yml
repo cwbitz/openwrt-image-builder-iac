@@ -1,19 +1,4 @@
 ---
-# ==============================================================================
-# Read a per-host vault file (roles/helpers/tasks/read_vault.yml)
-# ==============================================================================
-# Reads <read_vault_dir>/<read_vault_file> (encrypted or plaintext) and sets the
-# fact named by read_vault_var to the parsed mapping ({} when the file is absent
-# or empty). Read-only and check-mode safe; never writes.
-#
-# Params (include vars):
-#   read_vault_dir   Absolute directory holding the vault file. Required: no safe
-#                    default exists, because inventory_dir is undefined when the
-#                    helper runs on implicit localhost.
-#   read_vault_file  Vault filename (e.g. vault.yml)
-#   read_vault_var   Output fact name (default: read_vault_data)
-# ==============================================================================
-
 - name: "[VaultRead] Validate the read contract"
   tags: [always]
   ansible.builtin.assert:

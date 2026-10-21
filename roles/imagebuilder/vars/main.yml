@@ -1,31 +1,12 @@
 ---
-# ==============================================================================
-# imagebuilder role internal constants (roles/imagebuilder/vars/main.yml)
-# ==============================================================================
-# Values the role owns; kept out of defaults/main.yml so inventory cannot
-# override them.
+package_manager_min_version: "24.10"
 
-# --- Firmware secrets bridge ---------------------------------------------------
-# The machine vault stores each firmware secret as a dict keyed by variant name;
-# `firmware_secrets` (group_vars/all) maps those vault keys onto the generic
-# names below. The role joins the current variant by its `name`, so the build
-# play never wires secrets per variant and a variant cannot carry inline
-# plaintext. An absent or empty sub-key skips the matching module.
 pppoe_password: "{{ ((firmware_secrets | default({})).pppoe_password | default({}))[build_variant.name | default('')] | default('', true) }}"
 root_password: "{{ ((firmware_secrets | default({})).root_password | default({}))[build_variant.name | default('')] | default('', true) }}"
-
-# --- Internal path bases -----------------------------------------------------
-# The repo root IS the Ansible root (flat layout). Derived from playbook_dir
-# (playbooks/) via `dirname` so no path ever contains '..'.
 project_root: "{{ playbook_dir | dirname }}"
-# Build id namespaces every per-variant artifact: the inventory host is the build
-# MACHINE, so the variant name is appended (several variants share a machine).
 build_id: "{{ inventory_hostname }}-{{ (build_variant | default({})).name | default('') }}"
-# Scratch space for the rendered overlay and the in-container script, namespaced
-# by build id so variants on the same machine build in parallel without clashes.
 builder_workdir: "{{ build_dir }}/work/{{ build_id }}"
 
-# --- Module selection --------------------------------------------------------
 default_modules:
   - base
   - system
@@ -34,6 +15,7 @@ default_modules:
   - main-router
   - disable-ipv6
   - extras
+
 known_modules:
   - ap
   - base
@@ -49,7 +31,6 @@ known_modules:
   - statistics
   - system
 
-# --- Packages ----------------------------------------------------------------
 base_packages:
   - luci
   - "-dnsmasq"
@@ -61,12 +42,10 @@ base_packages:
   - rsync
   - luci-i18n-base-zh-cn
   - luci-i18n-firewall-zh-cn
-# The LuCI package-manager translation package differs by OpenWrt release.
+
 base_package_manager_pkg: luci-i18n-package-manager-zh-cn
 base_opkg_pkg: luci-i18n-opkg-zh-cn
-package_manager_min_version: "24.10"
-# Static package lists per module (base is version-aware and handled separately
-# by packages.yml).
+
 module_packages:
   extras:
     - curl
@@ -83,24 +62,11 @@ module_packages:
     - collectd-mod-irq
     - collectd-mod-sensors
 
-# --- Container limits --------------------------------------------------------
-# The ImageBuilder host tools use fakeroot, whose `faked` daemon closes every
-# file descriptor from 0 up to RLIMIT_NOFILE on startup. Docker inherits the
-# daemon's (often near-infinite) nofile limit, which turns that loop into a
-# billion-iteration spin that hangs the build. Pin a bounded limit.
 container_ulimits:
   - "nofile:65536:65536"
 
-# --- Mirrors -----------------------------------------------------------------
-# USTC mirror used by setup.sh to fetch the ImageBuilder tarball. setup.sh builds
-# "$UPSTREAM_URL/$VERSION_PATH/targets/...", and VERSION_PATH already contains
-# 'releases/<ver>' or 'snapshots', so this root works for both release and
-# SNAPSHOT images.
 setup_mirror_url: "https://mirrors.ustc.edu.cn/openwrt"
 
-# --- Overlay file modes ------------------------------------------------------
-# Relative overlay paths that must be executable on the device (uci-defaults).
-# Every other overlay file is installed mode 0644.
 overlay_executable:
   - etc/uci-defaults/91-system
   - etc/uci-defaults/92-system

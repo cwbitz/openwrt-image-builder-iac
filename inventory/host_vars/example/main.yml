@@ -2,7 +2,7 @@
 # Per-machine build variants (`make host-init` creates host_vars/<machine>/; the
 # name MUST match the inventory host). Each entry is one (target, profile,
 # settings) build; keys are optional and fall back to the role defaults.
-# Machine-wide settings live in group_vars/builder/main.yml; firmware secrets in
+# Machine-wide settings live in group_vars/builders/main.yml; firmware secrets in
 # the vault.yml next to this file (the role matches them by variant name).
 
 build_variants:

@@ -1,6 +1,4 @@
 ---
-# Query the ImageBuilder image and profile information without building. Run
-# via `make info` (role `tasks_from: info`).
 - name: Check the build host prerequisites and required settings
   ansible.builtin.import_tasks: preflight.yml
 

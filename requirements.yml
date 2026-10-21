@@ -2,6 +2,5 @@
 collections:
   - name: community.docker
     version: "4.8.5"
-  # Provides the `profile_tasks` callback enabled in ansible.cfg.
   - name: ansible.posix
     version: "2.1.0"

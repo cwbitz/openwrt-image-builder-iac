@@ -18,33 +18,6 @@
           untested newer engine, set ansible_core_allow_untested=true.
         quiet: true
 
-# ==============================================================================
-# Build-host bootstrap (`make host-bootstrap`). Never part of build.yml /
-# info.yml (those connect as the `ansible` identity directly).
-#
-# Probes the SSH identities in order [ansible, admin, root] for EVERY build
-# machine and uses the first that works on each. If that is NOT `ansible`, it
-# (re)creates the least-privilege `ansible` service account; if it already IS
-# `ansible` it only applies the optional pubkey/sudo state. This self-heals a
-# deleted/rotated credential.
-#
-# SSH public keys (per identity, opt-in): for every identity whose
-# host_{root,admin,ansible}_ssh_pubkey_file is set in
-# inventory/group_vars/builder/main.yml, the key at that control-node path is
-# authorized for the matching account. Unset/empty -> skipped (keys are never
-# auto-generated); paths only, never raw key strings.
-#
-# Service-account auth is exactly one of: a supplied public key (key auth), or a
-# password; an empty vault_host_ansible_password is generated and merged back
-# into the same vault under the same name. Passwords are hashed with a
-# per-account random salt and applied with update_password=on_create, so re-runs
-# are idempotent and a host-side rotation is preserved.
-# ==============================================================================
-
-# Preflight on the control node, before any connection: assert every managed host
-# has a real address in the gitignored inventory (the committed template carries
-# the CHANGE_ME_HOST_IP placeholder), so an unfilled entry fails with the fix
-# command instead of an opaque SSH-resolution error. Tagged [always].
 - name: "Preflight: verify the managed hosts are configured"
   hosts: localhost
   connection: local
@@ -65,13 +38,11 @@
           inventory/hosts.yml, or re-scaffold the host:
             make host-init HOST={{ item }} HOST_IP=<builder-address>
         quiet: true
-      loop: "{{ groups['builder'] | default([]) }}"
+      loop: "{{ groups['builders'] | default([]) }}"
       loop_control:
         label: "{{ item }}"
 
-# Probe every build machine and inject the chosen identity per host (passwords
-# via env, never argv). Runs on the control node.
-- name: "Probe the SSH identities (ansible -> admin -> root) on every machine"
+- name: "Probe the SSH identities (iac -> admin -> root) on every machine"
   hosts: localhost
   connection: local
   gather_facts: false
@@ -105,23 +76,23 @@
           fi
           return 1
         }
-        for id in ANSIBLE ADMIN ROOT; do
+        for id in IAC ADMIN ROOT; do
           if try_identity "$id"; then echo "$id"; exit 0; fi
         done
         exit 1
       args:
         executable: /bin/bash
       environment:
-        PROBE_ANSIBLE_USER: "{{ hostvars[probe_host].ssh_identities.ansible.user }}"
-        PROBE_ANSIBLE_PW: "{{ hostvars[probe_host].ssh_identities.ansible.password }}"
-        PROBE_ANSIBLE_KEY: "{{ hostvars[probe_host].ssh_identities.ansible.privkey }}"
+        PROBE_IAC_USER: "{{ hostvars[probe_host].ssh_identities.iac.user }}"
+        PROBE_IAC_PW: "{{ hostvars[probe_host].ssh_identities.iac.password }}"
+        PROBE_IAC_KEY: "{{ hostvars[probe_host].ssh_identities.iac.privkey }}"
         PROBE_ADMIN_USER: "{{ hostvars[probe_host].ssh_identities.admin.user }}"
         PROBE_ADMIN_PW: "{{ hostvars[probe_host].ssh_identities.admin.password }}"
         PROBE_ADMIN_KEY: "{{ hostvars[probe_host].ssh_identities.admin.privkey }}"
         PROBE_ROOT_USER: "{{ hostvars[probe_host].ssh_identities.root.user }}"
         PROBE_ROOT_PW: "{{ hostvars[probe_host].ssh_identities.root.password }}"
         PROBE_ROOT_KEY: "{{ hostvars[probe_host].ssh_identities.root.privkey }}"
-      loop: "{{ groups['builder'] | default([]) }}"
+      loop: "{{ groups['builders'] | default([]) }}"
       loop_control:
         loop_var: probe_host
         label: "{{ probe_host }}"
@@ -135,12 +106,12 @@
         that:
           - probe_result.rc == 0
         fail_msg: >-
-          {{ probe_result.probe_host }}: could not log in as ansible, admin or
+          {{ probe_result.probe_host }}: could not log in as iac, admin or
           root with the configured credentials. Check
-          inventory/group_vars/builder/vault.yml
-          (vault_host_{ansible,admin,root}_password),
-          inventory/group_vars/builder/main.yml
-          (host_{ansible,admin,root}_ssh_privkey_file) and the host.
+          inventory/group_vars/builders/vault.yml
+          (vault_host_{iac,admin,root}_password),
+          inventory/group_vars/builders/main.yml
+          (host_{iac,admin,root}_ssh_privkey_file) and the host.
       loop: "{{ probe.results | default([]) }}"
       loop_control:
         loop_var: probe_result
@@ -164,32 +135,21 @@
         label: "{{ probe_result.probe_host }}"
 
 - name: Bootstrap the build machines (service + admin accounts, keys, sudo)
-  hosts: builder
+  hosts: builders
   gather_facts: true
-  # The per-machine probed identity is applied as PLAY vars (add_host vars rank
-  # below inventory host_vars, so they would not take effect there).
   vars:
     ansible_user: "{{ hostvars[inventory_hostname].bootstrap_conn.user }}"
     ansible_password: "{{ hostvars[inventory_hostname].bootstrap_conn.password }}"
     ansible_ssh_private_key_file: "{{ hostvars[inventory_hostname].bootstrap_conn.privkey }}"
-    # root needs no escalation; ansible gets NOPASSWD sudo, admin password sudo.
-    # This overrides the steady-state ansible_become from group_vars/builder/main.yml.
     bootstrap_become: "{{ hostvars[inventory_hostname].bootstrap_conn.become }}"
     ansible_become: "{{ bootstrap_become }}"
-    # The admin identity may log in by key (empty SSH password) while its sudo
-    # still requires the account password; reuse the identity's password for
-    # become so escalation works. A wrong/empty value only matters when sudo is
-    # not passwordless, in which case bootstrap fails loudly.
     ansible_become_password: "{{ hostvars[inventory_hostname].bootstrap_conn.password | default('', true) }}"
   become: "{{ bootstrap_become }}"
   tasks:
-    # --------------------------------------------------------------------------
-    # Service account: create/repair only when we did NOT connect as ansible.
-    # --------------------------------------------------------------------------
     - name: "[Bootstrap] Resolve the service account settings"
       ansible.builtin.set_fact:
-        bootstrap_service_user: "ansible"
-        bootstrap_use_key: "{{ host_ansible_ssh_pubkey_file | default('', true) | length > 0 }}"
+        bootstrap_service_user: "iac"
+        bootstrap_use_key: "{{ host_iac_ssh_pubkey_file | default('', true) | length > 0 }}"
 
     - name: "[Bootstrap] Generate the service-account password (no key supplied)"
       ansible.builtin.include_role:
@@ -200,19 +160,19 @@
         secrets_vault_dir: "{{ vault_file | dirname }}"
         secrets_vault_file: "{{ vault_file | basename }}"
         secrets_list:
-          - var: vault_host_ansible_password
+          - var: vault_host_iac_password
             type: hex
             length: 24
       when: not (bootstrap_use_key | bool)
 
     - name: "[Bootstrap] Resolve the effective service-account password"
       ansible.builtin.set_fact:
-        bootstrap_service_password: "{{ vault_host_ansible_password | default('', true) }}"
+        bootstrap_service_password: "{{ vault_host_iac_password | default('', true) }}"
       no_log: true
       when: not (bootstrap_use_key | bool)
 
     - name: "[Bootstrap] Check whether the docker group exists"
-      ansible.builtin.command: "getent group {{ ansible_service_docker_group | default('docker') }}"
+      ansible.builtin.command: "getent group docker"
       register: bootstrap_docker_group
       changed_when: false
       failed_when: false
@@ -220,18 +180,18 @@
     - name: "[Bootstrap] Resolve the service account's supplementary groups"
       ansible.builtin.set_fact:
         bootstrap_service_groups: >-
-          {{ [ansible_service_docker_group | default('docker')]
+          {{ ['docker']
              if bootstrap_docker_group.rc == 0 else [] }}
 
     - name: "[Bootstrap] Ensure the service account's group exists"
       ansible.builtin.group:
         name: "{{ bootstrap_service_user }}"
-        gid: "{{ ansible_service_gid | default(6000) }}"
+        gid: "{{ iac_gid | default(6000) }}"
 
     - name: "[Bootstrap] Create/repair the service account"
       ansible.builtin.user:
         name: "{{ bootstrap_service_user }}"
-        uid: "{{ ansible_service_uid | default(6000) }}"
+        uid: "{{ iac_uid | default(6000) }}"
         group: "{{ bootstrap_service_user }}"
         groups: "{{ bootstrap_service_groups }}"
         append: true
@@ -243,14 +203,8 @@
              if not (bootstrap_use_key | bool) else omit }}
         update_password: on_create
       no_log: true
-      when: hostvars[inventory_hostname].probe_identity | lower != 'ansible'
+      when: hostvars[inventory_hostname].probe_identity | lower != 'iac'
 
-    # --------------------------------------------------------------------------
-    # Admin identity (optional, opt-in via create_admin_account). A HUMAN operator
-    # account: always gets a password (generated when empty) for console login
-    # and sudo; a configured public key is installed additionally. Root always
-    # exists and is never created.
-    # --------------------------------------------------------------------------
     - name: "[Bootstrap] Resolve the admin identity settings"
       ansible.builtin.set_fact:
         bootstrap_admin: "{{ ssh_identities.admin }}"
@@ -286,11 +240,6 @@
         - bootstrap_admin.user != 'root'
         - bootstrap_admin.user != bootstrap_service_user
 
-    # --------------------------------------------------------------------------
-    # SSH public keys (per identity, opt-in): authorize every explicitly
-    # configured host_<id>_ssh_pubkey_file for its account. Empty/unset ->
-    # ignored (never generated).
-    # --------------------------------------------------------------------------
     - name: "[Bootstrap] Resolve the explicitly supplied public keys"
       ansible.builtin.set_fact:
         bootstrap_pubkey_specs: >-
@@ -363,24 +312,17 @@
         loop_var: pubkey_file
         label: "{{ pubkey_file.pubkey_spec.id }}"
 
-    # --------------------------------------------------------------------------
-    # Sudo: NOPASSWD for the automation account; password sudo for the (optional)
-    # human admin.
-    # --------------------------------------------------------------------------
     - name: "[Bootstrap] Resolve the sudo accounts"
       ansible.builtin.set_fact:
-        bootstrap_sudo_nopasswd_users: "{{ [bootstrap_service_user | default('ansible')] }}"
+        bootstrap_sudo_nopasswd_users: "{{ [bootstrap_service_user | default('iac')] }}"
         bootstrap_sudo_password_users: >-
           {{ [bootstrap_admin.user]
              if (bootstrap_admin_defined | default(false) | bool
                  and bootstrap_admin.user | default('', true) != 'root'
-                 and bootstrap_admin.user | default('', true) != (bootstrap_service_user | default('ansible')))
+                 and bootstrap_admin.user | default('', true) != (bootstrap_service_user | default('iac')))
              else [] }}
 
     - name: "[Bootstrap] Ensure sudo is installed for the sudoers grants"
-      # Minimal Debian images ship without the sudo package (/etc/sudoers.d may
-      # not exist at all), yet the grants below, and the `become` the deploy
-      # relies on, both need it.
       ansible.builtin.apt:
         name: sudo
         state: present
@@ -416,6 +358,6 @@
           Probed as '{{ hostvars[inventory_hostname].probe_identity }}'. Service
           account '{{ bootstrap_service_user }}'{{ " and admin account '" ~
           bootstrap_admin.user ~ "'" if bootstrap_admin_defined | bool else "" }}
-          should exist; subsequent runs connect as 'ansible' with the
-          credentials in inventory/group_vars/builder/vault.yml and the key
-          paths in inventory/group_vars/builder/main.yml.
+          should exist; subsequent runs connect as 'iac' with the
+          credentials in inventory/group_vars/builders/vault.yml and the key
+          paths in inventory/group_vars/builders/main.yml.

@@ -18,16 +18,8 @@
           untested newer engine, set ansible_core_allow_untested=true.
         quiet: true
 
-# Build a customized OpenWrt firmware image with the official ImageBuilder
-# container. Run via `make build`.
-#
-# One inventory host = one build MACHINE; its build VARIANTS (target/profile/
-# settings) are listed in host_vars/<machine>/main.yml as `build_variants`.
-# Machine-wide connection settings/secrets live in group_vars/builder/. Run
-# `make host-bootstrap` once per machine first (the connection identity is the
-# `ansible` account). Re-running converges on the same output.
 - name: "OpenWrt firmware image build"
-  hosts: builder
+  hosts: builders
   gather_facts: true
   become: false
   tasks:
@@ -40,9 +32,8 @@
         label: "{{ build_variant.name }}"
       tags: [always]
 
-# Host security (opt-in): key-only SSH administration for the build machine.
 - name: "Harden SSH (opt-in)"
-  hosts: builder
+  hosts: builders
   become: true
   gather_facts: true
   roles:

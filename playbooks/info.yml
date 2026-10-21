@@ -18,12 +18,8 @@
           untested newer engine, set ansible_core_allow_untested=true.
         quiet: true
 
-# Query the ImageBuilder image and profile information without building. Run
-# via `make info`. One inventory host = one build MACHINE; it queries every
-# variant listed in host_vars/<machine>/main.yml. Machine-wide connection
-# settings live in group_vars/builder/; run `make host-bootstrap` once first.
 - name: "OpenWrt ImageBuilder information"
-  hosts: builder
+  hosts: builders
   gather_facts: true
   become: false
   tasks:

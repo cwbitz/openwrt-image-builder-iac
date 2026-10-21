@@ -6,7 +6,7 @@ Ansible IaC that builds customized **OpenWrt firmware images** with the official
 **One inventory host = one build machine**; each machine builds one or more
 **variants** (one `(target, profile, settings)` each), listed in its
 `host_vars/<machine>/main.yml` as `build_variants`. Entry playbooks:
-`playbooks/bootstrap.yml` (once, provisions the `ansible` service account on every
+`playbooks/bootstrap.yml` (once, provisions the `iac` automation account on every
 machine), `playbooks/build.yml` (builds every variant, plus opt-in SSH
 hardening) and `playbooks/info.yml`
 (read-only ImageBuilder query). The build logic lives in `roles/imagebuilder/`;
@@ -19,13 +19,13 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
 - `make install` — the sole dependency entry point (toolchain, collections,
   `sshpass`, `passlib`, Keychain). Every other target depends on it.
 - `make host-init HOST=<name> HOST_IP=<addr>` — scaffold `inventory/hosts.yml` and
-  `group_vars/builder/main.yml` comment-free from the examples, plus
+  `group_vars/builders/main.yml` comment-free from the examples, plus
   `host_vars/<name>/` (with a `build_variants` list); add `<name>` under
-  `builder.hosts` with `HOST_IP` as its `ansible_host`; encrypt the vault (dir
+  `builders.hosts` with `HOST_IP` as its `ansible_host`; encrypt the vault (dir
   `0700`, file `0600`). HOST defaults to `openwrt-ib-prod-1` and `HOST_IP` to a
   placeholder; re-running does not overwrite existing files.
-- `make host-bootstrap` — once: probe `ansible → admin → root` on every machine
-  and create/repair the `ansible` service account (key-first, NOPASSWD sudo,
+- `make host-bootstrap` — once: probe `iac → admin → root` on
+  every machine and create/repair the `iac` automation account (key-first, NOPASSWD sudo,
   `docker` group) plus the human `admin` account when `create_admin_account` is set.
   `REFRESH=1` refreshes host keys first.
 - `make deploy` — one-click: `host-bootstrap` then `build`.
@@ -76,20 +76,20 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
 
 - `inventory/group_vars/all/main.yml` — committed project-owned baseline for
   every build machine: the SSH connection identity wiring, the connection-plugin
-  interface derived from it, the `ansible` account's fixed uid/gid + docker group,
+  interface derived from it, the `iac` account's fixed uid/gid + docker group,
   the shared connection vault path, the supported ansible-core range, and the
   firmware-secret bridge (`firmware_secrets`).
 - `inventory/knob_schema.yml` — committed validation expression per top-level
   operator knob; `playbooks/validate_knobs.yml` asserts the effective values and
   the `build_variants` entries (`make lint` / `make build` run it).
-- `inventory/group_vars/builder/main.yml` — machine-wide operator overrides, local
+- `inventory/group_vars/builders/main.yml` — machine-wide operator overrides, local
   only; the committed template is `main.yml.example` (scaffolded by `host-init`).
   The project-owned wiring lives in the committed `group_vars/all/main.yml`. The
   non-secret connection knobs (the admin account name and the per-identity key
   paths) live here; connection passwords stay in the vault.
-- `inventory/group_vars/builder/vault.yml` — machine-wide connection passwords
+- `inventory/group_vars/builders/vault.yml` — machine-wide connection passwords
   (`vault_host_<id>_password`), operator-owned; a missing generated value (the
-  `ansible` password when no key is set, the `admin` password when
+  `iac` password when no key is set, the `admin` password when
   `create_admin_account`) is merged in place by `make host-bootstrap` under the
   same name.
 - `inventory/host_vars/<machine>/vault.yml` — per-machine firmware secrets
@@ -108,10 +108,10 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
 ## Gotchas
 
 - Committed: `group_vars/all/main.yml` (project-owned baseline),
-  `host_vars/example/` and the `group_vars/builder/*.example` templates.
-  `inventory/hosts.yml`, real machine directories, and `group_vars/builder/main.yml`
+  `host_vars/example/` and the `group_vars/builders/*.example` templates.
+  `inventory/hosts.yml`, real machine directories, and `group_vars/builders/main.yml`
   / real `vault*.yml` are gitignored.
-- `bootstrap.yml` targets the `builder` group (one play per machine) and injects
+- `bootstrap.yml` targets the `builders` group (one play per machine) and injects
   the probed identity per host with `add_host`; `build.yml`/`info.yml` loop each
   machine's `build_variants` (build id = `<machine>-<variant>`).
 - A machine's variants build sequentially; machines build in parallel.

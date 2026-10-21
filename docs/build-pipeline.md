@@ -3,7 +3,7 @@
 What `roles/imagebuilder` does for one variant — the pipeline, the container
 orchestration, the ImageBuilder internals, the overlay, and artifact handling.
 
-`build.yml` targets `hosts: builder` and loops each machine's `build_variants`
+`build.yml` targets `hosts: builders` and loops each machine's `build_variants`
 (the current entry is the `build_variant` var); the role slices below run once
 per variant and are individually selectable with `--tags`
 (`preflight|modules|setup|packages|overlay|build`).
@@ -65,8 +65,8 @@ exit it restores ownership of the artifacts to the invoking host user.
 Modules ship first-boot config as uci-defaults under the role:
 
 - `files/overlay/<module>/...` — copied verbatim;
-- `templates/overlay/<module>/...` — rendered as Jinja templates (Ansible's
-  `template` module replaces the old build-time `$VARNAME` substitution).
+- `templates/overlay/<module>/...` — rendered as Jinja templates by Ansible's
+  `template` module.
 
 The role selects the files of the active modules, asserts no two active modules
 target the same path, and applies executable modes to the paths listed in
