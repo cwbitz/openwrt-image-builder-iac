@@ -61,7 +61,7 @@
     - name: "[VaultWrite] Encrypt into the vault file"
       ansible.builtin.command:
         argv:
-          - ansible-vault
+          - "{{ helper_ansible_vault_bin }}"
           - encrypt
           - --vault-password-file
           - "{{ helper_vault_password_file }}"
