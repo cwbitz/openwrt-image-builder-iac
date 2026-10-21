@@ -1,4 +1,23 @@
 ---
+- name: "Preflight: assert a supported ansible-core engine"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [always]
+  tasks:
+    - name: "[Preflight] Assert a supported ansible-core engine on the control node"
+      ansible.builtin.assert:
+        that:
+          - ansible_version.full is version(ansible_core_min_version | default('2.19.0'), '>=')
+          - (ansible_version.full is version(ansible_core_max_version | default('2.20.0'), '<')) or (ansible_core_allow_untested | default(false) | bool)
+        fail_msg: >-
+          ansible-core {{ ansible_version.full }} is outside the supported range
+          [{{ ansible_core_min_version | default('2.19.0') }},
+          {{ ansible_core_max_version | default('2.20.0') }}). Install the pinned
+          toolchain (mise install / make install) or, if you knowingly accept an
+          untested newer engine, set ansible_core_allow_untested=true.
+        quiet: true
+
 # Build a customized OpenWrt firmware image with the official ImageBuilder
 # container. Run via `make build`.
 #

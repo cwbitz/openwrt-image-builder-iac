@@ -1,0 +1,7 @@
+---
+operator_knob_schema:
+  build_variants: >-
+    (build_variants is defined)
+    and ((build_variants is sequence) and not (build_variants is string)
+    and not (build_variants is mapping))
+    and ((build_variants | default('', true) | string | trim | length) > 0)

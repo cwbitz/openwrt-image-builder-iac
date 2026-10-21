@@ -243,7 +243,7 @@ vault-view: vault-init ## View every variant's vault + the shared connection vau
 	done
 
 # (internal) Syntax check + ansible-lint (invoked by CI).
-lint: install vault-init
+lint: install vault-init validate-knobs
 	@for p in playbooks/*.yml; do \
 		$(ANS_PLAY) --syntax-check -i $(INV) "$$p" || exit 1; \
 	done
@@ -297,7 +297,7 @@ info: ## Query ImageBuilder image/profile info (no build; EXTRA=<extra -e vars>)
 	cat "$$log"; \
 	exit $$rc
 
-build: ## Build a customized OpenWrt firmware image, run host-bootstrap first (EXTRA=<extra -e vars>)
+build: validate-knobs ## Build a customized OpenWrt firmware image, run host-bootstrap first (EXTRA=<extra -e vars>)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/build.yml
@@ -465,3 +465,8 @@ ensure-keychain: verify-keychain-pin
 # (and password auth) connect directly, with no agent.
 run-playbook: install vault-init agent-fallback
 	@$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(EXTRA)
+
+.PHONY: validate-knobs
+validate-knobs: vault-init
+	@test -f $(INV) || { echo "validate-knobs: $(INV) missing, skipped"; exit 0; }
+	$(ANS_PLAY) -i $(INV) playbooks/validate_knobs.yml

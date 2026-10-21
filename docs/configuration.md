@@ -16,10 +16,21 @@ own `host_vars`.
 | `inventory/host_vars/<machine>/main.yml` | that machine's `build_variants` list |
 | `inventory/host_vars/<machine>/vault.yml` | that machine's firmware secrets |
 | `inventory/group_vars/builder/vault.yml` | shared connection secrets (one per fleet) |
+| `inventory/knob_schema.yml` | committed validation expression per top-level operator knob |
 
 The committed files are `inventory/hosts.yml.example`, the project-owned baseline
 `group_vars/all/main.yml`, and the `group_vars/builder/*.example` +
 `host_vars/example/` templates; the real files are gitignored.
+
+## Knob validation
+
+`inventory/knob_schema.yml` declares one validation expression per top-level
+operator knob, and `playbooks/validate_knobs.yml` asserts every value against it
+plus the structure of each `build_variants` entry. `make lint` and `make build`
+run it before any change, so a malformed knob fails with its name and the
+received value instead of midway through a build. The schema must cover every
+top-level key of `inventory/host_vars/example/main.yml`; the play fails when they
+drift apart.
 
 ## Variant schema
 

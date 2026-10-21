@@ -117,8 +117,10 @@ openwrt-image-builder-iac/
 | `make vault-edit-group` | Edit the shared builder connection vault |
 | `make vault-view` | View every machine's vault + the shared vault (read-only) |
 
-`make lint` (syntax-check + `ansible-lint`) is an **internal** target invoked by
-CI; it is hidden from `make help` but can be run directly.
+`make lint` (syntax-check + `ansible-lint` + the operator-example audit) is an
+**internal** target invoked by CI; it is hidden from `make help` but can be run
+directly. `make lint` and `make build` also validate the operator knobs against
+`inventory/knob_schema.yml` before any change.
 
 ## Documentation
 

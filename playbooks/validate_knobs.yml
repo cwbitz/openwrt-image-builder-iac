@@ -1,0 +1,50 @@
+---
+- name: Validate operator knobs
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Load the operator knob schema
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../inventory/knob_schema.yml"
+
+    - name: Assert the schema covers every example knob
+      ansible.builtin.assert:
+        that:
+          - operator_knob_schema.keys() | sort == (lookup('file', playbook_dir ~ '/../inventory/host_vars/example/main.yml') | from_yaml).keys() | sort
+        fail_msg: "inventory/knob_schema.yml is out of sync with inventory/host_vars/example/main.yml"
+        quiet: true
+
+    - name: Validate every operator knob
+      ansible.builtin.assert:
+        that:
+          - "{{ item.value }}"
+        fail_msg: >-
+          {{ inventory_hostname }}: invalid {{ item.key }} =
+          {{ vars[item.key] | default('<unset>') | to_json }}
+        quiet: true
+      loop: "{{ operator_knob_schema | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Validate build variants
+      ansible.builtin.assert:
+        that:
+          - item.name is defined and item.name is string and (item.name | length) > 0
+          - item.imagebuilder_image is defined and item.imagebuilder_image is string and (item.imagebuilder_image | length) > 0
+          - item.force_pull | default(false) is boolean
+          - item.fetch_artifacts | default(true) is boolean
+          - item.use_mirror | default(false) is boolean
+          - item.setup_use_mirror | default(false) is boolean
+          - item.disable_dhcp | default(false) is boolean
+          - item.modules_adjust | default([]) is sequence
+          - item.modules_override | default([]) is sequence
+          - item.extra_packages | default([]) is sequence
+          - item.lan_ip | default('') is string
+          - item.gateway | default('') is string
+          - item.dns | default([]) is sequence
+          - item.pppoe_username | default('') is string
+        fail_msg: "{{ inventory_hostname }}: invalid build variant {{ item.name | default('<unnamed>') }}"
+        quiet: true
+      loop: "{{ build_variants }}"
+      loop_control:
+        label: "{{ item.name | default('<unnamed>') }}"

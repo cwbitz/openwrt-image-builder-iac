@@ -1,4 +1,7 @@
 ---
+ansible_core_min_version: "2.19.0"
+ansible_core_max_version: "2.20.0"
+ansible_core_allow_untested: false
 # ==============================================================================
 # Project-owned baseline for EVERY managed host
 # (inventory/group_vars/all/main.yml)

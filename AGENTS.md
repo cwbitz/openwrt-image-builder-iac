@@ -40,8 +40,10 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
   the top-level keys are re-sorted alphabetically after the editor closes.
 - `make vault-view` — read-only: print every machine vault + the shared vault.
 - Internal (hidden from `make help`): `lint` (syntax-check + `ansible-lint` +
-  the operator-example audit, run by CI) and the `ensure-*` / `agent-*` /
-  `keychain-*` / `run-playbook` helpers.
+  the operator-example audit + the knob validation, run by CI) and the
+  `ensure-*` / `agent-*` / `keychain-*` / `run-playbook` helpers. `make build`
+  and `make lint` assert every operator knob against `inventory/knob_schema.yml`
+  through `playbooks/validate_knobs.yml`.
 - `EXTRA` is appended to every `ansible-playbook` invocation, e.g.
   `make build EXTRA='--limit openwrt-ib-prod-1'`.
 
@@ -75,8 +77,11 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
 - `inventory/group_vars/all/main.yml` — committed project-owned baseline for
   every build machine: the SSH connection identity wiring, the connection-plugin
   interface derived from it, the `ansible` account's fixed uid/gid + docker group,
-  the shared connection vault path, and the firmware-secret bridge
-  (`firmware_secrets`).
+  the shared connection vault path, the supported ansible-core range, and the
+  firmware-secret bridge (`firmware_secrets`).
+- `inventory/knob_schema.yml` — committed validation expression per top-level
+  operator knob; `playbooks/validate_knobs.yml` asserts the effective values and
+  the `build_variants` entries (`make lint` / `make build` run it).
 - `inventory/group_vars/builder/main.yml` — machine-wide operator overrides, local
   only; the committed template is `main.yml.example` (scaffolded by `host-init`).
   The project-owned wiring lives in the committed `group_vars/all/main.yml`. The
