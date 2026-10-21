@@ -64,7 +64,6 @@ Thumbs.db
 *.swp
 *~
 .idea/
-# Commit the shared workspace settings + vendored YAML schemas; ignore the rest.
+# Commit the shared workspace settings; ignore the rest.
 .vscode/*
 !.vscode/settings.json
-!.vscode/schemas/

@@ -5,12 +5,6 @@
   "yaml.format.bracketSpacing": false,
   "yaml.format.printWidth": 160,
   "yaml.format.trailingComma": false,
-  "yaml.schemas": {
-    ".vscode/schemas/ansible-vars.json": [
-      "inventory/host_vars/**/*.yml",
-      "inventory/group_vars/**/*.yml"
-    ]
-  },
   "yaml.disableSchemaDetection": [
     "**/playbooks/vars/*.yml",
     "**/playbooks/vars/*.yaml",
@@ -34,7 +28,11 @@
     "**/molecule/*/molecule.yml",
     "**/molecule/*/molecule.yaml",
     "**/rulebooks/*.yml",
-    "**/rulebooks/*.yaml"
+    "**/rulebooks/*.yaml",
+    "**/host_vars/**/*.yml",
+    "**/host_vars/**/*.yaml",
+    "**/group_vars/**/*.yml",
+    "**/group_vars/**/*.yaml"
   ],
   "ansible.validation.enabled": true,
   "ansible.validation.lint.enabled": true,
