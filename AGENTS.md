@@ -67,8 +67,8 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
   it never creates a play target.
 - **The probe must verify escalation, not just login.** An identity other than
   `root` is usable only when it can actually become root: proven with
-  `sudo -n true` for a password-less (NOPASSWD) identity, while a password-sudo
-  identity proves it at deploy time via `ansible_become_password`. A
+  `sudo -n true` for the NOPASSWD `iac` account, while a password-sudo identity
+  (`admin`) is proven with `sudo -S` before it is chosen. A
   half-provisioned account (login OK, sudoers not yet written) must never be
   chosen, or the bootstrap can no longer repair that host.
 
