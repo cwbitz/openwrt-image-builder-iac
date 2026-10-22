@@ -95,6 +95,7 @@
     overlay_rel: >-
       {{ item.path | relpath(role_path ~ '/templates/overlay') | regex_replace('^[^/]+/', '') }}
   loop: "{{ overlay_templates_active }}"
+  no_log: true
 
 - name: Show the rendered overlay files
   ansible.builtin.debug:
