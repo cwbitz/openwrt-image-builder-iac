@@ -216,6 +216,13 @@
       no_log: true
       when: hostvars[inventory_hostname].probe_identity | lower != 'iac'
 
+    - name: "[Bootstrap] Ensure the service account is in the docker group"
+      ansible.builtin.user:
+        name: "{{ bootstrap_service_user }}"
+        groups: "{{ bootstrap_service_groups }}"
+        append: true
+      when: bootstrap_docker_group.rc == 0
+
     - name: "[Bootstrap] Resolve the admin identity settings"
       ansible.builtin.set_fact:
         bootstrap_admin: "{{ ssh_identities.admin }}"
