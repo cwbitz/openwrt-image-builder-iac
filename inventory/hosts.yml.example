@@ -10,7 +10,7 @@
 # group_vars/all/main.yml. Run `make host-bootstrap` once per machine first.
 #
 # Building on the control node is also possible (`ansible_connection: local`,
-# `ansible_host: 127.0.0.1`). Add another machine as a sibling under `builder`.
+# `ansible_host: 127.0.0.1`). Add another machine as a sibling under `builders`.
 builders:
   hosts:
     # `make host-init HOST=<machine> HOST_IP=<addr>` adds the entry; with no
