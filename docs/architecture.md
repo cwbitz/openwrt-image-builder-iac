@@ -33,7 +33,8 @@ model, the secrets model, and how host bootstrap and variant isolation work.
 - `inventory/group_vars/all/main.yml` — the committed project-owned baseline for
   every machine: the SSH identity map (`ssh_identities`) plus the
   connection-plugin interface derived from it, the `iac` account's fixed
-  uid/gid + docker group, and the shared connection vault path.
+  uid/gid (operator override in `group_vars/builders/main.yml`, template
+  `main.yml.example`), and the shared connection vault path.
 - `inventory/group_vars/builders/` — machine-wide operator overrides, local-only
   (e.g. `create_admin_account`).
 

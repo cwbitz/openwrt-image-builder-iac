@@ -76,7 +76,7 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
 
 - `inventory/group_vars/all/main.yml` — committed project-owned baseline for
   every build machine: the SSH connection identity wiring, the connection-plugin
-  interface derived from it, the `iac` account's fixed uid/gid + docker group,
+  interface derived from it, the `iac` account's fixed uid/gid (operator override in `group_vars/builders/main.yml`, template `main.yml.example`),
   the shared connection vault path, the supported ansible-core range, and the
   firmware-secret bridge (`firmware_secrets`).
 - `inventory/knob_schema.yml` — committed validation expression per top-level
