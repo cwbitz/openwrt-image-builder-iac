@@ -91,7 +91,7 @@ host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples
 	@[ -e inventory/group_vars/builders/main.yml ] || { python3 $(CURDIR)/scripts/render_clean_template.py inventory/group_vars/builders/main.yml.example inventory/group_vars/builders/main.yml; echo "created inventory/group_vars/builders/main.yml (comments stripped)"; }
 	@install -d -m 0700 inventory/host_vars/$(HOST)
 	@[ -e inventory/host_vars/$(HOST)/main.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/host_vars/example/main.yml inventory/host_vars/$(HOST)/main.yml
-	@[ -e inventory/host_vars/$(HOST)/vault.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py inventory/host_vars/example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml
+	@[ -e inventory/host_vars/$(HOST)/vault.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/host_vars/example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml
 	@if ! grep -q 'ANSIBLE_VAULT' inventory/host_vars/$(HOST)/vault.yml; then \
 		echo "encrypting inventory/host_vars/$(HOST)/vault.yml"; \
 		ansible-vault encrypt inventory/host_vars/$(HOST)/vault.yml; \
