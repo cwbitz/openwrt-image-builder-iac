@@ -10,6 +10,8 @@
   run_once: true
   delegate_to: localhost
   become: false
+  vars:
+    ansible_become: false
 
 - name: "[VaultRead] Stat the vault file"
   tags: [always]
@@ -19,6 +21,8 @@
   check_mode: false
   delegate_to: localhost
   become: false
+  vars:
+    ansible_become: false
 
 - name: "[VaultRead] Slurp the vault file"
   tags: [always]
@@ -29,6 +33,8 @@
   check_mode: false
   delegate_to: localhost
   become: false
+  vars:
+    ansible_become: false
 
 - name: "[VaultRead] Determine whether the vault file is encrypted"
   tags: [always]
@@ -39,6 +45,8 @@
   no_log: true
   delegate_to: localhost
   become: false
+  vars:
+    ansible_become: false
 
 - name: "[VaultRead] Decrypt the vault file"
   tags: [always]
@@ -56,6 +64,8 @@
   when: read_vault_encrypted | bool
   delegate_to: localhost
   become: false
+  vars:
+    ansible_become: false
 
 - name: "[VaultRead] Set the parsed data (encrypted file)"
   tags: [always]
@@ -66,6 +76,8 @@
   when: read_vault_encrypted | bool
   delegate_to: localhost
   become: false
+  vars:
+    ansible_become: false
 
 - name: "[VaultRead] Set the parsed data (plaintext file)"
   tags: [always]
@@ -78,6 +90,8 @@
     - not (read_vault_encrypted | bool)
   delegate_to: localhost
   become: false
+  vars:
+    ansible_become: false
 
 - name: "[VaultRead] Set empty data when the file is absent"
   tags: [always]
@@ -87,3 +101,5 @@
   when: not (read_vault_stat.stat.exists | default(false))
   delegate_to: localhost
   become: false
+  vars:
+    ansible_become: false

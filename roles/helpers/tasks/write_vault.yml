@@ -11,6 +11,8 @@
   run_once: true
   delegate_to: localhost
   become: false
+  vars:
+    ansible_become: false
 
 - name: "[VaultWrite] Ensure the vault directory exists"
   tags: [always]
@@ -20,11 +22,15 @@
     mode: "0700"
   delegate_to: localhost
   become: false
+  vars:
+    ansible_become: false
 
 - name: "[VaultWrite] Persist the encrypted vault file"
   tags: [always]
   delegate_to: localhost
   become: false
+  vars:
+    ansible_become: false
   block:
     - name: "[VaultWrite] Create a throwaway plaintext file"
       ansible.builtin.tempfile:
@@ -66,3 +72,5 @@
       no_log: true
       delegate_to: localhost
       become: false
+      vars:
+        ansible_become: false

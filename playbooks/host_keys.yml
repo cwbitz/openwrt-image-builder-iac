@@ -5,6 +5,7 @@
   connection: local
   become: false
   vars:
+    ansible_become: false
     host_keys_out: "host_keys.json"
   tasks:
     - name: "[HostKeys] Build the resolved target list"

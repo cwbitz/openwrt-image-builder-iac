@@ -12,6 +12,8 @@
     recurse: true
   delegate_to: localhost
   become: false
+  vars:
+    ansible_become: false
   register: overlay_static
   failed_when: false
 
@@ -22,6 +24,8 @@
     recurse: true
   delegate_to: localhost
   become: false
+  vars:
+    ansible_become: false
   register: overlay_templates
   failed_when: false
 

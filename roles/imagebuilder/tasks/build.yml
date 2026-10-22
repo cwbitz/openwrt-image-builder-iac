@@ -74,6 +74,8 @@
   loop: "{{ artifact_relpaths | map('dirname') | unique | list }}"
   delegate_to: localhost
   become: false
+  vars:
+    ansible_become: false
   when: fetch_artifacts | bool
 
 - name: Fetch the generated artifacts to the control node

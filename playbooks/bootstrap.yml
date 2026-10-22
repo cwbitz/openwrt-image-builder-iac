@@ -1,6 +1,8 @@
 ---
 - name: "Preflight: assert a supported ansible-core engine"
   hosts: localhost
+  vars:
+    ansible_become: false
   connection: local
   become: false
   gather_facts: false
@@ -30,6 +32,8 @@
 
 - name: "Preflight: verify the managed hosts are configured"
   hosts: localhost
+  vars:
+    ansible_become: false
   connection: local
   become: false
   gather_facts: false
@@ -55,6 +59,8 @@
 
 - name: "Probe the SSH identities (iac -> admin -> root) on every machine"
   hosts: localhost
+  vars:
+    ansible_become: false
   connection: local
   gather_facts: false
   become: false
@@ -276,6 +282,8 @@
       register: bootstrap_pubkey_files
       delegate_to: localhost
       become: false
+      vars:
+        ansible_become: false
       loop: "{{ bootstrap_pubkey_specs }}"
       loop_control:
         loop_var: pubkey_spec

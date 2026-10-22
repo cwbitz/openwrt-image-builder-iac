@@ -4,6 +4,7 @@
   gather_facts: false
   become: false
   vars:
+    ansible_become: false
     agent_load_hosts: "{{ groups['builders'] | default([]) }}"
   tasks:
     - name: "[SSHAgent] Assert the Keychain ssh-agent is reachable in this shell"

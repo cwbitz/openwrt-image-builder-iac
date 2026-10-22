@@ -1,6 +1,8 @@
 ---
 - name: "Preflight: assert a supported ansible-core engine"
   hosts: localhost
+  vars:
+    ansible_become: false
   connection: local
   become: false
   gather_facts: false
