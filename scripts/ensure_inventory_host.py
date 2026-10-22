@@ -96,7 +96,7 @@ def _keep_existing(lines: list[str], entry_index: int, entry_indent: int, args) 
                 f"WARNING: {args.host} already has {key} '{existing}' (requested '{wanted}'); not changed.",
                 file=sys.stderr,
             )
-        print(f"         Fix: edit {args.inventory}, or re-run with FORCE_IP=1.", file=sys.stderr)
+        print(f"         Fix: edit {args.inventory}, or re-run with FORCE=1.", file=sys.stderr)
         for key, (existing, _) in conflicts.items():
             if existing:
                 print(f"effective {key}={existing}")
@@ -104,13 +104,23 @@ def _keep_existing(lines: list[str], entry_index: int, entry_indent: int, args) 
 
     new_lines = [l for l in lines]
     for key, (_, wanted) in conflicts.items():
+        value = f'"{wanted}"' if key == "ansible_host" else wanted
         pattern = re.compile(r"^[ ]*" + key + r"\s*:")
+        replaced = False
         for index in range(entry_index + 1, len(new_lines)):
             if _indent(new_lines[index]) <= entry_indent:
                 break
             if pattern.match(new_lines[index]):
-                new_lines[index] = " " * (entry_indent + 2) + f'{key}: "{wanted}"\n'
+                new_lines[index] = " " * (entry_indent + 2) + f"{key}: {value}\n"
+                replaced = True
                 break
+        if not replaced:
+            insert_at = entry_index + 1
+            for index in range(entry_index + 1, len(new_lines)):
+                if new_lines[index].strip() and _indent(new_lines[index]) <= entry_indent:
+                    break
+                insert_at = index + 1
+            new_lines.insert(insert_at, " " * (entry_indent + 2) + f"{key}: {value}\n")
     with open(args.inventory, "w", encoding="utf-8") as handle:
         handle.writelines(new_lines)
     print(f"{args.host}: overwritten with the requested values (forced)")
