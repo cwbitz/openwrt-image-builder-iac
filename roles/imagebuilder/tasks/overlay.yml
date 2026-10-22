@@ -52,6 +52,16 @@
              | map('relpath', role_path ~ '/templates/overlay') | map('regex_replace', '^[^/]+/', '') | map('dirname') | list))
          | unique }}
 
+- name: Assert the root password is set when the root-password module is active
+  ansible.builtin.assert:
+    that:
+      - root_password | length > 0
+    fail_msg: >-
+      Variant '{{ build_variant.name }}' enables the root-password module, but
+      vault_openwrt_root_password.{{ build_variant.name }} is empty. Set it in
+      the machine vault, or remove the module from build_variants.
+  when: "'root-password' in modules_active"
+
 - name: Assert no two active modules ship the same overlay file
   ansible.builtin.assert:
     that:
