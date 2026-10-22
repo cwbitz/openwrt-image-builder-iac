@@ -2,6 +2,7 @@
 - name: "Preflight: assert a supported ansible-core engine"
   hosts: localhost
   connection: local
+  become: false
   gather_facts: false
   tags: [always]
   tasks:
@@ -30,6 +31,7 @@
 - name: "Preflight: verify the managed hosts are configured"
   hosts: localhost
   connection: local
+  become: false
   gather_facts: false
   tags: [always]
   tasks:
