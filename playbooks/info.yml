@@ -5,6 +5,15 @@
   gather_facts: false
   tags: [always]
   tasks:
+    - name: "[Preflight] Require at least one build machine"
+      ansible.builtin.assert:
+        that:
+          - groups['builders'] | default([]) | length > 0
+        fail_msg: >-
+          The 'builders' inventory group is empty. Add at least one machine
+          under builders.hosts in inventory/hosts.yml (see hosts.yml.example).
+        quiet: true
+
     - name: "[Preflight] Assert a supported ansible-core engine on the control node"
       ansible.builtin.assert:
         that:
