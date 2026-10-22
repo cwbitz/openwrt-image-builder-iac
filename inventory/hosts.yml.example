@@ -14,7 +14,7 @@
 builders:
   hosts:
     # `make host-init HOST=<machine> HOST_IP=<addr>` adds the entry; with no
-    # arguments it scaffolds the default machine `openwrt-ib-prod-1` with a
+    # arguments it scaffolds the default machine `builder-1` with a
     # placeholder address. Example entry:
-    #   openwrt-ib-prod-1:
+    #   builder-1:
     #     ansible_host: 203.0.113.50

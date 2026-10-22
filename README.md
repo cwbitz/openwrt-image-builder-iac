@@ -37,9 +37,9 @@ mise install           # or: asdf install
 
 # 1) Scaffold one config dir per build MACHINE (the dir name must match the
 #    inventory host name). Then list its variants in the machine's main.yml.
-make host-init HOST=openwrt-ib-prod-1 HOST_IP=10.0.10.50
-#    (comment-free; openwrt-ib-prod-1 is added under builder.hosts automatically)
-#    -> edit inventory/host_vars/openwrt-ib-prod-1/main.yml (build_variants)
+make host-init HOST=builder-1 HOST_IP=10.0.10.50
+#    (comment-free; builder-1 is added under builder.hosts automatically)
+#    -> edit inventory/host_vars/builder-1/main.yml (build_variants)
 #    -> add another machine: make host-init HOST=openwrt-ib-prod-2 HOST_IP=10.0.10.51
 
 # 2) Secrets: connection secrets go in the shared vault (once per fleet);
@@ -47,7 +47,7 @@ make host-init HOST=openwrt-ib-prod-1 HOST_IP=10.0.10.50
 make install           # toolchain + collections + sshpass/passlib + Keychain
 make vault-init        # one-time: vault password (back it up)
 make vault-edit-group  # shared SSH identity vault
-make vault-edit HOST=openwrt-ib-prod-1   # that machine's firmware secrets
+make vault-edit HOST=builder-1   # that machine's firmware secrets
 
 # 3) Bootstrap the build machine(s) once (probe iac -> admin -> root,
 #    provision the 'iac' automation account: password, keys, NOPASSWD sudo).
@@ -55,7 +55,7 @@ make host-bootstrap
 
 # 4) Build every variant (machines in parallel; connects as 'iac')
 make build
-make build EXTRA='--limit openwrt-ib-prod-1'   # or just one machine
+make build EXTRA='--limit builder-1'   # or just one machine
 
 # One-shot alternative to steps 3-4: bootstrap the hosts, then build
 make deploy

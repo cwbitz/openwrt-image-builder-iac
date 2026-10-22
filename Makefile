@@ -7,7 +7,7 @@ INV      := inventory/hosts.yml
 EXTRA ?=
 
 export ANSIBLE_VAULT_PASSWORD_FILE := $(HOME)/.config/projects/openwrt-image-builder-iac/ansible_vault_password
-HOST              ?= openwrt-ib-prod-1
+HOST              ?= builder-1
 
 HOST_IP           ?=
 
@@ -86,7 +86,7 @@ help: ## Show this help
 
 install: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections ensure-passlib ## Install the pinned toolchain, collections, and control-node dependencies
 
-host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples (comment-free); HOST default openwrt-ib-prod-1, HOST_IP default CHANGE_ME_HOST_IP, FORCE=1 replaces an existing entry
+host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples (comment-free); HOST default builder-1, HOST_IP default CHANGE_ME_HOST_IP, FORCE=1 replaces an existing entry
 	@[ -e $(INV) ] || { python3 $(CURDIR)/scripts/render_clean_template.py $(INV).example $(INV); echo "created $(INV) (comments stripped)"; }
 	@[ -e inventory/group_vars/builders/main.yml ] || { python3 $(CURDIR)/scripts/render_clean_template.py inventory/group_vars/builders/main.yml.example inventory/group_vars/builders/main.yml; echo "created inventory/group_vars/builders/main.yml (comments stripped)"; }
 	@install -d -m 0700 inventory/host_vars/$(HOST)

@@ -32,14 +32,14 @@ Operational procedures for building OpenWrt firmware with
 ```bash
 mise install
 # One inventory host = one build machine; list its variants in the machine's main.yml.
-make host-init HOST=openwrt-ib-prod-1 HOST_IP=10.0.10.50   # scaffolds group_vars + host_vars/<machine>/
+make host-init HOST=builder-1 HOST_IP=10.0.10.50   # scaffolds group_vars + host_vars/<machine>/
 make host-init HOST=openwrt-ib-prod-2 HOST_IP=10.0.10.51   # repeat for each machine
 # edit each host_vars/<machine>/main.yml (build_variants: build config)
 # and each host_vars/<machine>/vault.yml (firmware secrets)
 make install
 make vault-init
 make vault-edit-group                     # shared SSH identity vault
-make vault-edit HOST=openwrt-ib-prod-1    # that machine's firmware secrets
+make vault-edit HOST=builder-1    # that machine's firmware secrets
 make host-bootstrap                       # once; probe iac -> admin -> root
 # or, to bootstrap and then build everything in one shot:
 make deploy
@@ -66,7 +66,7 @@ See [architecture](architecture.md) for the full model.
 
 ```bash
 make build                            # build every variant (machines in parallel)
-make build EXTRA='--limit openwrt-ib-prod-1'  # single machine
+make build EXTRA='--limit builder-1'  # single machine
 make deploy                           # host-bootstrap, then build (fresh host to image)
 ```
 
@@ -105,7 +105,7 @@ can be removed freely; remove the control-node caches (`.cache`, `collections`,
 
 ```bash
 make info
-make info EXTRA='--limit openwrt-ib-prod-1'   # single machine
+make info EXTRA='--limit builder-1'   # single machine
 ```
 
 Runs `make info` inside the container without building; use it to discover the

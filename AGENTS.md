@@ -22,7 +22,7 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
   `group_vars/builders/main.yml` comment-free from the examples, plus
   `host_vars/<name>/` (with a `build_variants` list); add `<name>` under
   `builders.hosts` with `HOST_IP` as its `ansible_host`; encrypt the vault (dir
-  `0700`, file `0600`). HOST defaults to `openwrt-ib-prod-1` and `HOST_IP` to a
+  `0700`, file `0600`). HOST defaults to `builder-1` and `HOST_IP` to a
   placeholder; re-running does not overwrite existing files.
 - `make host-bootstrap` — once: probe `iac → admin → root` on
   every machine and create/repair the `iac` automation account (key-first, NOPASSWD sudo,
@@ -45,7 +45,7 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
   and `make lint` assert every operator knob against `inventory/knob_schema.yml`
   through `playbooks/validate_knobs.yml`.
 - `EXTRA` is appended to every `ansible-playbook` invocation, e.g.
-  `make build EXTRA='--limit openwrt-ib-prod-1'`.
+  `make build EXTRA='--limit builder-1'`.
 
 ## Ansible conventions: probe & bootstrap host targeting
 
