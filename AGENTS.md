@@ -122,6 +122,68 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
 - `ansible.cfg` sets `vault_password_file`; ansible-core 2.19 hard-fails when it
   is missing, so CI generates a throwaway file before lint/syntax-check.
 
+## Testing and verification
+
+Two layers, and only one of them is executable:
+
+- **Automated** — `make lint` (playbook syntax check, `ansible-lint`, the
+  knob-schema/example audit, the host-key and repository-privacy checks,
+  `gitleaks`) and `make test` (the helper suite under `tests/`). Both run in CI on
+  every change.
+- **Manual** — the cases that need a disposable host and destructive steps; they
+  are a checklist in `docs/runbooks.md` and are re-run when a role, the bootstrap
+  or the backup path changes. `tests/` covers the helpers, not a live SSH session
+  or a running stack.
+
+### Environment and safety boundaries
+
+- **Live hosts are read-only.** Inspect them with `make print`, `make print
+  HOST=<name>`, `docker inspect`, `systemctl status` and external probes. No
+  deploy, bootstrap, backup, restore or hardening run targets a live host.
+- **Every state-changing or destructive case runs on a disposable build machine**
+  (systemd, Docker Engine with Compose v2, sshd) whose cache and artifacts can be
+  thrown away; the build container is privileged enough that it must never share a
+  machine with anything else under test.
+- **Isolate the test environment**: its own inventory (never the real
+  `inventory/hosts.yml`) and its own vault password file.
+- **Ask before creating resources** — hosts, DNS records, storage paths — and
+  before anything that costs money or touches a system outside the test host.
+- **Order of work**: read-only checks first, then state-changing cases, then
+  destructive ones; snapshot or back up before every destructive step.
+- **Never print, paste or commit secrets.** Redact evidence before quoting it; a
+  secret in a log or a report is itself a defect to record.
+
+### Execution rules
+
+- Write the expected result before running a case; never backfill it.
+- Cases are independently runnable; declare prerequisites where order matters.
+- A defect gets a reproducing case before anything else happens.
+- Separate product defects from environment failures, and state the evidence for
+  that call.
+- Skip only with a recorded reason; never count an unexecuted case as a pass.
+- No change to the product to make a case pass; no drive-by fixes.
+
+### Recording and defects
+
+- Keep raw logs, `-vvv` output, `docker inspect`, `systemctl status` and probe
+  responses under `/tmp/opencode/test-run-<UTC stamp>/artifacts/<case>/`; never
+  store a decrypted vault, and redact before quoting.
+- Severity: `blocker` (data loss, outage, security), `major` (feature unusable, or
+  docs contradict behaviour), `minor`, `nit`. Each entry carries a minimal
+  reproduction, expected vs actual, impact, evidence path and a suggested fix;
+  merge entries that share a root cause.
+
+### Definition of done
+
+- `make lint` and `make test` green;
+- the manual checklist passes on the disposable host, and a second run at the
+  same desired state reports `changed=0` outside the documented non-idempotent
+  steps;
+- every destructive path fails safely with an actionable message;
+- no unexplained high-severity security finding;
+- every conclusion points at evidence, and every unexecuted check names the
+  reason and what would unblock it.
+
 ## Detailed documentation
 
 - [docs/architecture.md](docs/architecture.md) — component model, configuration

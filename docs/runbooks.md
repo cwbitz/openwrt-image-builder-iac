@@ -204,3 +204,47 @@ host keeps its old login policy. The provider console remains the recovery path.
 | Artifacts not in the control node's `artifacts/` | Check `fetch_artifacts` (default true); they are also kept on the builder at `output_dir` |
 | `--tags sshd` fails at "Prove a key-only login" | The chosen identity has no authorized key yet: set `host_iac_ssh_pubkey_file` (or root's) and run `make host-bootstrap`, or unset `sshd_hardening_enabled` |
 | Cannot reach a builder over SSH | Fix its `ansible_host` in `hosts.yml`; the connection identity comes from the committed `group_vars/all/main.yml` |
+
+## Manual verification on a disposable host
+
+The cases `tests/` cannot cover: they need a real build machine, the build
+container and destructive steps. Run them on a disposable machine with its own
+inventory and vault password file, read-only checks first, destructive ones last,
+and evidence under `/tmp/opencode/test-run-<stamp>/artifacts/<case>/`, redacted.
+The expected result is the contract — a deviation is a defect to record, not a
+reason to skip.
+
+### Bootstrap and build
+
+- [ ] `make host-init` scaffolds `inventory/hosts.yml` and `host_vars/<machine>/`;
+      the `CHANGE_ME_HOST_IP` placeholder is refused until replaced.
+- [ ] `make host-bootstrap`: `iac` created with passwordless sudo and the configured
+      keys, Docker Engine and Compose v2 present; a second run changes nothing.
+- [ ] `make build` builds every declared variant and fetches the images into the
+      control node's `artifacts/`; each artifact is a complete image for its target
+      and profile.
+- [ ] A second `make build` with `force_pull: false` reuses the cached imagebuilder
+      input instead of downloading it again; `force_pull: true` rebuilds.
+- [ ] Two variants on one machine build in parallel without sharing or clobbering
+      their `build_id` directories.
+- [ ] Artifacts are owned by the invoking user (`HOST_UID`/`HOST_GID`), not root.
+
+### Variants, mirrors and info
+
+- [ ] Each variant's target/profile/packages/modules are reflected in the image
+      (log in and check the declared package set).
+- [ ] `make info` returns the image/profile metadata without starting a build.
+- [ ] A mirror-enabled build succeeds (APK path includes the OpenWrt prefix on
+      25.12+), and disabling the mirror falls back cleanly.
+
+### Secrets and security
+
+- [ ] Firmware secrets stay out of the artifacts and the tree: `git ls-files` shows
+      only `example/`, and a built image carries no vault value.
+- [ ] The builder vault is `0600` and encrypted; `make vault-view` reads it and
+      `-vvv` shows no value.
+- [ ] With `sshd_hardening_enabled`: password login refused, keyed login works, and
+      a missing authorized key blocks the role before it writes the config.
+- [ ] `make lint` and `make test` are green.
+- [ ] `AGENTS.md`, `docs/` and this runbook match observed behaviour; a
+      contradiction is recorded as a defect.
