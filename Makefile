@@ -364,5 +364,4 @@ run-playbook: install vault-init agent-fallback
 
 .PHONY: validate-knobs
 validate-knobs: vault-init
-	@test -f $(INV) || { echo "validate-knobs: $(INV) missing, skipped"; exit 0; }
-	$(ANS_PLAY) -i $(INV) playbooks/validate_knobs.yml
+	@if [ -f $(INV) ]; then $(ANS_PLAY) -i $(INV) playbooks/validate_knobs.yml; else echo "validate-knobs: $(INV) missing, skipped"; fi
