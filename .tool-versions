@@ -11,3 +11,6 @@ ansible-core 2.19.11
 # Lint tools, pinned so local and CI use one version.
 pipx:ansible-lint 26.6.0
 pipx:yamllint 1.38.0
+
+# Unit tests for the control-node helpers (`make test`).
+pipx:pytest 9.1.1

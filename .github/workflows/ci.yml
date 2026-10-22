@@ -38,6 +38,8 @@ jobs:
 
       - name: Lint (syntax check + ansible-lint)
         run: make lint
+      - name: Unit tests (pytest)
+        run: make test
       - name: YAML lint
         run: yamllint -c .yamllint .ansible-lint requirements.yml playbooks roles inventory .github renovate.json
       - name: Verify the pinned Keychain asset (SHA256)

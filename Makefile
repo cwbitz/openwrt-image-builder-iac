@@ -175,6 +175,10 @@ vault-view: vault-init ## View every variant's vault + the shared connection vau
 		else cat "$$p"; fi; \
 	done
 
+.PHONY: test
+test: ## Run the unit tests for the control-node helpers
+	pytest -q tests
+
 lint: install vault-init validate-knobs
 	@for p in playbooks/*.yml; do \
 		$(ANS_PLAY) --syntax-check -i $(INV) "$$p" || exit 1; \
