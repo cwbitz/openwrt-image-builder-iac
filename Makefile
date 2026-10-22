@@ -186,6 +186,7 @@ lint: install vault-init validate-knobs
 	fi
 	@python3 scripts/audit_example_knobs.py
 	python3 scripts/check_host_keys.py
+	python3 scripts/check_repo_privacy.py
 
 .PHONY: hostkey-init
 hostkey-init: vault-init ## Refresh every managed host's SSH host key in known_hosts (FORCE=1 replaces a changed key)

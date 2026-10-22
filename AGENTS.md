@@ -40,7 +40,9 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
   the top-level keys are re-sorted alphabetically after the editor closes.
 - `make vault-view` — read-only: print every machine vault + the shared vault.
 - Internal (hidden from `make help`): `lint` (syntax-check + `ansible-lint` +
-  the operator-example audit + the knob validation, run by CI) and the
+  the operator-example audit + the knob validation + `scripts/check_repo_privacy.py`
+  — tracked local-only trees, credential files and real addresses or host names,
+  allowlist in `.privacy-allowlist` — run by CI) and the
   `ensure-*` / `agent-*` / `keychain-*` / `run-playbook` helpers. `make build`
   and `make lint` assert every operator knob against `inventory/knob_schema.yml`
   through `playbooks/validate_knobs.yml`.
