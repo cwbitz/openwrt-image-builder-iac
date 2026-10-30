@@ -30,6 +30,9 @@
           untested newer engine, set ansible_core_allow_untested=true.
         quiet: true
 
+- name: "Preflight: verify the managed hosts"
+  import_playbook: preflight_managed_hosts.yml
+
 - name: "OpenWrt firmware image build"
   hosts: builders
   gather_facts: true

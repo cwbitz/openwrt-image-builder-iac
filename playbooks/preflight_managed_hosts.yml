@@ -1,0 +1,22 @@
+---
+- name: "Preflight: verify the managed hosts are configured"
+  hosts: builders
+  gather_facts: false
+  become: false
+  tags: [always]
+  tasks:
+    - name: "[Preflight] Require a real management address for every host"
+      ansible.builtin.assert:
+        that:
+          - ansible_host is defined
+          - (ansible_host | default('', true) | string | trim | length) > 0
+          - >-
+            (ansible_host | default('', true) | string | trim)
+            is not match('(?i)^(change_?me|todo)')
+        fail_msg: |-
+          {{ inventory_hostname }}: ansible_host is
+          '{{ ansible_host | default('<unset>', true) }}', which is not a usable
+          management address. Set the real address in the gitignored
+          inventory/hosts.yml, or re-scaffold the host:
+            make host-init HOST={{ inventory_hostname }} HOST_IP=<builder-address>
+        quiet: true
