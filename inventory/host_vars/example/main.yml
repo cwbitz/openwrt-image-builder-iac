@@ -11,9 +11,11 @@ docker_registry_mirrors: []
 
 build_variants:
   - name: main
-    # [REQUIRED] official ImageBuilder image, e.g.
-    # openwrt/imagebuilder:x86-64-25.12.5 (tags: hub.docker.com/r/openwrt/imagebuilder/tags).
-    imagebuilder_image: openwrt/imagebuilder:generic-arm64
+    # [REQUIRED] official ImageBuilder image; replace the placeholder with a tag
+    # from hub.docker.com/r/openwrt/imagebuilder/tags:
+    # openwrt/imagebuilder:<target>-<subtarget>[-<version>] or
+    # openwrt/imagebuilder:<arch>[-<version>].
+    imagebuilder_image: "openwrt/imagebuilder:<target>-<subtarget>[-<version>]"
     # [OPTIONAL] profile; empty => the target's first profile (`make info` lists them).
     target_profile: ""
     # [OPTIONAL] force a fresh pull of the ImageBuilder image before building.
@@ -43,6 +45,6 @@ build_variants:
 
   # A second variant on the same machine; omitted keys use the role defaults.
   - name: ap
-    imagebuilder_image: openwrt/imagebuilder:generic-arm64
+    imagebuilder_image: "openwrt/imagebuilder:<target>-<subtarget>[-<version>]"
     modules_override: [base, system, root-password, disable-ipv6, extras, bypass-router]
     extra_image_name: "-ap"

@@ -8,6 +8,15 @@
       build_variants in inventory/host_vars/<machine>/main.yml (copy
       host_vars/example/), e.g. openwrt/imagebuilder:x86-64-v23.05.5.
 
+- name: Assert the ImageBuilder image placeholder is replaced
+  ansible.builtin.assert:
+    that:
+      - not (imagebuilder_image is search('[<>]'))
+    fail_msg: >-
+      imagebuilder_image is still the example placeholder. Replace it with a
+      real tag from hub.docker.com/r/openwrt/imagebuilder/tags, e.g.
+      openwrt/imagebuilder:armsr-armv8-25.12.6.
+
 - name: Check the Docker CLI is available on the build host
   ansible.builtin.command: docker --version
   register: docker_cli
