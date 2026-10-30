@@ -51,6 +51,9 @@
   hosts: builders
   become: true
   gather_facts: true
+  vars:
+    ansible_become: true
+    ansible_become_password: "{{ ssh_password | default('', true) }}"
   roles:
     - role: sshd
       tags: [sshd]
