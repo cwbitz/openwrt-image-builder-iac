@@ -1,5 +1,9 @@
 ---
 operator_knob_schema:
+  docker_registry_mirrors: >-
+    docker_registry_mirrors is not defined
+    or ((docker_registry_mirrors is sequence) and not (docker_registry_mirrors is string)
+    and not (docker_registry_mirrors is mapping))
   build_variants: >-
     (build_variants is defined)
     and ((build_variants is sequence) and not (build_variants is string)

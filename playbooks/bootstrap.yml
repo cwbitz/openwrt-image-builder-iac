@@ -171,6 +171,11 @@
     ansible_become: "{{ bootstrap_become }}"
     ansible_become_password: "{{ hostvars[inventory_hostname].bootstrap_conn.password | default('', true) }}"
   become: "{{ bootstrap_become }}"
+  handlers:
+    - name: Restart docker
+      ansible.builtin.systemd_service:
+        name: docker
+        state: restarted
   tasks:
     - name: "[Bootstrap] Resolve the service account settings"
       ansible.builtin.set_fact:
@@ -237,6 +242,41 @@
         groups: "{{ bootstrap_service_groups }}"
         append: true
       when: bootstrap_docker_group.rc == 0
+
+    - name: "[Bootstrap] Assert Docker is installed for registry mirrors"
+      ansible.builtin.command: docker --version
+      register: bootstrap_docker_cli
+      changed_when: false
+      failed_when: false
+      when: docker_registry_mirrors | default([]) | length > 0
+
+    - name: "[Bootstrap] Fail when registry mirrors are set without Docker"
+      ansible.builtin.assert:
+        that:
+          - bootstrap_docker_cli.rc | default(1) == 0
+        fail_msg: >-
+          docker_registry_mirrors is set but the Docker CLI is missing on
+          {{ inventory_hostname }}; install Docker first.
+      when: docker_registry_mirrors | default([]) | length > 0
+
+    - name: "[Bootstrap] Read the existing Docker daemon.json (if any)"
+      ansible.builtin.slurp:
+        src: /etc/docker/daemon.json
+      register: bootstrap_daemon
+      failed_when: false
+      when: docker_registry_mirrors | default([]) | length > 0
+
+    - name: "[Bootstrap] Merge registry mirrors into daemon.json"
+      ansible.builtin.copy:
+        content: >-
+          {{ (bootstrap_daemon.content | default('e30=') | b64decode | from_json)
+             | combine({'registry-mirrors': docker_registry_mirrors}) | to_nice_json }}
+        dest: /etc/docker/daemon.json
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart docker
+      when: docker_registry_mirrors | default([]) | length > 0
 
     - name: "[Bootstrap] Resolve the admin identity settings"
       ansible.builtin.set_fact:

@@ -5,6 +5,10 @@
 # Machine-wide settings live in group_vars/builders/main.yml; firmware secrets in
 # the vault.yml next to this file (the role matches them by variant name).
 
+# Docker Hub pull-through mirrors for the build host; e.g. ["https://mirror.gcr.io"]
+# is the fastest from an APAC host and also lifts Docker Hub's anonymous pull limit.
+docker_registry_mirrors: []
+
 build_variants:
   - name: main
     # [REQUIRED] official ImageBuilder image, e.g.
