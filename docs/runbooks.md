@@ -81,9 +81,9 @@ container orchestration and overlay rendering.
 | `artifacts_dir` | `<repo>/artifacts/<machine>-<variant>` | Control-node destination |
 | `output_dir` | `~/.cache/openwrt-builder/artifacts/<machine>-<variant>` | Builder-side output directory |
 
-The `artifacts/` directory itself is tracked (via `.gitkeep`); its contents are
-gitignored. Disable retrieval for large builds or when the builder is the control
-node and you do not need a second copy.
+The `artifacts/` directory is local-only and gitignored; it is created on demand.
+Disable retrieval for large builds or when the builder is the control node and
+you do not need a second copy.
 
 ### Verify
 

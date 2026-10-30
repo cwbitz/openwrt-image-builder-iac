@@ -19,10 +19,8 @@ collections/
 *.log
 
 # ===== Build artifacts / scratch =====
-# Keep the artifacts/ directory in the repo (tracked via .gitkeep); ignore the
-# fetched build artifacts inside it. Builder-side scratch lives under ~/.cache.
-artifacts/*
-!artifacts/.gitkeep
+# Fetched build artifacts are local-only; the directory is created on demand.
+artifacts/
 bin/
 
 # ===== Secrets / keys =====

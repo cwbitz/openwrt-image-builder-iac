@@ -1,4 +1,0 @@
-# Placeholder that keeps the artifacts/ directory in the repository.
-# All actual build artifacts under this directory are gitignored (see
-# .gitignore); when fetch_artifacts is enabled they are fetched here
-# from the builder as targets/<target>/<subtarget>/...
