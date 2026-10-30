@@ -12,7 +12,11 @@
 # Probed in order [iac, admin, root] by `make host-bootstrap`;
 # build/info connect as `iac`. Each identity takes its password from the shared vault
 # and/or a key path here (SSH prefers the key; empty = not used). A pubkey path
-# is authorized for that account during bootstrap.
+# is authorized for that account during bootstrap. The optional human 'admin'
+# account exists only while create_admin_account is true: it always gets a
+# password (generated into the shared vault when empty) plus any configured key;
+# false manages no admin account (least privilege).
+create_admin_account: false
 host_admin_username: "admin"
 host_iac_ssh_pubkey_file: ""
 host_iac_ssh_privkey_file: ""
@@ -25,12 +29,6 @@ host_root_ssh_privkey_file: ""
 # Fixed service uid/gid; project-wide automation accounts use 6000-6499.
 iac_uid: 6000
 iac_gid: 6000
-
-# --- Optional human 'admin' account -------------------------------------------
-# Create/repair the optional human 'admin' account during `make host-bootstrap`.
-# It always gets a password (generated into the shared vault when empty) plus any
-# configured key. Default false: no admin account is managed (least privilege).
-create_admin_account: false
 
 # --- Host security (role sshd; make build EXTRA='--tags sshd') ------------------
 # Key-only SSH administration, OFF by default: it closes password login, so it is
