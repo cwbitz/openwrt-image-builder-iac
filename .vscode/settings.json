@@ -12,6 +12,8 @@
     "**/vars/*.yaml",
     "**/defaults/*.yml",
     "**/defaults/*.yaml",
+    "**/tasks/**/*.yml",
+    "**/tasks/**/*.yaml",
     "**/requirements.yml",
     "**/requirements.yaml",
     "**/meta/main.yml",
