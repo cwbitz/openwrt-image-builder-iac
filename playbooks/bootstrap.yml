@@ -30,102 +30,102 @@
           untested newer engine, set ansible_core_allow_untested=true.
         quiet: true
 
-- name: "Preflight: verify the managed hosts are configured"
-  hosts: localhost
-  vars:
-    ansible_become: false
-  connection: local
-  become: false
-  gather_facts: false
-  tags: [always]
-  tasks:
-    - name: "[Preflight] Require a real management address for every host"
-      ansible.builtin.assert:
-        that:
-          - (hostvars[item].ansible_host | default('', true) | string | trim | length) > 0
-          - >-
-            (hostvars[item].ansible_host | default('', true) | string | trim)
-            is not match('(?i)^(change_?me|todo)')
-        fail_msg: |-
-          { item }: ansible_host is
-          '{ hostvars[item].ansible_host | default('<unset>', true) }', which is not a
-          usable management address. Set the real address in the gitignored
-          inventory/hosts.yml, or re-scaffold the host:
-            make host-init HOST={{ item }} HOST_IP=<builder-address>
-        quiet: true
-      loop: "{{ groups['builders'] | default([]) }}"
-      loop_control:
-        label: "{{ item }}"
+- name: "Preflight: verify the managed hosts"
+  import_playbook: preflight_managed_hosts.yml
 
 - name: "Probe the SSH identities (iac -> admin -> root) on every machine"
   hosts: localhost
   vars:
     ansible_become: false
+    probe_credentials_dir: "{{ playbook_dir }}/../.cache/ansible/probe-credentials"
   connection: local
   gather_facts: false
   become: false
   tasks:
     - name: "[Probe] Try each identity over SSH"
-      ansible.builtin.shell: |
-        set -u
-        set -o pipefail
-        HOST="{{ hostvars[probe_host].ansible_host }}"; PORT="{{ hostvars[probe_host].ansible_port | default(22) }}"
-        try_identity() {
-          id="$1"
-          user=$(eval echo "\$PROBE_${id}_USER")
-          pw=$(eval echo "\$PROBE_${id}_PW")
-          key=$(eval echo "\$PROBE_${id}_KEY")
-          [ -z "$user" ] && return 1
-          kopt=""; [ -n "$key" ] && kopt="-i $key"
-          base="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -o Port=$PORT"
-          base="$base -o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
-          # A non-root account must prove it can escalate: `iac` is NOPASSWD by
-          # contract, and `admin` may use password sudo, so each is probed before
-          # it is chosen over root.
-          remote="true"
-          if [ "$id" = "IAC" ]; then
-            remote="sudo -n true"
-          elif [ "$id" = "ADMIN" ] && [ -z "$pw" ]; then
-            remote="sudo -n true"
-          fi
-          if [ -n "$pw" ]; then
-            if [ "$id" = "ADMIN" ]; then
-              printf '%s\n' "$pw" \
-                | SSHPASS="$pw" \
-                  sshpass -e ssh $base $kopt "$user@$HOST" \
-                  "sudo -S -p '' true" >/dev/null 2>&1 && return 0
-            else
-              SSHPASS="$pw" sshpass -e ssh $base $kopt "$user@$HOST" "$remote" >/dev/null 2>&1 && return 0
-            fi
-          else
-            ssh $base -o BatchMode=yes $kopt "$user@$HOST" "$remote" >/dev/null 2>&1 && return 0
-          fi
-          return 1
-        }
-        for id in IAC ADMIN ROOT; do
-          if try_identity "$id"; then echo "$id"; exit 0; fi
-        done
-        exit 1
-      args:
-        executable: /bin/bash
-      environment:
-        PROBE_IAC_USER: "{{ hostvars[probe_host].ssh_identities.iac.user }}"
-        PROBE_IAC_PW: "{{ hostvars[probe_host].ssh_identities.iac.password }}"
-        PROBE_IAC_KEY: "{{ hostvars[probe_host].ssh_identities.iac.privkey }}"
-        PROBE_ADMIN_USER: "{{ hostvars[probe_host].ssh_identities.admin.user }}"
-        PROBE_ADMIN_PW: "{{ hostvars[probe_host].ssh_identities.admin.password }}"
-        PROBE_ADMIN_KEY: "{{ hostvars[probe_host].ssh_identities.admin.privkey }}"
-        PROBE_ROOT_USER: "{{ hostvars[probe_host].ssh_identities.root.user }}"
-        PROBE_ROOT_PW: "{{ hostvars[probe_host].ssh_identities.root.password }}"
-        PROBE_ROOT_KEY: "{{ hostvars[probe_host].ssh_identities.root.privkey }}"
-      loop: "{{ groups['builders'] | default([]) }}"
-      loop_control:
-        loop_var: probe_host
-        label: "{{ probe_host }}"
-      register: probe
-      changed_when: false
-      no_log: true
-      failed_when: false
+      block:
+        - name: "[Probe] Ensure the credential staging directory exists"
+          ansible.builtin.file:
+            path: "{{ probe_credentials_dir }}"
+            state: directory
+            mode: "0700"
+
+        - name: "[Probe] Stage the identity credentials on the control node"
+          ansible.builtin.copy:
+            content: |
+              {% for id in ['iac', 'admin', 'root'] %}
+              PROBE_{{ id | upper }}_USER={{ hostvars[probe_host].ssh_identities[id].user | quote }}
+              PROBE_{{ id | upper }}_PW={{ hostvars[probe_host].ssh_identities[id].password | quote }}
+              PROBE_{{ id | upper }}_KEY={{ hostvars[probe_host].ssh_identities[id].privkey | quote }}
+              {% endfor %}
+            dest: "{{ probe_credentials_dir }}/{{ probe_host }}.env"
+            mode: "0600"
+          loop: "{{ groups['builders'] | default([]) }}"
+          loop_control:
+            loop_var: probe_host
+            label: "{{ probe_host }}"
+          no_log: true
+
+        - name: "[Probe] Try each identity over SSH"
+          ansible.builtin.shell: |
+            set -u
+            set -o pipefail
+            . "$PROBE_CREDENTIALS_FILE"
+            HOST="{{ hostvars[probe_host].ansible_host }}"; PORT="{{ hostvars[probe_host].ansible_port | default(22) }}"
+            try_identity() {
+              id="$1"
+              user=$(eval echo "\$PROBE_${id}_USER")
+              pw=$(eval echo "\$PROBE_${id}_PW")
+              key=$(eval echo "\$PROBE_${id}_KEY")
+              [ -z "$user" ] && return 1
+              kopt=""; [ -n "$key" ] && kopt="-i $key"
+              base="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=8 -o Port=$PORT"
+              base="$base -o PreferredAuthentications=publickey,password -o NumberOfPasswordPrompts=1"
+              # A non-root account must prove it can escalate: `iac` is NOPASSWD by
+              # contract, and `admin` may use password sudo, so each is probed before
+              # it is chosen over root.
+              remote="true"
+              if [ "$id" = "IAC" ]; then
+                remote="sudo -n true"
+              elif [ "$id" = "ADMIN" ] && [ -z "$pw" ]; then
+                remote="sudo -n true"
+              fi
+              if [ -n "$pw" ]; then
+                if [ "$id" = "ADMIN" ]; then
+                  printf '%s\n' "$pw" \
+                    | SSHPASS="$pw" \
+                      sshpass -e ssh $base $kopt "$user@$HOST" \
+                      "sudo -S -p '' true" >/dev/null 2>&1 && return 0
+                else
+                  SSHPASS="$pw" sshpass -e ssh $base $kopt "$user@$HOST" "$remote" >/dev/null 2>&1 && return 0
+                fi
+              else
+                ssh $base -o BatchMode=yes $kopt "$user@$HOST" "$remote" >/dev/null 2>&1 && return 0
+              fi
+              return 1
+            }
+            for id in IAC ADMIN ROOT; do
+              if try_identity "$id"; then echo "$id"; exit 0; fi
+            done
+            exit 1
+          args:
+            executable: /bin/bash
+          environment:
+            PROBE_CREDENTIALS_FILE: "{{ probe_credentials_dir }}/{{ probe_host }}.env"
+          loop: "{{ groups['builders'] | default([]) }}"
+          loop_control:
+            loop_var: probe_host
+            label: "{{ probe_host }}"
+          register: probe
+          changed_when: false
+          no_log: true
+          failed_when: false
+      always:
+        - name: "[Probe] Remove the staged identity credentials"
+          ansible.builtin.file:
+            path: "{{ probe_credentials_dir }}"
+            state: absent
+          no_log: true
 
     - name: "[Probe] Fail if a machine has no working identity"
       ansible.builtin.assert:
@@ -159,6 +159,7 @@
       loop_control:
         loop_var: probe_result
         label: "{{ probe_result.probe_host }}"
+      no_log: true
 
 - name: Bootstrap the build machines (service + admin accounts, keys, sudo)
   hosts: builders
@@ -282,6 +283,7 @@
       ansible.builtin.set_fact:
         bootstrap_admin: "{{ ssh_identities.admin }}"
         bootstrap_admin_defined: "{{ create_admin_account | default(false) | bool }}"
+      no_log: true
 
     - name: "[Bootstrap] Provision the admin password (enabled, none supplied)"
       ansible.builtin.include_role:
@@ -297,6 +299,51 @@
             length: 24
       when: bootstrap_admin_defined | bool
 
+    - name: "[Bootstrap] Read the admin shadow entry"
+      ansible.builtin.getent:
+        database: shadow
+        key: "{{ bootstrap_admin.user }}"
+      register: bootstrap_admin_shadow
+      failed_when: false
+      no_log: true
+      when:
+        - bootstrap_admin_defined | bool
+        - bootstrap_admin.user != 'root'
+        - bootstrap_admin.user != bootstrap_service_user
+
+    - name: "[Bootstrap] Resolve the admin shadow hash and salt"
+      ansible.builtin.set_fact:
+        bootstrap_admin_salt: >-
+          {%- set shadow_hash = ((bootstrap_admin_shadow.ansible_facts | default({}))
+              .get('getent_shadow', {})).get(bootstrap_admin.user, [''])[0] -%}
+          {%- set parts = shadow_hash.split('$') -%}
+          {%- set sha512 = (parts | length >= 4 and parts[1] == '6') -%}
+          {{ parts[3] if (sha512 and parts[2].startswith('rounds='))
+             else (parts[2] if sha512 else '') }}
+        bootstrap_admin_rounds: >-
+          {%- set shadow_hash = ((bootstrap_admin_shadow.ansible_facts | default({}))
+              .get('getent_shadow', {})).get(bootstrap_admin.user, [''])[0] -%}
+          {%- set parts = shadow_hash.split('$') -%}
+          {{ parts[2].split('=', 1)[1] | int
+             if (parts | length >= 4 and parts[1] == '6' and parts[2].startswith('rounds='))
+             else 656000 }}
+      no_log: true
+      when:
+        - bootstrap_admin_defined | bool
+        - bootstrap_admin.user != 'root'
+        - bootstrap_admin.user != bootstrap_service_user
+
+    - name: "[Bootstrap] Resolve the admin password hash"
+      ansible.builtin.set_fact:
+        bootstrap_admin_password_hash: >-
+          {{ vault_host_admin_password
+             | password_hash('sha512', bootstrap_admin_salt, rounds=bootstrap_admin_rounds) }}
+      no_log: true
+      when:
+        - bootstrap_admin_defined | bool
+        - bootstrap_admin.user != 'root'
+        - bootstrap_admin.user != bootstrap_service_user
+
     - name: "[Bootstrap] Create/repair the admin account"
       ansible.builtin.user:
         name: "{{ bootstrap_admin.user }}"
@@ -305,8 +352,8 @@
         shell: /bin/bash
         create_home: true
         state: present
-        password: "{{ vault_host_admin_password | password_hash('sha512') }}"
-        update_password: on_create
+        password: "{{ bootstrap_admin_password_hash }}"
+        update_password: always
       no_log: true
       when:
         - bootstrap_admin_defined | bool
@@ -397,6 +444,16 @@
                  and bootstrap_admin.user | default('', true) != (bootstrap_service_user | default('iac')))
              else [] }}
 
+    - name: "[Bootstrap] Check whether sudo is installed"
+      ansible.builtin.command: command -v sudo
+      register: bootstrap_sudo_bin
+      changed_when: false
+      failed_when: false
+      when:
+        - ansible_os_family == 'Debian'
+        - (bootstrap_sudo_nopasswd_users | length
+           + bootstrap_sudo_password_users | length) > 0
+
     - name: "[Bootstrap] Ensure sudo is installed for the sudoers grants"
       ansible.builtin.apt:
         name: sudo
@@ -406,6 +463,7 @@
         - ansible_os_family == 'Debian'
         - (bootstrap_sudo_nopasswd_users | length
            + bootstrap_sudo_password_users | length) > 0
+        - bootstrap_sudo_bin.rc | default(0) | int != 0
 
     - name: "[Bootstrap] Grant the automation account passwordless sudo"
       ansible.builtin.copy:
