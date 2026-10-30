@@ -26,7 +26,7 @@
       loop_control:
         label: "{{ item.key }}"
 
-    - name: Validate build variants
+    - name: Validate the variant structure
       ansible.builtin.assert:
         that:
           - item.name is defined and item.name is string and (item.name | length) > 0
@@ -34,16 +34,181 @@
           - item.force_pull | default(false) is boolean
           - item.fetch_artifacts | default(true) is boolean
           - item.use_mirror | default(false) is boolean
-          - item.setup_use_mirror | default(false) is boolean
-          - item.disable_dhcp | default(false) is boolean
-          - item.modules_adjust | default([]) is sequence
-          - item.modules_override | default([]) is sequence
-          - item.extra_packages | default([]) is sequence
-          - item.lan_ip | default('') is string
-          - item.gateway | default('') is string
-          - item.dns | default([]) is sequence
-          - item.pppoe_username | default('') is string
+          - item.disabled_services | default('') is string
+          - item.rootfs_partsize | default('') is string
+          - item.extra_firmware_name | default('') is string
+          - item.custom_overlay | default('') is string
+          - item.packages | default([]) is sequence
+          - item.packages | default([]) is not string
+          - item.packages | default([]) | reject('string') | list | length == 0
         fail_msg: "{{ inventory_hostname }}: invalid build variant {{ item.name | default('<unnamed>') }}"
+        quiet: true
+      loop: "{{ build_variants }}"
+      loop_control:
+        label: "{{ item.name | default('<unnamed>') }}"
+
+    - name: Validate the network block type
+      ansible.builtin.assert:
+        that:
+          - item.network is mapping
+        fail_msg: "{{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }} network must be a mapping"
+        quiet: true
+      when: item.network is defined
+      loop: "{{ build_variants }}"
+      loop_control:
+        label: "{{ item.name | default('<unnamed>') }}"
+
+    - name: Validate the network fields
+      vars:
+        net: "{{ item.network | default({}) }}"
+      ansible.builtin.assert:
+        that:
+          - net.get('lan_ip', '') is string
+          - net.get('gateway', '') is string
+          - net.get('dns', []) is sequence
+          - net.get('dns', []) is not string
+          - net.get('dns', []) | reject('string') | list | length == 0
+          - net.get('dhcp', true) is boolean
+          - "net.get('lan_ip', '') == '' or net.get('lan_ip', '') is match('^([0-9]{1,3}\\.){3}[0-9]{1,3}(/[0-9]{1,2})?$')"
+          - "net.get('gateway', '') == '' or net.get('gateway', '') is match('^([0-9]{1,3}\\.){3}[0-9]{1,3}$')"
+        fail_msg: >-
+          {{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }}
+          has invalid network={{ item.network | default({}) | to_json }}
+        quiet: true
+      when: item.network is defined and item.network is mapping
+      loop: "{{ build_variants }}"
+      loop_control:
+        label: "{{ item.name | default('<unnamed>') }}"
+
+    - name: Validate the system block type
+      ansible.builtin.assert:
+        that:
+          - item.system is mapping
+        fail_msg: "{{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }} system must be a mapping"
+        quiet: true
+      when: item.system is defined
+      loop: "{{ build_variants }}"
+      loop_control:
+        label: "{{ item.name | default('<unnamed>') }}"
+
+    - name: Validate the system fields
+      vars:
+        sys: "{{ item.system | default({}) }}"
+      ansible.builtin.assert:
+        that:
+          - sys.get('enabled', false) is boolean
+          - sys.get('hostname', '') is string
+          - "sys.get('hostname', '') == '' or sys.get('hostname', '') is match('^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$')"
+          - sys.get('timezone', '') is string
+          - sys.get('zonename', '') is string
+        fail_msg: >-
+          {{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }}
+          has invalid system={{ item.system | default({}) | to_json }}
+        quiet: true
+      when: item.system is defined and item.system is mapping
+      loop: "{{ build_variants }}"
+      loop_control:
+        label: "{{ item.name | default('<unnamed>') }}"
+
+    - name: Validate the statistics block type
+      ansible.builtin.assert:
+        that:
+          - item.statistics is mapping
+        fail_msg: "{{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }} statistics must be a mapping"
+        quiet: true
+      when: item.statistics is defined
+      loop: "{{ build_variants }}"
+      loop_control:
+        label: "{{ item.name | default('<unnamed>') }}"
+
+    - name: Validate the statistics fields
+      vars:
+        stats: "{{ item.statistics | default({}) }}"
+      ansible.builtin.assert:
+        that:
+          - stats.get('enabled', false) is boolean
+          - stats.get('interfaces', []) is sequence
+          - stats.get('interfaces', []) is not string
+          - stats.get('interfaces', []) | reject('string') | list | length == 0
+          - stats.get('sensors', false) is boolean
+          - stats.get('irq', false) is boolean
+          - stats.get('rrd_timespans', []) is sequence
+          - stats.get('rrd_timespans', []) is not string
+          - stats.get('rrd_timespans', []) | difference(['2hour', '1day', '1week', '1month', '1year']) | length == 0
+        fail_msg: >-
+          {{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }}
+          has invalid statistics={{ item.statistics | default({}) | to_json }}
+        quiet: true
+      when: item.statistics is defined and item.statistics is mapping
+      loop: "{{ build_variants }}"
+      loop_control:
+        label: "{{ item.name | default('<unnamed>') }}"
+
+    - name: Validate the administration block type
+      ansible.builtin.assert:
+        that:
+          - item.administration is mapping
+          - (item.administration | default({})).get('ssh', {}) is mapping
+        fail_msg: "{{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }} administration must be a mapping"
+        quiet: true
+      when: item.administration is defined
+      loop: "{{ build_variants }}"
+      loop_control:
+        label: "{{ item.name | default('<unnamed>') }}"
+
+    - name: Validate the administration fields
+      vars:
+        admin: "{{ item.administration | default({}) }}"
+        admin_ssh: "{{ (item.administration | default({})).get('ssh', {}) }}"
+      ansible.builtin.assert:
+        that:
+          - admin.get('enabled', false) is boolean
+          - admin.get('root_password', '') is string
+          - admin_ssh.get('interface', '') is string
+          - (admin_ssh.get('port', '') | string) is match('^[0-9]*$')
+        fail_msg: >-
+          {{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }}
+          has invalid administration={{ item.administration | default({}) | to_json }}
+        quiet: true
+      when: >-
+        item.administration is defined and item.administration is mapping
+        and (item.administration | default({})).get('ssh', {}) is mapping
+      loop: "{{ build_variants }}"
+      loop_control:
+        label: "{{ item.name | default('<unnamed>') }}"
+
+    - name: Validate the disable-ipv6 block type
+      ansible.builtin.assert:
+        that:
+          - item.get('disable-ipv6') is mapping
+        fail_msg: "{{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }} disable-ipv6 must be a mapping"
+        quiet: true
+      when: item.get('disable-ipv6') is defined
+      loop: "{{ build_variants }}"
+      loop_control:
+        label: "{{ item.name | default('<unnamed>') }}"
+
+    - name: Validate the disable-ipv6 enabled flag
+      ansible.builtin.assert:
+        that:
+          - item.get('disable-ipv6').get('enabled', false) is boolean
+        fail_msg: "{{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }} disable-ipv6.enabled must be a boolean"
+        quiet: true
+      when: item.get('disable-ipv6') is mapping
+      loop: "{{ build_variants }}"
+      loop_control:
+        label: "{{ item.name | default('<unnamed>') }}"
+
+    - name: Validate the variant mirror URL
+      ansible.builtin.assert:
+        that:
+          - item.mirror | default('') is string
+          - (item.mirror | default('')) == '' or (item.mirror | default('')) is match('^https?://[^/]+')
+          - (not (item.use_mirror | default(false))) or ((item.mirror | default('')) | length > 0)
+        fail_msg: >-
+          {{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }} has
+          invalid mirror={{ item.mirror | default('<unset>') | to_json }}; use a full
+          base URL such as https://mirrors.tuna.tsinghua.edu.cn/openwrt
         quiet: true
       loop: "{{ build_variants }}"
       loop_control:

@@ -10,17 +10,18 @@ per variant and are individually selectable with `--tags`
 
 ## Pipeline
 
-1. **preflight** — asserts `imagebuilder_image` (the variant's) is set, the Docker
-   CLI/daemon are reachable on the build host, and the `docker` Python SDK is
-   importable by its interpreter.
-2. **modules** — resolves the active module set from the default +
-   `modules_adjust` / `modules_override`; fails on unknown names.
+1. **preflight** — asserts `imagebuilder_image` (the variant's) is set and is
+   not the example placeholder, the Docker CLI/daemon are reachable on the build
+   host, and the `docker` Python SDK is importable by its interpreter.
+2. **modules** — resolves the enabled modules from each module mapping's
+   `enabled` flag.
 3. **setup** — pulls the image if needed and derives everything from the image's
    environment (see below).
-4. **packages** — collects packages from the active modules (`base` is
-   version-aware), appends `extra_packages`, deduplicates, and fails on
-   add/remove conflicts.
-5. **overlay** — renders the active modules' uci-defaults (see below).
+4. **packages** — merges the statistics module's package set (removing any
+   duplicates from the operator list), deduplicates, and fails on add/remove
+   conflicts.
+5. **overlay** — renders the enabled modules' uci-defaults and the `network`
+   block when set (see below).
 6. **build** — runs the container, then locates and (optionally) fetches artifacts.
 7. **fetch** (part of build) — when `fetch_artifacts` is true, pulls the
    artifacts to the control node.
@@ -32,8 +33,6 @@ official `openwrt/imagebuilder` tag always exposes them) and derives:
 
 - the release path (`snapshots` for SNAPSHOT images, else the release path),
 - the target and version,
-- the package-manager switch (APK for non-numeric/SNAPSHOT or version ≥ 24.10,
-  else opkg), which selects the matching LuCI translation package,
 - the container name `openwrt-bw-<target>-<version>-<machine>-<variant>`.
 
 `force_pull` forces a fresh image pull.
@@ -45,7 +44,7 @@ official `openwrt/imagebuilder` tag always exposes them) and derives:
 - mounts: the (host) output dir → `/builder/bin`, the rendered `build.sh`, and the
   rendered overlay files;
 - env: `HOST_UID`/`HOST_GID` (from facts), `OPENWRT_PACKAGES`,
-  `OPENWRT_PROFILE`, `OPENWRT_EXTRA_IMAGE_NAME`, `OPENWRT_DISABLED_SERVICES`,
+  `OPENWRT_PROFILE`, `OPENWRT_EXTRA_FIRMWARE_NAME`, `OPENWRT_DISABLED_SERVICES`,
   `OPENWRT_ROOTFS_PARTSIZE`;
 - `ulimits: nofile:65536:65536` — a bounded `nofile` limit. The host tools use
   fakeroot, whose `faked` daemon closes every fd up to `RLIMIT_NOFILE` on startup;
@@ -55,10 +54,12 @@ official `openwrt/imagebuilder` tag always exposes them) and derives:
   asserted as a build failure.
 
 In the container, `templates/build.sh.j2` sets `TMPDIR` to a workspace on disk
-(avoiding tmpfs exhaustion), runs `setup.sh` (via the configured mirror first,
-then the official source) when the ImageBuilder environment is missing, applies
-the repository mirror when enabled, then calls `make info` and `make image`. On
-exit it restores ownership of the artifacts to the invoking host user.
+(avoiding tmpfs exhaustion), runs `setup.sh` (release images with
+`use_mirror`: via `mirror` first, then the official source; SNAPSHOT images
+always via the official source) when the ImageBuilder environment is missing,
+applies the repository mirror when enabled (release images only), then calls
+`make info` and `make image`. On exit it restores ownership of the artifacts
+to the invoking host user.
 
 ## Overlay / uci-defaults
 
@@ -68,11 +69,16 @@ Modules ship first-boot config as uci-defaults under the role:
 - `templates/overlay/<module>/...` — rendered as Jinja templates by Ansible's
   `template` module.
 
+`network` is not a module: when a variant's `network` block is non-empty, the
+role adds the `network` overlay to the selected set and renders
+`templates/overlay/network/etc/uci-defaults/89-network`.
+
 The role selects the files of the active modules, asserts no two active modules
-target the same path, and applies executable modes to the paths listed in
-`roles/imagebuilder/vars/main.yml` (`overlay_executable`); every other
-file is installed `0644`. Rendered output is assembled under the variant's work
-directory and mounted into the container.
+target the same path, installs every `etc/uci-defaults/*` and `etc/hotplug.d/*`
+file `0755`, and every other file `0644`. After that it copies the variant's
+`custom_overlay` directory (if set) over the same tree, preserving modes.
+Rendered output is assembled under the variant's work directory and mounted into
+the container.
 
 ## Artifacts
 

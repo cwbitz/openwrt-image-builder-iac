@@ -29,18 +29,23 @@
   register: overlay_templates
   failed_when: false
 
+- name: Resolve the overlay module set
+  ansible.builtin.set_fact:
+    overlay_modules: >-
+      {{ modules_active + (['network'] if (network | default({}) | length > 0) else []) }}
+
 - name: Select the overlay files of the active modules
   ansible.builtin.set_fact:
     overlay_static_active: >-
       {{ overlay_static.files | default([])
-         | selectattr('path', 'search', '/files/overlay/(' ~ modules_active_re ~ ')/')
+         | selectattr('path', 'search', '/files/overlay/(' ~ overlay_modules_re ~ ')/')
          | list }}
     overlay_templates_active: >-
       {{ overlay_templates.files | default([])
-         | selectattr('path', 'search', '/templates/overlay/(' ~ modules_active_re ~ ')/')
+         | selectattr('path', 'search', '/templates/overlay/(' ~ overlay_modules_re ~ ')/')
          | list }}
   vars:
-    modules_active_re: "{{ modules_active | join('|') }}"
+    overlay_modules_re: "{{ overlay_modules | join('|') }}"
 
 - name: Compute the overlay target names and directories
   ansible.builtin.set_fact:
@@ -55,16 +60,6 @@
           + (overlay_templates_active | map(attribute='path')
              | map('relpath', role_path ~ '/templates/overlay') | map('regex_replace', '^[^/]+/', '') | map('dirname') | list))
          | unique }}
-
-- name: Assert the root password is set when the root-password module is active
-  ansible.builtin.assert:
-    that:
-      - root_password | length > 0
-    fail_msg: >-
-      Variant '{{ build_variant.name }}' enables the root-password module, but
-      vault_openwrt_root_password.{{ build_variant.name }} is empty. Set it in
-      the machine vault, or remove the module from build_variants.
-  when: "'root-password' in modules_active"
 
 - name: Assert no two active modules ship the same overlay file
   ansible.builtin.assert:
@@ -84,7 +79,7 @@
   ansible.builtin.copy:
     src: "{{ item.path | relpath(role_path ~ '/files') }}"
     dest: "{{ builder_workdir }}/files/{{ overlay_rel }}"
-    mode: "{{ '0755' if overlay_rel in overlay_executable else '0644' }}"
+    mode: "{{ '0755' if (overlay_rel.startswith('etc/uci-defaults/') or overlay_rel.startswith('etc/hotplug.d/')) else '0644' }}"
   vars:
     overlay_rel: >-
       {{ item.path | relpath(role_path ~ '/files/overlay') | regex_replace('^[^/]+/', '') }}
@@ -94,12 +89,38 @@
   ansible.builtin.template:
     src: "{{ item.path | relpath(role_path ~ '/templates') }}"
     dest: "{{ builder_workdir }}/files/{{ overlay_rel }}"
-    mode: "{{ '0755' if overlay_rel in overlay_executable else '0644' }}"
+    mode: "{{ '0755' if (overlay_rel.startswith('etc/uci-defaults/') or overlay_rel.startswith('etc/hotplug.d/')) else '0644' }}"
   vars:
     overlay_rel: >-
       {{ item.path | relpath(role_path ~ '/templates/overlay') | regex_replace('^[^/]+/', '') }}
   loop: "{{ overlay_templates_active }}"
   no_log: true
+
+- name: Check the custom overlay directory
+  ansible.builtin.stat:
+    path: "{{ custom_overlay }}"
+  delegate_to: localhost
+  become: false
+  vars:
+    ansible_become: false
+  register: custom_overlay_stat
+  when: custom_overlay | length > 0
+
+- name: Assert the custom overlay directory exists
+  ansible.builtin.assert:
+    that:
+      - custom_overlay_stat.stat.isdir | default(false)
+    fail_msg: >-
+      custom_overlay '{{ custom_overlay }}' is not a directory on the control
+      node.
+  when: custom_overlay | length > 0
+
+- name: Install the variant custom overlay
+  ansible.builtin.copy:
+    src: "{{ custom_overlay | regex_replace('/+$', '') }}/"
+    dest: "{{ builder_workdir }}/files/"
+    mode: preserve
+  when: custom_overlay | length > 0
 
 - name: Show the rendered overlay files
   ansible.builtin.debug:

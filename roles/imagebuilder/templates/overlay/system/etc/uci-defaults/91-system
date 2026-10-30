@@ -1,0 +1,14 @@
+#!/bin/sh
+
+uci -q batch << EOF
+{% if system.hostname | string | length > 0 %}
+set system.@system[0].hostname={{ system.hostname | string | quote }}
+{% endif %}
+{% if system.timezone | string | length > 0 %}
+set system.@system[0].timezone={{ system.timezone | string | quote }}
+{% endif %}
+{% if system.zonename | string | length > 0 %}
+set system.@system[0].zonename={{ system.zonename | string | quote }}
+{% endif %}
+commit
+EOF

@@ -1,9 +1,9 @@
 ---
 # Per-machine build variants (`make host-init` creates host_vars/<machine>/; the
 # name MUST match the inventory host). Each entry is one (target, profile,
-# settings) build; keys are optional and fall back to the role defaults.
-# Machine-wide settings live in group_vars/builders/main.yml; firmware secrets in
-# the vault.yml next to this file (the role matches them by variant name).
+# modules, packages, settings) build; keys are optional and fall back to the
+# role defaults. Machine-wide settings live in group_vars/builders/main.yml;
+# no firmware secrets are baked into the image.
 
 # Docker Hub pull-through mirrors for the build host; e.g. ["https://mirror.gcr.io"]
 # is the fastest from an APAC host and also lifts Docker Hub's anonymous pull limit.
@@ -20,31 +20,127 @@ build_variants:
     target_profile: ""
     # [OPTIONAL] force a fresh pull of the ImageBuilder image before building.
     force_pull: false
-    # [OPTIONAL] add/remove from the default module set ('-' removes), or replace
-    # it entirely; default set = base system root-password pppoe main-router
-    # disable-ipv6 extras.
-    modules_adjust: []
-    modules_override: []
-    # [OPTIONAL] extra packages ('-' removes), output-filename suffix and image knobs.
-    extra_packages: []
-    extra_image_name: "-main"
+    # Modules are enabled by their own `enabled` flag; omit/empty => disabled.
+    # Order below is bottom-up: system -> network -> IPv6 -> admin -> monitoring.
+    system:
+      enabled: true
+      hostname: "openwrt-main"
+      timezone: "CST-8"
+      zonename: "Asia/Shanghai"
+    # [OPTIONAL] LAN configuration rendered into first-boot uci-defaults.
+    # Omit `gateway`/`dns` and keep dhcp=true for a main router; set gateway/dns
+    # and dhcp=false for an AP or bypass router. WAN (DHCP/PPPoE) is configured
+    # after first boot.
+    network:
+      lan_ip: 192.0.2.1/24
+      gateway: ""
+      dns: []
+      dhcp: true
+    disable-ipv6:
+      enabled: true
+    administration:
+      enabled: true
+      # empty = keep the system default; this is only the initial password.
+      root_password: ""
+      ssh:
+        # empty = system default (listen on all); e.g. "lan".
+        interface: ""
+        # empty = system default (22); e.g. "22".
+        port: ""
+    statistics:
+      enabled: true
+      interfaces: [br-lan, eth1]
+      sensors: true
+      irq: true
+      # RRD archives: 2h high-res + daily/weekly/monthly/yearly downsampled.
+      rrd_timespans: [2hour, 1day, 1week, 1month, 1year]
+    # [OPTIONAL] exact package list; '-' removes a package from the base image.
+    # 24.10+: luci-i18n-package-manager-zh-cn; older releases: luci-i18n-opkg-zh-cn.
+    # The statistics module installs its own packages; list non-module packages here.
+    packages:
+      - luci
+      - "-dnsmasq"
+      - dnsmasq-full
+      - "-wpad-basic-mbedtls"
+      - wpad-mbedtls
+      - openssl-util
+      - openssh-sftp-server
+      - rsync
+      - luci-i18n-base-zh-cn
+      - luci-i18n-firewall-zh-cn
+      - luci-i18n-package-manager-zh-cn
+      - curl
+      - vim-full
+      - diffutils
+      - bind-dig
+      - nping
+      - conntrack
+      - tcpdump
+      - python3
+      - ca-bundle
+    # [OPTIONAL] control-node directory copied over the image rootfs after the
+    # module overlays; e.g. "{{ inventory_dir }}/custom/{{ inventory_hostname }}/{{ build_variant.name }}".
+    custom_overlay: ""
+    # [OPTIONAL] output-filename tag (ImageBuilder adds the separators).
+    extra_firmware_name: "main"
+    # [OPTIONAL] space-separated init.d services to disable (empty = none).
     disabled_services: ""
+    # [OPTIONAL] root filesystem partition size in MB (empty = target default).
     rootfs_partsize: ""
     # [OPTIONAL] pull built artifacts back to the control node (default true).
     fetch_artifacts: true
-    # [OPTIONAL] mirrors; include the mirror's OpenWrt prefix for mirror.
+    # [OPTIONAL] release-image mirror; `mirror` is the full base URL.
     use_mirror: false
-    mirror: mirrors.tuna.tsinghua.edu.cn/openwrt
-    setup_use_mirror: false
-    # Module knobs (only the active modules' knobs apply).
-    lan_ip: ""
-    gateway: ""
-    dns: []
-    disable_dhcp: false
-    pppoe_username: ""
+    mirror: https://mirrors.tuna.tsinghua.edu.cn/openwrt
 
   # A second variant on the same machine; omitted keys use the role defaults.
   - name: ap
     imagebuilder_image: "openwrt/imagebuilder:<target>-<subtarget>[-<version>]"
-    modules_override: [base, system, root-password, disable-ipv6, extras, bypass-router]
-    extra_image_name: "-ap"
+    system:
+      enabled: true
+      hostname: "openwrt-ap"
+      timezone: "CST-8"
+      zonename: "Asia/Shanghai"
+    network:
+      lan_ip: 192.0.2.2/24
+      gateway: 192.0.2.1
+      dns: [192.0.2.1]
+      dhcp: false
+    disable-ipv6:
+      enabled: true
+    administration:
+      enabled: true
+      root_password: ""
+      ssh:
+        interface: ""
+        port: ""
+    statistics:
+      enabled: true
+      interfaces: [br-lan, eth1]
+      sensors: true
+      irq: true
+      # RRD archives: 2h high-res + daily/weekly/monthly/yearly downsampled.
+      rrd_timespans: [2hour, 1day, 1week, 1month, 1year]
+    packages:
+      - luci
+      - "-dnsmasq"
+      - dnsmasq-full
+      - "-wpad-basic-mbedtls"
+      - wpad-mbedtls
+      - openssl-util
+      - openssh-sftp-server
+      - rsync
+      - luci-i18n-base-zh-cn
+      - luci-i18n-firewall-zh-cn
+      - luci-i18n-package-manager-zh-cn
+      - curl
+      - vim-full
+      - diffutils
+      - bind-dig
+      - nping
+      - conntrack
+      - tcpdump
+      - python3
+      - ca-bundle
+    custom_overlay: ""
+    extra_firmware_name: "ap"

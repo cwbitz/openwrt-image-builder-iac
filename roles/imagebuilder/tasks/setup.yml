@@ -35,17 +35,11 @@
       {{ ((image_env | select('match', '^VERSION_PATH=') | first).split('=', 1)[1]) | basename }}
     build_target_name: >-
       {{ ((image_env | select('match', '^TARGET=') | first).split('=', 1)[1]) | replace('/', '-') }}
-    builder_version_is_numeric: >-
-      {{ (((image_env | select('match', '^VERSION_PATH=') | first).split('=', 1)[1]) | basename)
-         is match('^[0-9.]+$') }}
 
-- name: Derive the setup path, package-manager switch and container name
+- name: Derive the setup path and container name
   ansible.builtin.set_fact:
     setup_version_path: >-
       {{ 'snapshots' if 'SNAPSHOT' in builder_version_path else builder_version_path }}
-    use_package_manager: >-
-      {{ (not (builder_version_is_numeric | bool))
-         or (builder_version is version(package_manager_min_version, '>=')) }}
     container_name: "openwrt-bw-{{ build_target_name }}-{{ builder_version }}-{{ build_id }}"
 
 - name: Show the detected build target

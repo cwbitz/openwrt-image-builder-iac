@@ -1,48 +1,26 @@
 ---
-- name: Assert override entries are module names (no '-' prefix)
+- name: Assert module entries are mappings
   ansible.builtin.assert:
     that:
-      - modules_override | select('match', '^-') | list | length == 0
-    fail_msg: >-
-      modules_override must list module names only; removals are not
-      allowed there (use modules_adjust for add/remove).
+      - ((build_variant | default({})).get(item) | default({})) is mapping
+    fail_msg: "Module '{{ item }}' must be a mapping with an 'enabled' flag."
+  loop: "{{ module_names }}"
+  loop_control:
+    label: "{{ item }}"
 
-- name: Start from the default module set
+- name: Start with no active modules
   ansible.builtin.set_fact:
-    modules_active: "{{ default_modules }}"
-  when: modules_override | length == 0
+    modules_active: []
 
-- name: Start from the explicit override list
-  ansible.builtin.set_fact:
-    modules_active: "{{ modules_override }}"
-  when: modules_override | length > 0
-
-- name: Apply add/remove adjustments to the module set
+- name: Add enabled modules
   ansible.builtin.set_fact:
     modules_active: >-
-      {{
-        (modules_active | reject('eq', item[1:]) | list)
-        if (item.startswith('-'))
-        else
-        (modules_active if item in modules_active
-         else modules_active + [item])
-      }}
-  loop: "{{ modules_adjust }}"
-  loop_control:
-    label: "{{ item }}"
-  when: modules_override | length == 0
-
-- name: Assert every active module is known
-  ansible.builtin.assert:
-    that:
-      - item in known_modules
-    fail_msg: >-
-      Unknown module '{{ item }}'. Known modules:
-      {{ known_modules | join(', ') }}.
-  loop: "{{ modules_active }}"
+      {{ modules_active
+         + ([item] if (((build_variant | default({})).get(item) | default({})).get('enabled', false) | bool) else []) }}
+  loop: "{{ module_names }}"
   loop_control:
     label: "{{ item }}"
 
-- name: Show the resolved module set
+- name: Show the active module set
   ansible.builtin.debug:
     msg: "Active modules: {{ modules_active | join(' ') }}"

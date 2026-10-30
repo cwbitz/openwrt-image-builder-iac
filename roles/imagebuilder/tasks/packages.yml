@@ -1,37 +1,34 @@
 ---
-- name: Initialize the package accumulator
-  ansible.builtin.set_fact:
-    packages_accumulator: []
+- name: Assert the package list is a sequence
+  ansible.builtin.assert:
+    that:
+      - packages is sequence
+      - packages is not string
+    fail_msg: "packages must be a YAML list of package names."
 
-- name: Add the base module packages
+- name: Resolve the statistics package set
   ansible.builtin.set_fact:
-    packages_accumulator: "{{ packages_accumulator + base_packages }}"
-  when: "'base' in modules_active"
+    statistics_packages: >-
+      {{ (['luci-app-statistics']
+          + (['collectd-mod-sensors'] if (statistics.sensors | bool) else [])
+          + (['collectd-mod-irq'] if (statistics.irq | bool) else []))
+         if ('statistics' in modules_active) else [] }}
 
-- name: Add the version-appropriate LuCI package-manager translation
+- name: Remove module-managed packages from the operator list
   ansible.builtin.set_fact:
-    packages_accumulator: >-
-      {{ packages_accumulator
-         + [ base_package_manager_pkg if (use_package_manager | bool)
-             else base_opkg_pkg ] }}
-  when: "'base' in modules_active"
+    packages_operator: >-
+      {{ packages | default([])
+         | reject('in', statistics_packages)
+         | reject('in', statistics_packages | map('regex_replace', '^', '-') | list)
+         | list }}
 
-- name: Add each active module's package list
+- name: Merge module-managed packages
   ansible.builtin.set_fact:
-    packages_accumulator: "{{ packages_accumulator + module_packages[item] }}"
-  loop: "{{ modules_active }}"
-  loop_control:
-    label: "{{ item }}"
-  when: item in module_packages
-
-- name: Append the operator extra packages
-  ansible.builtin.set_fact:
-    packages_accumulator: "{{ packages_accumulator + extra_packages }}"
-  when: extra_packages | length > 0
+    packages_merged: "{{ packages_operator + statistics_packages }}"
 
 - name: Deduplicate the package list (order preserving)
   ansible.builtin.set_fact:
-    packages_final_list: "{{ packages_accumulator | unique }}"
+    packages_final_list: "{{ packages_merged | unique }}"
 
 - name: Detect packages that are both added and removed
   ansible.builtin.set_fact:

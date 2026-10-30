@@ -1,0 +1,17 @@
+#!/bin/sh
+
+if [ -f /etc/dropbear/authorized_keys ]; then
+    chmod 600 /etc/dropbear/authorized_keys
+fi
+
+{% if administration.root_password | string | length > 0 %}
+(printf '%s\n' {{ administration.root_password | string | quote }}; sleep 1; printf '%s\n' {{ administration.root_password | string | quote }}) | passwd > /dev/null
+{% endif %}
+{% if administration.ssh.interface | string | length > 0 %}
+uci set dropbear.@dropbear[0]._direct='1'
+uci set dropbear.@dropbear[0].DirectInterface={{ administration.ssh.interface | string | quote }}
+{% endif %}
+{% if administration.ssh.port | string | length > 0 %}
+uci set dropbear.@dropbear[0].Port={{ administration.ssh.port | string | quote }}
+{% endif %}
+uci commit dropbear

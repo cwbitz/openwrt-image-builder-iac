@@ -1,74 +1,13 @@
 ---
-package_manager_min_version: "24.10"
-
-pppoe_password: "{{ ((firmware_secrets | default({})).pppoe_password | default({}))[build_variant.name | default('')] | default('', true) }}"
-root_password: "{{ ((firmware_secrets | default({})).root_password | default({}))[build_variant.name | default('')] | default('', true) }}"
 project_root: "{{ playbook_dir | dirname }}"
 build_id: "{{ inventory_hostname }}-{{ (build_variant | default({})).name | default('') }}"
 builder_workdir: "{{ build_dir }}/work/{{ build_id }}"
 
-default_modules:
-  - base
+module_names:
   - system
-  - root-password
-  - pppoe
-  - main-router
   - disable-ipv6
-  - extras
-
-known_modules:
-  - ap
-  - base
-  - bypass-router
-  - disable-ipv6
-  - extras
-  - main-router
-  - pppoe
-  - prefer-ipv6
-  - python
-  - root-password
-  - ssh-permission
   - statistics
-  - system
-
-base_packages:
-  - luci
-  - "-dnsmasq"
-  - dnsmasq-full
-  - "-wpad-basic-mbedtls"
-  - wpad-mbedtls
-  - openssl-util
-  - openssh-sftp-server
-  - rsync
-  - luci-i18n-base-zh-cn
-  - luci-i18n-firewall-zh-cn
-
-base_package_manager_pkg: luci-i18n-package-manager-zh-cn
-base_opkg_pkg: luci-i18n-opkg-zh-cn
-
-module_packages:
-  extras:
-    - curl
-    - vim-full
-    - diffutils
-    - bind-dig
-    - nping
-    - conntrack
-    - tcpdump
-  python:
-    - python3-light
-  statistics:
-    - luci-app-statistics
-    - collectd-mod-irq
-    - collectd-mod-sensors
+  - administration
 
 container_ulimits:
   - "nofile:65536:65536"
-
-setup_mirror_url: "https://mirrors.ustc.edu.cn/openwrt"
-
-overlay_executable:
-  - etc/uci-defaults/91-system
-  - etc/uci-defaults/92-system
-  - etc/uci-defaults/99-ssh
-  - etc/uci-defaults/99-statistics

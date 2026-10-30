@@ -1,0 +1,26 @@
+#!/bin/sh
+
+uci -q batch << EOF
+{% if statistics.interfaces | length > 0 %}
+set luci_statistics.collectd_interface.enable=1
+del luci_statistics.collectd_interface.Interfaces
+{% for interface in statistics.interfaces %}
+add_list luci_statistics.collectd_interface.Interfaces={{ interface | quote }}
+{% endfor %}
+{% else %}
+set luci_statistics.collectd_interface.enable=0
+{% endif %}
+set luci_statistics.collectd_sensors.enable={{ 1 if (statistics.sensors | bool) else 0 }}
+set luci_statistics.collectd_sensors.IgnoreSelected=1
+set luci_statistics.collectd_irq.enable={{ 1 if (statistics.irq | bool) else 0 }}
+set luci_statistics.collectd_irq.IgnoreSelected=1
+set luci_statistics.collectd_memory.enable=0
+set luci_statistics.collectd_network.enable=0
+set luci_statistics.collectd_iwinfo.enable=0
+del luci_statistics.collectd_rrdtool.RRATimespans
+{% for span in statistics.rrd_timespans %}
+add_list luci_statistics.collectd_rrdtool.RRATimespans={{ span | quote }}
+{% endfor %}
+set luci_statistics.collectd.Include='/etc/collectd/conf.d/*.conf'
+commit
+EOF

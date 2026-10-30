@@ -35,11 +35,9 @@ mise install
 make host-init HOST=builder-1 HOST_IP=10.0.10.50   # scaffolds group_vars + host_vars/<machine>/
 make host-init HOST=openwrt-ib-prod-2 HOST_IP=10.0.10.51   # repeat for each machine
 # edit each host_vars/<machine>/main.yml (build_variants: build config)
-# and each host_vars/<machine>/vault.yml (firmware secrets)
 make install
 make vault-init
 make vault-edit-group                     # shared SSH identity vault
-make vault-edit HOST=builder-1    # that machine's firmware secrets
 make host-bootstrap                       # once; probe iac -> admin -> root
 # or, to bootstrap and then build everything in one shot:
 make deploy
@@ -117,12 +115,13 @@ ImageBuilder info` spinner is shown) before printing.
 
 ## 5. Mirrors
 
-Both knobs are off by default (official OpenWrt sources); see
-[configuration](configuration.md) for the exact semantics. To use a domestic
-mirror for a build:
+The knob is off by default (official OpenWrt sources); see
+[configuration](configuration.md) for the exact semantics. `mirror` is a full
+base URL (default `https://mirrors.tuna.tsinghua.edu.cn/openwrt`). To use it for
+a release build:
 
 ```bash
-make build EXTRA='-e use_mirror=true -e setup_use_mirror=true'
+make build EXTRA='-e use_mirror=true'
 ```
 
 A mirror that has not yet synced a new release can cause build failures: turn it
@@ -130,29 +129,23 @@ off and use the official source.
 
 ## 6. SNAPSHOT images
 
-Use `setup_use_mirror: true` (USTC by default) to speed up the
-ImageBuilder tarball download without changing the package repositories:
-
-```bash
-make build EXTRA='-e setup_use_mirror=true'
-```
-
-The same knob also works for release images; combined with
-`use_mirror: true` it keeps every download off `downloads.openwrt.org`.
+SNAPSHOT images always use the official `downloads.openwrt.org` source: no
+mirror carries `snapshots/`, so `use_mirror` is ignored for them. Build SNAPSHOT
+variants without the mirror knob.
 
 ## 7. Secrets
 
-- **Firmware secrets** are per machine
-  (`inventory/host_vars/<machine>/vault.yml`) and keyed by variant name; see
-  [configuration](configuration.md) for the layout.
+- **No firmware secrets are baked** into the image: set the WAN (PPPoE/DHCP) and
+  root passwords after first boot.
 - **Connection credentials** are machine-wide (`inventory/group_vars/builders/vault.yml`).
 - The vault password file lives outside the repo and is never committed;
-  `make vault-edit HOST=<machine>` encrypts a plaintext vault before editing.
-- Vault keys are kept in alphabetical order: `make vault-edit` re-sorts the
-  top-level keys after the editor closes (comment-preserving) and re-encrypts
+  `make vault-edit-group` encrypts a plaintext vault before editing.
+- Vault keys are kept in alphabetical order: `make vault-edit-group` re-sorts
+  the top-level keys after the editor closes (comment-preserving) and re-encrypts
   only when the order changed. Hand edits should stay alphabetical too.
 - Values are Jinja-templated and shell-quoted automatically, so special
-  characters are safe. Leave a secret empty to skip its module.
+  characters are safe. WAN (PPPoE/DHCP) and the root password are set after
+  first boot.
 - **The built image carries the secrets it was built with** — treat artifacts as
   sensitive.
 
@@ -160,10 +153,17 @@ The same knob also works for release images; combined with
 
 1. Add overlay files under `roles/imagebuilder/files/overlay/<name>/...` (static)
    or `templates/overlay/<name>/...` (Jinja).
-2. Add its packages to `module_packages` in
-   `roles/imagebuilder/vars/main.yml` (if any).
-3. Add `<name>` to `known_modules`.
-4. Reference any operator variables in `host_vars/example/main.yml`.
+2. Add `<name>` to `module_names` in `roles/imagebuilder/vars/main.yml`.
+3. Reference its operator variables in the role defaults and
+   `host_vars/example/main.yml`; add an `<name>:` mapping with `enabled`.
+4. Add any packages the module needs. A module with package logic (like
+   `statistics`) owns its set in `packages.yml`; otherwise list them in the
+   variant's `packages`.
+
+For one-off operator settings (extra UCI, extra files), do **not** edit the
+role: set the variant's `custom_overlay` to a directory under
+`inventory/custom/<machine>/<variant>/`; the role copies it over the image
+rootfs after the module overlays. See [configuration](configuration.md#custom-overlay).
 5. Run the internal `make lint`, then build with the module active.
 
 ## 9. SSH hardening
@@ -195,10 +195,14 @@ host keeps its old login policy. The provider console remains the recovery path.
 | preflight: "Docker CLI not found" | Install Docker and ensure it is on PATH on the builder |
 | preflight: "Cannot reach the Docker daemon" | Start Docker; ensure the connection user can access the socket (the `iac` user joins the `docker` group when present) |
 | preflight: "Docker Python SDK" | Install `docker` for the build host's Python: `<python> -m pip install docker` |
+| preflight: "imagebuilder_image is still the example placeholder" | Replace it with a real tag from hub.docker.com/r/openwrt/imagebuilder/tags |
 | `Module ... does not expose VERSION_PATH/TARGET` | Use an official `openwrt/imagebuilder` tag |
-| `Packages are both added and removed` | Remove the `-pkg`/`pkg` conflict in a variant's packages |
+| `Packages are both added and removed` | Remove the `-pkg`/`pkg` conflict in a variant's `packages` |
 | `Duplicate overlay target files across modules` | Two active modules ship the same file path; rename or disable one |
-| Build fails after enabling a mirror | Mirror sync lag; disable `use_mirror`. For 25.12+ (APK) the mirror path must include the OpenWrt prefix |
+| A module does not run | Set `enabled: true` in that module's mapping |
+| `statistics` packages | The module adds `luci-app-statistics` + `collectd-mod-sensors`/`collectd-mod-irq` itself; entries in `packages` are removed/deduped |
+| WAN is not configured | The image intentionally leaves WAN (DHCP/PPPoE) unset; configure it after first boot |
+| Build fails after enabling a mirror | Mirror sync lag; disable `use_mirror`. `mirror` is a full base URL ending at the mirror's OpenWrt path |
 | Build hangs at "Building package index..." (25.12+, APK) | The container `nofile` ulimit is unbounded and fakeroot's `faked` spins; the role pins `nofile:65536:65536`, keep it bounded |
 | Artifacts owned by root | The in-container `chown` needs `HOST_UID`/`HOST_GID` (from facts) |
 | Artifacts not in the control node's `artifacts/` | Check `fetch_artifacts` (default true); they are also kept on the builder at `output_dir` |
@@ -231,18 +235,19 @@ reason to skip.
 
 ### Variants, mirrors and info
 
-- [ ] Each variant's target/profile/packages/modules are reflected in the image
-      (log in and check the declared package set).
+- [ ] Each variant's target/profile/packages and enabled module mappings are
+      reflected in the image (log in and check the declared package set).
 - [ ] `make info` returns the image/profile metadata without starting a build.
-- [ ] A mirror-enabled build succeeds (APK path includes the OpenWrt prefix on
-      25.12+), and disabling the mirror falls back cleanly.
+- [ ] A mirror-enabled release build succeeds (`mirror` is a full base URL), a
+      SNAPSHOT build ignores `use_mirror`, and disabling the mirror falls back
+      cleanly.
 
 ### Secrets and security
 
-- [ ] Firmware secrets stay out of the artifacts and the tree: `git ls-files` shows
-      only `example/`, and a built image carries no vault value.
-- [ ] The builder vault is `0600` and encrypted; `make vault-view` reads it and
-      `-vvv` shows no value.
+- [ ] No firmware secrets are in the artifacts or the tree: a built image carries
+      no WAN/root password.
+- [ ] The shared builder vault is `0600` and encrypted; `make vault-view` reads it
+      and `-vvv` shows no value.
 - [ ] With `sshd_hardening_enabled`: password login refused, keyed login works, and
       a missing authorized key blocks the role before it writes the config.
 - [ ] `make lint` and `make test` are green.

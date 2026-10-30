@@ -31,7 +31,7 @@
       HOST_GID: "{{ ansible_user_gid | string }}"
       OPENWRT_PACKAGES: "{{ packages_final }}"
       OPENWRT_PROFILE: "{{ target_profile }}"
-      OPENWRT_EXTRA_IMAGE_NAME: "{{ extra_image_name }}"
+      OPENWRT_EXTRA_FIRMWARE_NAME: "{{ extra_firmware_name }}"
       OPENWRT_DISABLED_SERVICES: "{{ disabled_services }}"
       OPENWRT_ROOTFS_PARTSIZE: "{{ rootfs_partsize }}"
   register: build_result

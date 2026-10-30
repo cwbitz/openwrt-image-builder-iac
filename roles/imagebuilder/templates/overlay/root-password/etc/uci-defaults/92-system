@@ -1,8 +1,0 @@
-#!/bin/sh
-
-# Configure the root password on first boot. printf (not echo) keeps literal
-# backslash sequences in the password untouched.
-
-{% if root_password | length > 0 %}
-(printf '%s\n' {{ root_password | quote }}; sleep 1; printf '%s\n' {{ root_password | quote }}) | passwd > /dev/null
-{% endif %}

@@ -1,0 +1,22 @@
+#!/bin/sh
+
+{% if network.lan_ip | default('') | length > 0 %}
+uci set network.lan.ipaddr={{ network.lan_ip | quote }}
+{% endif %}
+{% if network.gateway | default('') | length > 0 %}
+uci set network.lan.gateway={{ network.gateway | quote }}
+{% endif %}
+{% if network.dns | default([]) | length > 0 %}
+uci -q delete network.lan.dns
+{% for server in network.dns %}
+uci -q add_list network.lan.dns={{ server | quote }}
+{% endfor %}
+{% endif %}
+{% if not (network.dhcp | default(true) | bool) %}
+uci set dhcp.lan.ignore='1'
+uci set dhcp.lan.dhcpv4='disabled'
+{% endif %}
+uci commit network
+{% if network.dhcp is defined and not (network.dhcp | bool) %}
+uci commit dhcp
+{% endif %}

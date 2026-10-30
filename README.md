@@ -21,7 +21,7 @@ back to the control node.
 | Layer | Tool | Responsibility |
 |-------|------|----------------|
 | Build host | **Docker** | runs the official `openwrt/imagebuilder` container |
-| Firmware image | **Ansible** (role `imagebuilder`) | module resolution, package collection, uci-defaults overlay, container orchestration |
+| Firmware image | **Ansible** (role `imagebuilder`) | module resolution, package passthrough, uci-defaults overlay, container orchestration |
 | Operator config | `host_vars/<machine>/main.yml` + `group_vars/builders/main.yml` | per-machine build variants; machine-wide operator overrides (e.g. `create_admin_account`) |
 
 The control node (where `make` runs) and the build host (the machine running
@@ -43,11 +43,10 @@ make host-init HOST=builder-1 HOST_IP=10.0.10.50
 #    -> add another machine: make host-init HOST=openwrt-ib-prod-2 HOST_IP=10.0.10.51
 
 # 2) Secrets: connection secrets go in the shared vault (once per fleet);
-#    firmware secrets go in each machine's vault (one sub-key per variant).
+#    no firmware secrets are baked (WAN/root passwords are set after boot).
 make install           # toolchain + collections + sshpass/passlib + Keychain
 make vault-init        # one-time: vault password (back it up)
 make vault-edit-group  # shared SSH identity vault
-make vault-edit HOST=builder-1   # that machine's firmware secrets
 
 # 3) Bootstrap the build machine(s) once (probe iac -> admin -> root,
 #    provision the 'iac' automation account: password, keys, NOPASSWD sudo).
@@ -81,15 +80,14 @@ openwrt-image-builder-iac/
 │   │       └── vault.yml.example      # shared connection secrets template
 │   └── host_vars/
 │       └── example/                   # machine template; real machines gitignored
-│           ├── main.yml               # per-machine build variants (build_variants)
-│           └── vault.yml.example      # per-machine firmware secrets template
+│           └── main.yml               # per-machine build variants (build_variants)
 ├── playbooks/
 │   ├── bootstrap.yml                  # probe + provision the service account (make host-bootstrap)
 │   ├── build.yml                      # build firmware (make build)
 │   └── info.yml                       # query ImageBuilder info (make info)
 ├── roles/imagebuilder/
 │   ├── defaults/main.yml              # fallbacks for the per-variant operator knobs
-│   ├── vars/main.yml                  # module registry, package lists, internals
+│   ├── vars/main.yml                  # module registry, internals
 │   ├── tasks/                         # preflight/modules/setup/packages/overlay/build/info
 │   ├── files/overlay/<module>/...     # static uci-defaults overlay
 │   └── templates/overlay/<module>/    # templated uci-defaults + build.sh.j2
@@ -107,15 +105,14 @@ openwrt-image-builder-iac/
 | Command | Purpose |
 |---------|---------|
 | `make install` | **Sole dependency entry**: ensures the control-node toolchain, collections, `sshpass`, `passlib` and Keychain |
-| `make host-init HOST=<name>` | Scaffold `group_vars/builders/main.yml` + `host_vars/<name>/` from the examples (vault encrypted); add the machine with `HOST_IP=<addr>` |
+| `make host-init HOST=<name>` | Scaffold `group_vars/builders/main.yml` + `host_vars/<name>/` from the examples; add the machine with `HOST_IP=<addr>` |
 | `make host-bootstrap` | Probe iac → admin → root on every machine and provision the automation account |
 | `make deploy` | One-click first build: `host-bootstrap` then `build` |
 | `make build` | Build every variant of every machine (ImageBuilder container) |
 | `make info` | Query image/profile information (no build) |
 | `make vault-init` | One-time: generate the vault password |
-| `make vault-edit HOST=<name>` | Edit a machine's vault |
 | `make vault-edit-group` | Edit the shared builder connection vault |
-| `make vault-view` | View every machine's vault + the shared vault (read-only) |
+| `make vault-view` | View the shared builder connection vault (read-only) |
 
 `make lint` (syntax-check + `ansible-lint` + the operator-example audit) is an
 **internal** target invoked by CI; it is hidden from `make help` but can be run
@@ -125,7 +122,7 @@ directly. `make lint` and `make build` also validate the operator knobs against
 ## Documentation
 
 - [docs/architecture.md](docs/architecture.md) — model, configuration scope, dependency model, secrets and bootstrap.
-- [docs/configuration.md](docs/configuration.md) — inventory & variant schema, modules, packages, mirrors, firmware secrets.
+- [docs/configuration.md](docs/configuration.md) — inventory & variant schema, modules, packages, mirrors, post-boot credentials.
 - [docs/build-pipeline.md](docs/build-pipeline.md) — per-variant pipeline, container orchestration, overlay/uci-defaults, artifacts.
 - [docs/runbooks.md](docs/runbooks.md) — operational procedures and troubleshooting.
 
