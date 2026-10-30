@@ -61,10 +61,11 @@ make deploy
 ```
 
 Each variant is built on its machine under
-`~/.cache/openwrt-builder/artifacts/<machine>-<variant>/`, then fetched to the
-control node's `artifacts/<machine>-<variant>/targets/<target>/<subtarget>/` when
-`fetch_artifacts` is enabled (the default). Use `make info` to inspect the
-ImageBuilder image and profile information without building.
+`~/.cache/openwrt-builder/artifacts/<machine>-<variant>/`, then always fetched to
+the control node's `artifacts/<machine>-<variant>/targets/<target>/<subtarget>/`;
+the builder staging and work directories are removed after the build. Use
+`make info` to inspect the ImageBuilder image and profile information without
+building.
 
 ## Directory Layout
 

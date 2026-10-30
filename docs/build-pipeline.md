@@ -22,9 +22,9 @@ per variant and are individually selectable with `--tags`
    conflicts.
 5. **overlay** — renders the enabled modules' uci-defaults and the `network`
    block when set (see below).
-6. **build** — runs the container, then locates and (optionally) fetches artifacts.
-7. **fetch** (part of build) — when `fetch_artifacts` is true, pulls the
-   artifacts to the control node.
+6. **build** — runs the container, then locates and fetches artifacts.
+7. **fetch** — copies the artifacts to the control node and removes the builder
+   staging and work directories (after success and failure).
 
 ## ImageBuilder internals (setup)
 
@@ -84,10 +84,10 @@ the container.
 
 | Path | Where |
 |------|-------|
-| `~/.cache/openwrt-builder/artifacts/<machine>-<variant>` | builder-side output (`output_dir`) |
+| `~/.cache/openwrt-builder/artifacts/<machine>-<variant>` | builder-side staging (`output_dir`), removed after the build |
 | `<repo>/artifacts/<machine>-<variant>` | control-node copy (`artifacts_dir`), contents gitignored |
 
-When `fetch_artifacts` is true (default), the artifacts are fetched with
-the `targets/<target>/<subtarget>/` layout preserved (firmware images,
-`profiles.json`, `sha256sums`, ...). Set it to `false` to keep them only on the
-builder. Re-running with the same inputs converges on the same output.
+The artifacts are always fetched with the `targets/<target>/<subtarget>/` layout
+preserved (firmware images, `profiles.json`, `sha256sums`, ...). The builder
+staging and work directories are removed after a successful fetch and after a
+failed build. Re-running with the same inputs converges on the same output.

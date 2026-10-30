@@ -123,8 +123,8 @@ vault (`vault_host_<id>_password`) and the non-secret group knobs
 The inventory host is the machine, so the role appends the variant name to form a
 **build id** (`<machine>-<variant>`). Every per-variant artifact uses it:
 
-- builder-side scratch: `{{ build_dir }}/work/<machine>-<variant>`
-- builder-side output: `~/.cache/openwrt-builder/artifacts/<machine>-<variant>`
+- builder-side scratch: `{{ build_dir }}/work/<machine>-<variant>` (removed after the build)
+- builder-side output: `~/.cache/openwrt-builder/artifacts/<machine>-<variant>` (removed after the build)
 - control-node copy: `<repo>/artifacts/<machine>-<variant>`
 - container name: `openwrt-bw-<target>-<version>-<machine>-<variant>`
 

@@ -51,8 +51,7 @@ falls back to the role default.
 | `system` / `disable-ipv6` / `statistics` / `administration` | Module mappings; each has an `enabled` flag (see [Modules](#modules)) |
 | `extra_firmware_name` | Tag inserted into the output filename after the version; ImageBuilder adds the separators (keep it distinct per variant) |
 | `disabled_services` | Space-separated init.d service names to disable in the image |
-| `rootfs_partsize` | Root filesystem partition size in MB (empty ⇒ target default) |
-| `fetch_artifacts` | Pull built artifacts back to the control node (default `true`) |
+| `rootfs_partsize` | Root filesystem partition size in MB, 64–32768 (empty ⇒ target default) |
 | `use_mirror` / `mirror` | Use `mirror` for package repos and the setup tarball (release images) |
 
 `imagebuilder_image` tags follow `<target>-<subtarget>[-<version>]` or

@@ -77,13 +77,13 @@ container orchestration and overlay rendering.
 
 | Knob | Default | Effect |
 |------|---------|--------|
-| `fetch_artifacts` | `true` | Pull built artifacts from the builder to the control node |
-| `artifacts_dir` | `<repo>/artifacts/<machine>-<variant>` | Control-node destination |
-| `output_dir` | `~/.cache/openwrt-builder/artifacts/<machine>-<variant>` | Builder-side output directory |
+| `artifacts_dir` | `<repo>/artifacts/<machine>-<variant>` | Control-node destination (always fetched) |
+| `output_dir` | `~/.cache/openwrt-builder/artifacts/<machine>-<variant>` | Builder-side staging, removed after the build |
 
-The `artifacts/` directory is local-only and gitignored; it is created on demand.
-Disable retrieval for large builds or when the builder is the control node and
-you do not need a second copy.
+Artifacts are always fetched; the `artifacts/` directory is local-only and
+gitignored, and is created on demand. The builder's staging and work directories
+are removed after a successful fetch, and after a failed build, so repeated
+builds do not accumulate files.
 
 ### Verify
 
@@ -94,10 +94,11 @@ sha256sum -c artifacts/*/targets/*/*/sha256sums 2>/dev/null || true
 
 ### Rollback / cleanup
 
-The build writes only to the builder's `~/.cache/openwrt-builder` and (when
-fetching) the control node's `artifacts/`. `artifacts/` contents are gitignored and
-can be removed freely; remove the control-node caches (`.cache`, `collections`,
-`.ansible`) yourself. Nothing else on either host is modified.
+The build writes only to the builder's `~/.cache/openwrt-builder` (its per-build
+staging and work directories are removed after the build) and the control node's
+`artifacts/`. `artifacts/` contents are gitignored and can be removed freely;
+remove the control-node caches (`.cache`, `collections`, `.ansible`) yourself.
+Nothing else on either host is modified.
 
 ## 4. Query image/profile info
 
@@ -108,7 +109,8 @@ make info EXTRA='--limit builder-1'   # single machine
 
 Runs `make info` inside the container without building; use it to discover the
 target's profiles before setting a variant's `target_profile`. It prints one
-`== <machine>-<variant> ==` block per variant, with the dependency-helper chatter
+machine banner followed by one `== <machine>-<variant> ==` block per variant, with
+the dependency-helper chatter
 silenced (`QUIET=1`). The query pulls the image/profile index over the network and
 the shared runner buffers the output, so the terminal can pause (a `Querying
 ImageBuilder info` spinner is shown) before printing.
@@ -205,7 +207,7 @@ host keeps its old login policy. The provider console remains the recovery path.
 | Build fails after enabling a mirror | Mirror sync lag; disable `use_mirror`. `mirror` is a full base URL ending at the mirror's OpenWrt path |
 | Build hangs at "Building package index..." (25.12+, APK) | The container `nofile` ulimit is unbounded and fakeroot's `faked` spins; the role pins `nofile:65536:65536`, keep it bounded |
 | Artifacts owned by root | The in-container `chown` needs `HOST_UID`/`HOST_GID` (from facts) |
-| Artifacts not in the control node's `artifacts/` | Check `fetch_artifacts` (default true); they are also kept on the builder at `output_dir` |
+| Artifacts not in the control node's `artifacts/` | The fetch failed; the builder staging directory is only removed after a successful fetch, so re-run `make build` and check the fetch task |
 | `--tags sshd` fails at "Prove a key-only login" | The chosen identity has no authorized key yet: set `host_iac_ssh_pubkey_file` (or root's) and run `make host-bootstrap`, or unset `sshd_hardening_enabled` |
 | Cannot reach a builder over SSH | Fix its `ansible_host` in `hosts.yml`; the connection identity comes from the committed `group_vars/all/main.yml` |
 
@@ -226,10 +228,11 @@ reason to skip.
       keys, Docker Engine and Compose v2 present; a second run changes nothing.
 - [ ] `make build` builds every declared variant and fetches the images into the
       control node's `artifacts/`; each artifact is a complete image for its target
-      and profile.
+      and profile, and the builder keeps no per-build artifacts or work directory
+      afterwards (success and failure).
 - [ ] A second `make build` with `force_pull: false` reuses the cached imagebuilder
       input instead of downloading it again; `force_pull: true` rebuilds.
-- [ ] Two variants on one machine build in parallel without sharing or clobbering
+- [ ] Two variants on one machine build in sequence without sharing or clobbering
       their `build_id` directories.
 - [ ] Artifacts are owned by the invoking user (`HOST_UID`/`HOST_GID`), not root.
 
