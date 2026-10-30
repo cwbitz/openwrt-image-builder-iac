@@ -37,7 +37,3 @@ ansible_become: "{{ ssh_become }}"
 ansible_ssh_common_args: "{{ ssh_common_args }}"
 
 vault_file: "{{ playbook_dir | dirname }}/inventory/group_vars/builders/vault.yml"
-
-firmware_secrets:
-  root_password: "{{ vault_openwrt_root_password | default({}) }}"
-  pppoe_password: "{{ vault_openwrt_pppoe_password | default({}) }}"

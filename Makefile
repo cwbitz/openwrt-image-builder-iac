@@ -68,7 +68,7 @@ ANSIBLE_PYTHON ?= $(shell \
 	if [ -n "$$p" ]; then f=$$(readlink -f "$$p" 2>/dev/null); \
 	  if [ -f "$$f" ] && head -c 2 "$$f" | grep -q '#!'; then head -1 "$$f" | sed -n 's|^#! *||; s| .*||p'; fi; fi)
 
-.PHONY: help install vault-init host-init vault-edit vault-edit-group vault-view \
+.PHONY: help install vault-init host-init vault-edit-group vault-view \
         host-bootstrap info build deploy
 .PHONY: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections \
         ensure-passlib keychain-fetch verify-keychain-pin run-playbook \
@@ -87,19 +87,12 @@ help: ## Show this help
 install: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections ensure-passlib ## Install the pinned toolchain, collections, and control-node dependencies
 
 host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples (comment-free); HOST default builder-1, HOST_IP default CHANGE_ME_HOST_IP, FORCE=1 replaces an existing entry
-	@[ -e $(INV) ] || { python3 $(CURDIR)/scripts/render_clean_template.py $(INV).example $(INV); echo "created $(INV) (comments stripped)"; }
-	@[ -e inventory/group_vars/builders/main.yml ] || { python3 $(CURDIR)/scripts/render_clean_template.py inventory/group_vars/builders/main.yml.example inventory/group_vars/builders/main.yml; echo "created inventory/group_vars/builders/main.yml (comments stripped)"; }
+	@[ -e $(INV) ] || { python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines $(INV).example $(INV); echo "created $(INV) (comments and blank lines stripped)"; }
+	@[ -e inventory/group_vars/builders/main.yml ] || { python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/group_vars/builders/main.yml.example inventory/group_vars/builders/main.yml; echo "created inventory/group_vars/builders/main.yml (comments and blank lines stripped)"; }
 	@install -d -m 0700 inventory/host_vars/$(HOST)
 	@[ -e inventory/host_vars/$(HOST)/main.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/host_vars/example/main.yml inventory/host_vars/$(HOST)/main.yml
-	@[ -e inventory/host_vars/$(HOST)/vault.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/host_vars/example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml
-	@if ! grep -q 'ANSIBLE_VAULT' inventory/host_vars/$(HOST)/vault.yml; then \
-		echo "encrypting inventory/host_vars/$(HOST)/vault.yml"; \
-		ansible-vault encrypt inventory/host_vars/$(HOST)/vault.yml; \
-	fi
-	@chmod 0600 inventory/host_vars/$(HOST)/vault.yml
 	@python3 $(CURDIR)/scripts/ensure_inventory_host.py $(INV) "$(HOST)" --group builders --ansible-host "$(HOST_IP)" $(if $(FORCE),--force)
 	@echo "scaffolded inventory/host_vars/$(HOST)/ (machine registered under the builders group; edit build_variants[] in main.yml)"
-	@echo "next: make vault-edit HOST=$(HOST)"
 
 host-bootstrap: hostkey-init ## Create the iac automation account (bootstrap.yml; EXTRA=<extra -e vars>; REFRESH=1 refreshes host keys first)
 	@test -f $(INV) || { \
@@ -122,9 +115,6 @@ vault-init: ## One-time: generate the vault password (idempotent)
 		ansible-vault view "$$f" >/dev/null 2>&1 \
 			|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
 	fi
-
-vault-edit: vault-init ## Edit a machine's vault, plaintext auto-encrypted first (keys re-sorted; HOST=<name>)
-	@$(MAKE) --no-print-directory vault-edit-file VAULT_EDIT_FILE=inventory/host_vars/$(HOST)/vault.yml
 
 vault-edit-group: vault-init ## Edit the shared builder connection vault (plaintext auto-encrypted first; keys re-sorted)
 	@$(MAKE) --no-print-directory vault-edit-file VAULT_EDIT_FILE=inventory/group_vars/builders/vault.yml
@@ -153,27 +143,13 @@ vault-edit-file:
 	fi; \
 	exit $$edit_rc
 
-vault-view: vault-init ## View every variant's vault + the shared connection vault (read-only)
-	@test -f $(INV) || { echo "ERROR: $(INV) not found — copy $(INV).example and fill it in." >&2; exit 1; }
-	@hosts="$$(ansible-inventory -i $(INV) --graph builders | awk '/\|\-\-/{sub(/^.*\|\-\- */, ""); print}')"; \
-	files=""; \
-	for h in $$hosts; do \
-		files="$$files inventory/host_vars/$$h/vault.yml"; \
-	done; \
-	if [ -f inventory/group_vars/builders/vault.yml ]; then \
-		files="$$files inventory/group_vars/builders/vault.yml"; \
-	fi; \
-	seen=""; \
-	for p in $$files; do \
-		case "$$seen" in *"|$$p|"*) continue;; esac; \
-		seen="$$seen|$$p|"; \
-		printf '\n\033[1m== %s ==\033[0m\n' "$$p"; \
-		if [ ! -f "$$p" ]; then echo "(missing)"; continue; fi; \
-		if grep -q 'ANSIBLE_VAULT' "$$p"; then \
-			ansible-vault view "$$p" 2>/dev/null \
-				|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
-		else cat "$$p"; fi; \
-	done
+vault-view: vault-init ## View the shared builder connection vault (read-only)
+	@p=inventory/group_vars/builders/vault.yml; \
+	if [ ! -f "$$p" ]; then echo "(missing) $$p"; exit 0; fi; \
+	if grep -q 'ANSIBLE_VAULT' "$$p"; then \
+		ansible-vault view "$$p" 2>/dev/null \
+			|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
+	else cat "$$p"; fi
 
 .PHONY: test
 test: ## Run the unit tests for the control-node helpers

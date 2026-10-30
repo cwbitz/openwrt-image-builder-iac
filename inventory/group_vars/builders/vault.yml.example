@@ -6,7 +6,6 @@
 # Values are control -> builder credentials; only PASSWORDS live here, while the
 # account name and the key paths are non-secret and live in
 # inventory/group_vars/builders/main.yml.
-# Per-machine firmware secrets live in host_vars/<machine>/vault.yml.
 
 # Probed [iac, admin, root]; build/info use `iac`. Each identity needs a
 # password here and/or a key path in the group main.yml (SSH prefers the key).
