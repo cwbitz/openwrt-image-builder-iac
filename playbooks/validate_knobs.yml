@@ -46,6 +46,23 @@
       loop_control:
         label: "{{ item.name | default('<unnamed>') }}"
 
+    - name: Validate the root filesystem partition size
+      ansible.builtin.assert:
+        that:
+          - >-
+            item.rootfs_partsize | default('') == ''
+            or (item.rootfs_partsize | string is match('^[1-9][0-9]*$')
+                and item.rootfs_partsize | int >= 64
+                and item.rootfs_partsize | int <= 32768)
+        fail_msg: >-
+          {{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }}
+          has invalid rootfs_partsize={{ item.rootfs_partsize | default('<unset>') | to_json }};
+          use an empty value (target default) or a size in MB between 64 and 32768.
+        quiet: true
+      loop: "{{ build_variants }}"
+      loop_control:
+        label: "{{ item.name | default('<unnamed>') }}"
+
     - name: Validate the network block type
       ansible.builtin.assert:
         that:
