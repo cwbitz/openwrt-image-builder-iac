@@ -20,6 +20,7 @@
     command: ["/bin/bash", "/builder/build.sh"]
     detach: false
     cleanup: true
+    keep_volumes: false
     output_logs: true
     ulimits: "{{ container_ulimits }}"
     volumes:
@@ -64,7 +65,6 @@
     artifact_relpaths: >-
       {{ build_artifacts.files | map(attribute='path')
          | map('relpath', output_dir) | list }}
-  when: fetch_artifacts | bool
 
 - name: Ensure the control-node artifact directories exist
   ansible.builtin.file:
@@ -76,7 +76,6 @@
   become: false
   vars:
     ansible_become: false
-  when: fetch_artifacts | bool
 
 - name: Fetch the generated artifacts to the control node
   ansible.builtin.fetch:
@@ -84,11 +83,7 @@
     dest: "{{ artifacts_dir }}/{{ item }}"
     flat: true
   loop: "{{ artifact_relpaths }}"
-  when: fetch_artifacts | bool
 
 - name: Report where the artifacts were delivered
   ansible.builtin.debug:
-    msg: >-
-      {{ 'Artifacts fetched to ' ~ artifacts_dir
-         if (fetch_artifacts | bool)
-         else 'Artifacts left on the builder at ' ~ output_dir }}
+    msg: "Artifacts fetched to {{ artifacts_dir }}"

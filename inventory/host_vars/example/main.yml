@@ -85,10 +85,8 @@ build_variants:
     extra_firmware_name: "main"
     # [OPTIONAL] space-separated init.d services to disable (empty = none).
     disabled_services: ""
-    # [OPTIONAL] root filesystem partition size in MB (empty = target default).
+    # [OPTIONAL] root filesystem partition size in MB, 64-32768 (empty = target default).
     rootfs_partsize: ""
-    # [OPTIONAL] pull built artifacts back to the control node (default true).
-    fetch_artifacts: true
     # [OPTIONAL] release-image mirror; `mirror` is the full base URL.
     use_mirror: false
     mirror: https://mirrors.tuna.tsinghua.edu.cn/openwrt

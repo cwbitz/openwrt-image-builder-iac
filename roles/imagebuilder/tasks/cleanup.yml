@@ -1,0 +1,8 @@
+---
+- name: "[ImageBuilder] Remove the builder-side build scratch"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ output_dir }}"
+    - "{{ builder_workdir }}"

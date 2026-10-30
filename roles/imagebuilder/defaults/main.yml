@@ -4,7 +4,7 @@ target_profile: "{{ (build_variant | default({})).target_profile | default('') }
 force_pull: "{{ (build_variant | default({})).force_pull | default(false) }}"
 build_dir: "{{ ansible_facts.user_dir }}/.cache/openwrt-builder"
 output_dir: "{{ build_dir }}/artifacts/{{ build_id }}"
-fetch_artifacts: "{{ (build_variant | default({})).fetch_artifacts | default(true) }}"
+artifacts_dir: "{{ project_root }}/artifacts/{{ build_id }}"
 packages: "{{ (build_variant | default({})).packages | default([]) }}"
 custom_overlay: "{{ (build_variant | default({})).custom_overlay | default('') }}"
 network: "{{ (build_variant | default({})).network | default({}) }}"

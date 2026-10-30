@@ -14,6 +14,7 @@
     command: ["make", "info"]
     detach: false
     cleanup: true
+    keep_volumes: false
     output_logs: true
     ulimits: "{{ container_ulimits }}"
   register: target_info
