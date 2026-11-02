@@ -101,6 +101,16 @@ staging and work directories are removed after the build) and the control node's
 remove the control-node caches (`.cache`, `collections`, `.ansible`) yourself.
 Nothing else on either host is modified.
 
+An interrupted (`Ctrl-C`) build is cleaned up automatically: the run's container
+is force-removed with its anonymous `/builder` volume and the builder-side
+scratch is deleted. If the wrapper itself is killed with `SIGKILL`, run
+`make build` once more (its stale-scratch cleanup escalates via sudo) or remove
+the container by label:
+
+```bash
+ssh <builder> 'docker ps -aq --filter label=openwrt-builder=true | xargs -r docker rm -f -v'
+```
+
 ## 4. Query image/profile info
 
 ```bash

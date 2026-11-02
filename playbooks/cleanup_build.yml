@@ -1,0 +1,45 @@
+---
+- name: Clean up build containers and scratch left by an interrupted run
+  hosts: builders
+  gather_facts: true
+  become: false
+  vars:
+    ansible_become: false
+    build_container_filter: >-
+      {{ ('label=openwrt-builder.run-id=' ~ build_run_id)
+         if (build_run_id | default('') | length > 0)
+         else 'label=openwrt-builder=true' }}
+  tags: [always]
+  tasks:
+    - name: "[Cleanup] List the build containers for this run"
+      ansible.builtin.command:
+        argv:
+          - docker
+          - ps
+          - -aq
+          - --filter
+          - "{{ build_container_filter }}"
+      register: build_containers
+      changed_when: false
+      failed_when: false
+
+    - name: "[Cleanup] Remove the build containers and their anonymous volumes"
+      ansible.builtin.command:
+        argv: [docker, rm, -f, -v, "{{ item }}"]
+      loop: "{{ build_containers.stdout_lines | default([]) }}"
+      loop_control:
+        label: "{{ item }}"
+      changed_when: true
+
+    - name: "[Cleanup] Remove the builder scratch of every variant"
+      become: true
+      vars:
+        ansible_become: true
+      ansible.builtin.file:
+        path: >-
+          {{ ansible_facts.user_dir }}/.cache/openwrt-builder/{{ item.0 }}/{{
+          inventory_hostname }}-{{ item.1.name }}
+        state: absent
+      loop: "{{ ['work', 'artifacts'] | product(build_variants | default([])) | list }}"
+      loop_control:
+        label: "{{ item.0 }}/{{ inventory_hostname }}-{{ item.1.name }}"

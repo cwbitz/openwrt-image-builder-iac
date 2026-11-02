@@ -23,6 +23,10 @@
     keep_volumes: false
     output_logs: true
     ulimits: "{{ container_ulimits }}"
+    labels:
+      openwrt-builder: "true"
+      openwrt-builder.build-id: "{{ build_id }}"
+      openwrt-builder.run-id: "{{ build_run_id | default('') }}"
     volumes:
       - "{{ output_dir }}:/builder/bin"
       - "{{ builder_workdir }}/build.sh:/builder/build.sh"

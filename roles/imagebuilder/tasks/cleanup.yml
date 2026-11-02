@@ -1,5 +1,8 @@
 ---
 - name: "[ImageBuilder] Remove the builder-side build scratch"
+  become: true
+  vars:
+    ansible_become: true
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent

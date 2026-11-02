@@ -72,8 +72,8 @@ ANSIBLE_PYTHON ?= $(shell \
         host-bootstrap info build deploy
 .PHONY: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections \
         ensure-passlib keychain-fetch verify-keychain-pin run-playbook \
-        agent-needed agent-fallback agent-ensure agent-load agent-check \
-        vault-edit-file lint
+        run-build-playbook agent-needed agent-fallback agent-ensure agent-load \
+        agent-check vault-edit-file lint
 
 help: ## Show this help
 	@printf '\nUsage: make <target> [VAR=value ...]\n\n'
@@ -225,10 +225,10 @@ info: ## Query ImageBuilder image/profile info (no build; EXTRA=<extra -e vars>)
 	cat "$$log"; \
 	exit $$rc
 
-build: validate-knobs ## Build a customized OpenWrt firmware image, run host-bootstrap first (EXTRA=<extra -e vars>)
+build: validate-knobs ## Build a customized OpenWrt firmware image (EXTRA=<extra -e vars>)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
-	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/build.yml
+	@$(MAKE) --no-print-directory run-build-playbook
 
 deploy: host-bootstrap build ## One-click: bootstrap the build host, then build every variant (EXTRA=<extra -e vars>; REFRESH=1 refreshes host keys first)
 
@@ -360,6 +360,10 @@ ensure-keychain: verify-keychain-pin
 
 run-playbook: install vault-init agent-fallback
 	@$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(EXTRA)
+
+run-build-playbook: install vault-init agent-fallback
+	@ANS_PLAY="$(ANS_PLAY)" INV="$(INV)" SSH_AGENT_RUN="$(SSH_AGENT_RUN)" \
+		BUILD_EXTRA="$(EXTRA)" $(CURDIR)/scripts/run-build.sh
 
 .PHONY: validate-knobs
 validate-knobs: vault-init

@@ -51,7 +51,13 @@ official `openwrt/imagebuilder` tag always exposes them) and derives:
   the daemon's near-infinite inherited limit turns that into a hang. Keep it
   bounded.
 - `cleanup: true`, `detach: false`, `output_logs: true`; a non-zero exit status is
-  asserted as a build failure.
+  asserted as a build failure. The container carries `openwrt-builder` labels
+  (project, build id, run id).
+- An interrupted or failed `make build` cleans up after itself: the wrapper
+  (`scripts/run-build.sh`) runs `playbooks/cleanup_build.yml`, force-removes the
+  run's containers **with their anonymous `/builder` volumes** (`docker rm -f -v`),
+  and deletes the builder-side work/artifact scratch. Scratch removal escalates
+  through `iac`'s passwordless sudo because the container writes it as root.
 
 In the container, `templates/build.sh.j2` sets `TMPDIR` to a workspace on disk
 (avoiding tmpfs exhaustion), runs `setup.sh` (release images with
@@ -89,5 +95,6 @@ the container.
 
 The artifacts are always fetched with the `targets/<target>/<subtarget>/` layout
 preserved (firmware images, `profiles.json`, `sha256sums`, ...). The builder
-staging and work directories are removed after a successful fetch and after a
-failed build. Re-running with the same inputs converges on the same output.
+staging and work directories are removed after a successful fetch, after a
+failed build, and after an interrupted build (including root-owned partial
+output). Re-running with the same inputs converges on the same output.
