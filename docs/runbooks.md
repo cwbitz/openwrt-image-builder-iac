@@ -52,7 +52,8 @@ templates are tracked.
 ### `host-bootstrap`
 
 `make host-bootstrap` probes `iac → admin → root` on **every**
-machine and uses the first identity that works on each; when that is not `iac`, it
+machine (or only `EXTRA='--limit <machine>'`) and uses the first identity that
+works on each; when that is not `iac`, it
 (re)creates the `iac` automation account (key-first, NOPASSWD sudo, the `docker`
 group when present) and the optional human `admin` account. It self-heals a
 rotated/deleted credential. With no `host_iac_ssh_pubkey_file`, an empty

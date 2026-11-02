@@ -55,9 +55,15 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
 Shared by the `*-iac` repos; keep this chain statically resolvable so
 `--syntax-check` stays clean:
 
-- **Control-node-only plays** (preflight, the SSH probe, `host_keys`,
-  `ssh_agent_load`) use `hosts: localhost` + `connection: local` — never
-  `hosts: all` + `connection: local`.
+- **Control-node-only plays** (preflight, `host_keys`, `ssh_agent_load`) use
+  `hosts: localhost` + `connection: local` — never `hosts: all` +
+  `connection: local`.
+- **The SSH probe targets the selected inventory hosts with
+  `connection: local`**, not `localhost`: the probe's tasks still run on the
+  control node, but each play host is the machine being probed, so `--limit`
+  selects exactly the machines to probe and bootstrap. Do not use a dynamic
+  `add_host` injection for this; a `hosts: localhost` probe is silently skipped
+  under `--limit <machine>`.
 - **The action play that follows a probe** targets a host/group that resolves
   from the static inventory. Never target a dynamic-only group: it forces either
   an empty-group declaration in the inventory or a `--syntax-check`
@@ -65,9 +71,9 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
 - **Single-host bootstrap** targets the probed host **by name**, with a safe
   default — `hosts: "{{ bootstrap_host | default(groups['<group>'] | default([]) | first | default('', true)) }}"` —
   and `make <target> HOST=<name>` passes `-e bootstrap_host=<name>`.
-- **Multi-host bootstrap** targets the real inventory group. `add_host` only
-  injects the probed identity/vars onto a host already present in the inventory;
-  it never creates a play target.
+- **Multi-host bootstrap** targets the real inventory group and records the
+  probed identity as per-host facts (`probe_identity`, `bootstrap_conn`) that
+  the following play consumes through `hostvars`.
 - **The probe must verify escalation, not just login.** An identity other than
   `root` is usable only when it can actually become root: proven with
   `sudo -n true` for the NOPASSWD `iac` account, while a password-sudo identity
@@ -111,8 +117,8 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
   `host_vars/example/` and the `group_vars/builders/*.example` templates.
   `inventory/hosts.yml`, real machine directories, and `group_vars/builders/main.yml`
   / real `vault*.yml` are gitignored.
-- `bootstrap.yml` targets the `builders` group (one play per machine) and injects
-  the probed identity per host with `add_host`; `build.yml`/`info.yml` loop each
+- `bootstrap.yml` targets the `builders` group (one play per machine) and records
+  the probed identity per host as facts; `build.yml`/`info.yml` loop each
   machine's `build_variants` (build id = `<machine>-<variant>`).
 - A machine's variants build sequentially; machines build in parallel.
 - The built image carries the secrets it was built with — treat fetched artifacts

@@ -34,9 +34,10 @@
   import_playbook: preflight_managed_hosts.yml
 
 - name: "Probe the SSH identities (iac -> admin -> root) on every machine"
-  hosts: localhost
+  hosts: builders
   vars:
     ansible_become: false
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
     probe_credentials_dir: "{{ playbook_dir }}/../.cache/ansible/probe-credentials"
   connection: local
   gather_facts: false
@@ -54,16 +55,12 @@
           ansible.builtin.copy:
             content: |
               {% for id in ['iac', 'admin', 'root'] %}
-              PROBE_{{ id | upper }}_USER={{ hostvars[probe_host].ssh_identities[id].user | quote }}
-              PROBE_{{ id | upper }}_PW={{ hostvars[probe_host].ssh_identities[id].password | quote }}
-              PROBE_{{ id | upper }}_KEY={{ hostvars[probe_host].ssh_identities[id].privkey | quote }}
+              PROBE_{{ id | upper }}_USER={{ hostvars[inventory_hostname].ssh_identities[id].user | quote }}
+              PROBE_{{ id | upper }}_PW={{ hostvars[inventory_hostname].ssh_identities[id].password | quote }}
+              PROBE_{{ id | upper }}_KEY={{ hostvars[inventory_hostname].ssh_identities[id].privkey | quote }}
               {% endfor %}
-            dest: "{{ probe_credentials_dir }}/{{ probe_host }}.env"
+            dest: "{{ probe_credentials_dir }}/{{ inventory_hostname }}.env"
             mode: "0600"
-          loop: "{{ groups['builders'] | default([]) }}"
-          loop_control:
-            loop_var: probe_host
-            label: "{{ probe_host }}"
           no_log: true
 
         - name: "[Probe] Try each identity over SSH"
@@ -71,7 +68,7 @@
             set -u
             set -o pipefail
             . "$PROBE_CREDENTIALS_FILE"
-            HOST="{{ hostvars[probe_host].ansible_host }}"; PORT="{{ hostvars[probe_host].ansible_port | default(22) }}"
+            HOST="{{ hostvars[inventory_hostname].ansible_host }}"; PORT="{{ hostvars[inventory_hostname].ansible_port | default(22) }}"
             try_identity() {
               id="$1"
               user=$(eval echo "\$PROBE_${id}_USER")
@@ -111,55 +108,43 @@
           args:
             executable: /bin/bash
           environment:
-            PROBE_CREDENTIALS_FILE: "{{ probe_credentials_dir }}/{{ probe_host }}.env"
-          loop: "{{ groups['builders'] | default([]) }}"
-          loop_control:
-            loop_var: probe_host
-            label: "{{ probe_host }}"
+            PROBE_CREDENTIALS_FILE: "{{ probe_credentials_dir }}/{{ inventory_hostname }}.env"
           register: probe
           changed_when: false
           no_log: true
           failed_when: false
+
+        - name: "[Probe] Fail if a machine has no working identity"
+          ansible.builtin.assert:
+            that:
+              - probe.rc == 0
+            fail_msg: >-
+              {{ inventory_hostname }}: could not log in as iac, admin or
+              root with the configured credentials. Check
+              inventory/group_vars/builders/vault.yml
+              (vault_host_{iac,admin,root}_password),
+              inventory/group_vars/builders/main.yml
+              (host_{iac,admin,root}_ssh_privkey_file) and the host.
+            quiet: true
+
+        - name: "[Probe] Inject the chosen identity per machine"
+          ansible.builtin.set_fact:
+            probe_identity: "{{ probe.stdout | trim }}"
+            bootstrap_conn:
+              user: >-
+                {{ hostvars[inventory_hostname].ssh_identities[(probe.stdout | trim | lower)].user }}
+              password: >-
+                {{ hostvars[inventory_hostname].ssh_identities[(probe.stdout | trim | lower)].password }}
+              privkey: >-
+                {{ hostvars[inventory_hostname].ssh_identities[(probe.stdout | trim | lower)].privkey }}
+              become: "{{ (probe.stdout | trim | lower) != 'root' }}"
+          no_log: true
       always:
         - name: "[Probe] Remove the staged identity credentials"
           ansible.builtin.file:
-            path: "{{ probe_credentials_dir }}"
+            path: "{{ probe_credentials_dir }}/{{ inventory_hostname }}.env"
             state: absent
           no_log: true
-
-    - name: "[Probe] Fail if a machine has no working identity"
-      ansible.builtin.assert:
-        that:
-          - probe_result.rc == 0
-        fail_msg: >-
-          {{ probe_result.probe_host }}: could not log in as iac, admin or
-          root with the configured credentials. Check
-          inventory/group_vars/builders/vault.yml
-          (vault_host_{iac,admin,root}_password),
-          inventory/group_vars/builders/main.yml
-          (host_{iac,admin,root}_ssh_privkey_file) and the host.
-      loop: "{{ probe.results | default([]) }}"
-      loop_control:
-        loop_var: probe_result
-        label: "{{ probe_result.probe_host }}"
-
-    - name: "[Probe] Inject the chosen identity per machine"
-      ansible.builtin.add_host:
-        name: "{{ probe_result.probe_host }}"
-        probe_identity: "{{ probe_result.stdout | trim }}"
-        bootstrap_conn:
-          user: >-
-            {{ hostvars[probe_result.probe_host].ssh_identities[(probe_result.stdout | trim | lower)].user }}
-          password: >-
-            {{ hostvars[probe_result.probe_host].ssh_identities[(probe_result.stdout | trim | lower)].password }}
-          privkey: >-
-            {{ hostvars[probe_result.probe_host].ssh_identities[(probe_result.stdout | trim | lower)].privkey }}
-          become: "{{ (probe_result.stdout | trim | lower) != 'root' }}"
-      loop: "{{ probe.results | default([]) }}"
-      loop_control:
-        loop_var: probe_result
-        label: "{{ probe_result.probe_host }}"
-      no_log: true
 
 - name: Bootstrap the build machines (service + admin accounts, keys, sudo)
   hosts: builders
