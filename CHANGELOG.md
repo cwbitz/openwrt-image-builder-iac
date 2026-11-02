@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.1](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.1.0...v0.1.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **bootstrap:** make the SSH probe follow --limit ([#2](https://github.com/cwbitz/openwrt-image-builder-iac/issues/2)) ([b632f20](https://github.com/cwbitz/openwrt-image-builder-iac/commit/b632f20f6cc419adb0459bb0ff3cb34823dedb38))
+* **build:** clean up containers and scratch on interrupt ([#3](https://github.com/cwbitz/openwrt-image-builder-iac/issues/3)) ([847a24a](https://github.com/cwbitz/openwrt-image-builder-iac/commit/847a24a5bf6bde5b7da40a84a447778276d8ae0b))
+* **build:** stream output instead of hiding progress ([#4](https://github.com/cwbitz/openwrt-image-builder-iac/issues/4)) ([2e40b83](https://github.com/cwbitz/openwrt-image-builder-iac/commit/2e40b83cc9b2bf66a0d388ca0b6c9d585991dd83))
+
 ## 0.1.0 (2026-11-02)
 
 
