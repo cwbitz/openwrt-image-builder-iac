@@ -40,12 +40,13 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
   after the editor closes.
 - `make vault-view` — read-only: print the shared builder connection vault.
 - Internal (hidden from `make help`): `lint` (syntax-check + `ansible-lint` +
-  the operator-example audit + the knob validation + `scripts/check_repo_privacy.py`
-  — tracked local-only trees, credential files and real addresses or host names,
-  allowlist in `.privacy-allowlist` — run by CI), `make test` (helper unit suite) and the
-  `ensure-*` / `agent-*` / `keychain-*` / `run-playbook` helpers. `make build`
-  and `make lint` assert every operator knob against `inventory/knob_schema.yml`
-  through `playbooks/validate_knobs.yml`.
+  `yamllint` + `shellcheck` + the operator-example audit + the knob validation +
+  `scripts/check_repo_privacy.py` — tracked local-only trees, credential files
+  and real addresses or host names, allowlist in `.privacy-allowlist` — and
+  `gitleaks`; run by CI), `make test` (helper unit suite) and the `ensure-*` /
+  `agent-*` / `keychain-*` / `run-playbook` helpers. `make build` and `make lint`
+  assert every operator knob against `inventory/knob_schema.yml` through
+  `playbooks/validate_knobs.yml`.
 - `EXTRA` is appended to every `ansible-playbook` invocation, e.g.
   `make build EXTRA='--limit builder-1'`.
 
@@ -123,10 +124,10 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
 
 Two layers, and only one of them is executable:
 
-- **Automated** — `make lint` (playbook syntax check, `ansible-lint`, the
-  knob-schema/example audit, the host-key and repository-privacy checks,
-  `gitleaks`) and `make test` (the helper suite under `tests/`). Both run in CI on
-  every change.
+- **Automated** — `make lint` (playbook syntax check, `ansible-lint`,
+  `yamllint`, `shellcheck`, the knob-schema/example audit, the host-key and
+  repository-privacy checks, `gitleaks`) and `make test` (the helper suite under
+  `tests/`). Both run in CI on every change.
 - **Manual** — the cases that need a disposable host and destructive steps; they
   are a checklist in `docs/runbooks.md` and are re-run when a role, the bootstrap
   or the backup path changes. `tests/` covers the helpers, not a live SSH session
@@ -180,6 +181,22 @@ Two layers, and only one of them is executable:
 - no unexplained high-severity security finding;
 - every conclusion points at evidence, and every unexecuted check names the
   reason and what would unblock it.
+
+## Repository automation
+
+- Remote `cwbitz/openwrt-image-builder-iac`, default branch `main`. Every change
+  lands through a `<type>/<slug>` pull request; merge commits and rebase are
+  disabled, squash merge is the only method, and merged branches are deleted.
+- The `Protect main` ruleset has no bypass actors. It requires a pull request and
+  the status checks `lint` and `pr-title`, with a strict up-to-date branch.
+- PR titles are Conventional Commits, validated by
+  `.github/workflows/pr-title.yml`; the squash merge uses the PR title verbatim.
+- CI (`.github/workflows/ci.yml`) runs the `lint` job with
+  `ANSIBLE_CONFIG=ci/ansible-ci.cfg` (placeholder inventory in
+  `ci/inventory.yml`) plus a full-history `gitleaks` scan and `make test`.
+- Release automation uses release-please: non-major release PRs auto-merge,
+  major releases stay manual. Renovate updates dependencies; major updates and
+  the pinned toolchain need manual review.
 
 ## Detailed documentation
 

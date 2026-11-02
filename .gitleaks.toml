@@ -1,15 +1,18 @@
-title = "openwrt-image-builder-iac gitleaks config"
-
+# Secret scanning for `make lint` and CI. The default ruleset stays complete;
+# only committed placeholders, examples and installed collections are excluded.
 [extend]
 useDefault = true
 
 [allowlist]
-description = "Committed examples/placeholders only (no real secrets are committed)"
+description = "Committed placeholders, examples and installed collections"
 paths = [
-  '''(^|/)variant\.example/''',
+  '''(^|/)host_vars/example/''',
+  '''(^|/)modules/network/example\.env$''',
   '''\.example$''',
+  '''^collections/''',
+  '''^backup/''',
+  '''^\.cache/''',
 ]
 regexes = [
-  '''CHANGE_ME_.*''',
-  '''dummy''',
+  '''CHANGE_ME_[A-Z_]*''',
 ]

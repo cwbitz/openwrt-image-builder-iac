@@ -1,0 +1,25 @@
+---
+name: pr-title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a Conventional Commit title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          pattern='^(feat|fix|chore|docs|refactor|test|ci|build|perf)(\([a-z0-9._-]+\))?!?: \S.*$'
+          if [[ ! "$PR_TITLE" =~ $pattern ]]; then
+            echo "::error title=Invalid pull request title::'$PR_TITLE' must read '<type>(<scope>)?: <description>' with type one of feat, fix, chore, docs, refactor, test, ci, build, perf."
+            exit 1
+          fi
+          echo "PR title is a Conventional Commit: $PR_TITLE"

@@ -1,70 +1,115 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"],
-  "enabledManagers": ["ansible", "github-actions", "asdf", "regex"],
-  "labels": ["dependencies"],
-  "rangeStrategy": "auto",
-  "minimumReleaseAge": "3 days",
-  "prConcurrentLimit": 1,
-  "prHourlyLimit": 2,
-  "schedule": ["before 7am on monday"],
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "osvVulnerabilityAlerts": true,
   "customManagers": [
     {
       "customType": "regex",
-      "description": ".tool-versions: ansible-core has no asdf plugin (mise pypi backend), so track it via PyPI",
-      "managerFilePatterns": ["/^\\.tool-versions$/"],
-      "matchStrings": ["^ansible-core (?<currentValue>\\S+)$"],
+      "description": "ansible-core pinned in .tool-versions (mise pypi backend)",
+      "managerFilePatterns": [
+        "/^\\.tool-versions$/"
+      ],
+      "matchStrings": [
+        "^ansible-core (?<currentValue>\\S+)$"
+      ],
       "datasourceTemplate": "pypi",
       "packageNameTemplate": "ansible-core",
       "versioningTemplate": "semver"
     },
     {
       "customType": "regex",
-      "description": "lint tools pinned through mise's pipx backend in .tool-versions",
-      "managerFilePatterns": ["/^\\.tool-versions$/"],
-      "matchStrings": ["^pipx:(?<depName>\\S+) (?<currentValue>\\S+)$"],
+      "description": "Lint/test tools pinned through mise's pipx backend in .tool-versions",
+      "managerFilePatterns": [
+        "/^\\.tool-versions$/"
+      ],
+      "matchStrings": [
+        "^pipx:(?<depName>\\S+) (?<currentValue>\\S+)$"
+      ],
       "datasourceTemplate": "pypi"
     },
     {
       "customType": "regex",
       "description": "Keychain 3 pin (version + sha256) via GitHub release attachments",
-      "managerFilePatterns": ["/^keychain\\.pin$/"],
-      "matchStrings": ["(?<currentValue>\\d+\\.\\d+\\.\\d+)\\s+sha256:(?<currentDigest>[a-f0-9]{64})"],
+      "managerFilePatterns": [
+        "/^keychain\\.pin$/"
+      ],
+      "matchStrings": [
+        "(?<currentValue>\\d+\\.\\d+\\.\\d+)\\s+sha256:(?<currentDigest>[a-f0-9]{64})"
+      ],
       "datasourceTemplate": "github-release-attachments",
       "packageNameTemplate": "danielrobbins/keychain"
     }
   ],
   "packageRules": [
     {
-      "description": "Pin GitHub Actions to immutable commit SHAs",
-      "matchManagers": ["github-actions"],
-      "pinDigests": true,
-      "groupName": "github actions"
-    },
-    {
-      "description": "Auto-merge low-risk updates after CI: minor/patch bumps and action SHA digest updates",
-      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
-      "automerge": true,
-      "automergeType": "pr",
-      "platformAutomerge": true
+      "description": "Toolchain / CI dependencies: manual review, never automerge",
+      "matchManagers": [
+        "mise",
+        "asdf",
+        "ansible-galaxy",
+        "github-actions"
+      ],
+      "automerge": false,
+      "addLabels": [
+        "review-required"
+      ]
     },
     {
       "description": "Lint tools (PyPI, via mise's pipx backend): manual review, never automerge",
-      "matchDatasources": ["pypi"],
-      "matchPackageNames": ["ansible-lint", "yamllint"],
+      "matchDatasources": [
+        "pypi"
+      ],
+      "matchPackageNames": [
+        "ansible-lint",
+        "yamllint"
+      ],
       "automerge": false,
-      "addLabels": ["review-required"]
+      "addLabels": [
+        "review-required"
+      ]
+    },
+    {
+      "description": "Keychain (credential tool): minor/major require manual review",
+      "matchDatasources": [
+        "github-release-attachments"
+      ],
+      "matchPackageNames": [
+        "danielrobbins/keychain"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "automerge": false,
+      "addLabels": [
+        "review-required"
+      ]
+    },
+    {
+      "description": "Keychain: auto-merge patch after the pin-verification CI passes",
+      "matchDatasources": [
+        "github-release-attachments"
+      ],
+      "matchPackageNames": [
+        "danielrobbins/keychain"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": true
     },
     {
       "description": "Never auto-merge major updates",
-      "matchUpdateTypes": ["major"],
-      "automerge": false
-    },
-    {
-      "description": "Keychain (credential tool): major/minor require manual review",
-      "matchDatasources": ["github-release-attachments"],
-      "matchPackageNames": ["danielrobbins/keychain"],
-      "matchUpdateTypes": ["minor", "major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "automerge": false
     }
   ]

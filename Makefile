@@ -32,7 +32,7 @@ KEYCHAIN_CACHE   ?= $(HOME)/.cache/openwrt-image-builder-iac
 KEYCHAIN_ASSET   := $(KEYCHAIN_CACHE)/keychain-$(KEYCHAIN_VERSION).pyz
 KEYCHAIN_AGENT   := eval "$$($(KEYCHAIN_BIN) agent start --eval --quiet 2>/dev/null)"
 
-export ANSIBLE_CONFIG := ansible.cfg
+export ANSIBLE_CONFIG ?= ansible.cfg
 
 SSH_AGENT_ENV   ?= $(HOME)/.cache/iac/ssh-agent.env
 SSH_AGENT_RUN   ?= $(CURDIR)/scripts/run-with-ssh-agent.sh
@@ -157,17 +157,20 @@ test: ## Run the unit tests for the control-node helpers
 
 lint: install vault-init validate-knobs
 	@for p in playbooks/*.yml; do \
-		$(ANS_PLAY) --syntax-check -i $(INV) "$$p" || exit 1; \
+		$(ANS_PLAY) --syntax-check "$$p" || exit 1; \
 	done
 	@if command -v ansible-lint >/dev/null 2>&1; then \
 		ansible-lint -c .ansible-lint .; \
 	else \
 		echo "WARN: ansible-lint not installed, skipped"; \
 	fi
-	@python3 scripts/audit_example_knobs.py
+	yamllint .
+	shellcheck scripts/*.sh
+	python3 scripts/audit_example_knobs.py
 	python3 scripts/check_host_keys.py
 	python3 scripts/check_repo_privacy.py
 	python3 scripts/check_script_modes.py
+	gitleaks dir . --config .gitleaks.toml --no-banner --redact
 
 .PHONY: hostkey-init
 hostkey-init: vault-init ## Refresh every managed host's SSH host key in known_hosts (FORCE=1 replaces a changed key)

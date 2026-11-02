@@ -14,3 +14,9 @@ pipx:yamllint 1.38.0
 
 # Unit tests for the control-node helpers (`make test`).
 pipx:pytest 9.1.1
+
+# Secret scanning in `make lint` and CI (pinned for local/CI parity).
+gitleaks 8.30.1
+
+# Shell style checks in `make lint` (pinned for local/CI parity).
+shellcheck 0.11.0

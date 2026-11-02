@@ -1,3 +1,4 @@
+---
 name: ci
 
 on:
@@ -9,50 +10,31 @@ permissions:
   contents: read
 
 jobs:
-  ansible:
-    name: Ansible lint / syntax
+  lint:
     runs-on: ubuntu-latest
     env:
-      ANSIBLE_CONFIG: ansible.cfg
+      ANSIBLE_CONFIG: ci/ansible-ci.cfg
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-      - name: Setup mise (python + ansible-core from .tool-versions)
-        uses: jdx/mise-action@v4
+      - name: Check out
+        uses: actions/checkout@v4
         with:
-          install: true
-          cache: true
-      - name: Install control-node prerequisites + collections
+          # The secret scan below walks the whole history, not just the tip.
+          fetch-depth: 0
+      - name: Install the pinned toolchain (.tool-versions)
+        uses: jdx/mise-action@v4
+      - name: Install Galaxy collections (make install)
         run: make install
-      - name: Show the running lint tool versions
-        run: |
-          ansible-lint --version
-          yamllint --version
-
-      - name: Prepare Ansible vault password (throwaway; CI has no secrets)
-        run: make vault-init
-      - name: Prepare inventory from example
-        run: |
-          cp inventory/hosts.yml.example inventory/hosts.yml
-          cp inventory/group_vars/builders/main.yml.example inventory/group_vars/builders/main.yml
-
-      - name: Lint (syntax check + ansible-lint)
-        run: make lint
-      - name: Unit tests (pytest)
-        run: make test
-      - name: YAML lint
-        run: yamllint -c .yamllint .ansible-lint requirements.yml playbooks roles inventory .github renovate.json
       - name: Verify the pinned Keychain asset (SHA256)
         run: make verify-keychain-pin
-  gitleaks:
-    name: Secret scan (gitleaks)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Show the running tool versions
+        run: |
+          ansible --version
+          ansible-lint --version
+          yamllint --version
+          shellcheck --version
+      - name: Lint (syntax check + ansible-lint + yamllint + shellcheck + gitleaks)
+        run: make lint
+      - name: Secret scan (gitleaks, full history)
+        run: gitleaks git . --config .gitleaks.toml --no-banner --redact --log-opts="--all"
+      - name: Unit tests (pytest)
+        run: make test
