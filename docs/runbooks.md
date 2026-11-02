@@ -122,9 +122,9 @@ Runs `make info` inside the container without building; use it to discover the
 target's profiles before setting a variant's `target_profile`. It prints one
 machine banner followed by one `== <machine>-<variant> ==` block per variant, with
 the dependency-helper chatter
-silenced (`QUIET=1`). The query pulls the image/profile index over the network and
-the shared runner buffers the output, so the terminal can pause (a `Querying
-ImageBuilder info` spinner is shown) before printing.
+silenced (`QUIET=1`). The query pulls the image/profile index over the network;
+`make info` captures its own run to drive the `Querying ImageBuilder info`
+spinner, then prints the result. Builds, by contrast, stream live.
 
 ## 5. Mirrors
 

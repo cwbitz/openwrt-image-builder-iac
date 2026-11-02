@@ -11,6 +11,14 @@
     dest: "{{ builder_workdir }}/build.sh"
     mode: "0755"
 
+- name: Announce the image build
+  ansible.builtin.debug:
+    msg:
+      - "Building {{ build_id }} with {{ imagebuilder_image }}."
+      - >-
+        Container {{ container_name }} can run for several minutes; its
+        ImageBuilder log is printed when the build finishes.
+
 - name: Build the firmware image in the ImageBuilder container
   community.docker.docker_container:
     name: "{{ container_name }}"

@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import pathlib
 import stat
+import subprocess
+
+SCRIPTS = pathlib.Path(__file__).resolve().parents[1] / "scripts"
 
 
 def make_script(tmp_path: pathlib.Path, name: str, body: str) -> pathlib.Path:
@@ -25,7 +28,27 @@ def test_agent_runner_propagates_failure(run_shell, tmp_path):
     result = run_shell("run-with-ssh-agent.sh", command)
 
     assert result.returncode == 4
-    assert "playbook failed" in result.stderr
+    assert "playbook failed" in result.stdout + result.stderr
+
+
+def test_agent_runner_streams_output_before_the_command_exits(tmp_path):
+    command = make_script(
+        tmp_path,
+        "slow.sh",
+        'echo "build started"\nsleep 2\necho "build finished"\n',
+    )
+    process = subprocess.Popen(
+        ["bash", str(SCRIPTS / "run-with-ssh-agent.sh"), str(command)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    assert process.stdout is not None
+    first_line = process.stdout.readline()
+    assert "build started" in first_line
+    assert process.poll() is None, "the runner buffered output until the command exited"
+    process.wait(timeout=10)
+    assert process.returncode == 0
 
 
 def test_agent_runner_retries_once_on_a_refused_key(run_shell, tmp_path):

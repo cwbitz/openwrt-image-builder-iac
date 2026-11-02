@@ -22,9 +22,13 @@ per variant and are individually selectable with `--tags`
    conflicts.
 5. **overlay** — renders the enabled modules' uci-defaults and the `network`
    block when set (see below).
-6. **build** — runs the container, then locates and fetches artifacts.
+6. **build** — announces the build, runs the container, then locates and fetches
+   artifacts.
 7. **fetch** — copies the artifacts to the control node and removes the builder
    staging and work directories (after success and failure).
+
+The control-node runner streams Ansible's output live instead of capturing it
+until exit, so task progress and failures are visible while a build runs.
 
 ## ImageBuilder internals (setup)
 
@@ -53,6 +57,8 @@ official `openwrt/imagebuilder` tag always exposes them) and derives:
 - `cleanup: true`, `detach: false`, `output_logs: true`; a non-zero exit status is
   asserted as a build failure. The container carries `openwrt-builder` labels
   (project, build id, run id).
+- The ImageBuilder log is printed when the container exits (the module buffers
+  it); the role prints an explicit "can run for several minutes" notice first.
 - An interrupted or failed `make build` cleans up after itself: the wrapper
   (`scripts/run-build.sh`) runs `playbooks/cleanup_build.yml`, force-removes the
   run's containers **with their anonymous `/builder` volumes** (`docker rm -f -v`),

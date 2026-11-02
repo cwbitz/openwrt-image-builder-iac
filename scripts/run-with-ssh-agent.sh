@@ -5,14 +5,18 @@ if [ -n "${SSH_AGENT_ENV:-}" ] && [ -f "$SSH_AGENT_ENV" ]; then
   . "$SSH_AGENT_ENV"
 fi
 
-log="$(mktemp)"
-trap 'rm -f "$log"' EXIT
+set -o pipefail
 
-"$@" >"$log" 2>&1
+log="$(mktemp)"
+retry_log="$(mktemp)"
+trap 'rm -f "$log" "$retry_log"' EXIT
+
+# Stream while capturing: long playbook runs must show progress instead of
+# staying silent until the command exits.
+"$@" 2>&1 | tee "$log"
 rc=$?
 
 if [ "$rc" -eq 0 ]; then
-  cat "$log"
   exit 0
 fi
 
@@ -20,7 +24,7 @@ if grep -qiE 'UNPROTECTED PRIVATE KEY FILE|are too open|bad permissions|Permissi
   echo "run-with-ssh-agent: SSH refused a private key — starting Keychain, loading keys, retrying once..." >&2
   eval "$("$SSH_AGENT_KEYCHAIN_BIN" agent start --eval --quiet 2>/dev/null)"
   "$SSH_AGENT_ANS_PLAY" -i "$SSH_AGENT_INVENTORY" "$SSH_AGENT_LOAD_PLAYBOOK"
-  if "$@"; then
+  if "$@" 2>&1 | tee "$retry_log"; then
     exit 0
   fi
   echo "run-with-ssh-agent: retry failed; original attempt output follows:" >&2
@@ -28,5 +32,4 @@ if grep -qiE 'UNPROTECTED PRIVATE KEY FILE|are too open|bad permissions|Permissi
   exit 1
 fi
 
-cat "$log" >&2
 exit "$rc"
