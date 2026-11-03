@@ -200,9 +200,13 @@ Two layers, and only one of them is executable:
 - CI (`.github/workflows/ci.yml`) runs the `lint` job with
   `ANSIBLE_CONFIG=ci/ansible-ci.cfg` (placeholder inventory in
   `ci/inventory.yml`) plus a full-history `gitleaks` scan and `make test`.
-- Release automation uses release-please: non-major release PRs auto-merge,
-  major releases stay manual. Renovate updates dependencies; major updates and
-  the pinned toolchain need manual review.
+- Release automation uses release-please (non-major release PRs auto-merge,
+  major releases stay manual) and needs a GitHub App
+  (`RELEASE_PLEASE_APP_CLIENT_ID` + `RELEASE_PLEASE_APP_PRIVATE_KEY`) or a PAT
+  (`RELEASE_PLEASE_TOKEN`): with the `GITHUB_TOKEN` fallback its PRs wait for
+  manual workflow approval and its merges do not run the tag workflow.
+  Renovate updates dependencies; major updates and the pinned toolchain need
+  manual review.
 
 ## Detailed documentation
 
