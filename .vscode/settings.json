@@ -53,5 +53,6 @@
   "search.exclude": {
     "**/collections/": true,
     "**/.ansible/": true
-  }
+  },
+  "python.terminal.useEnvFile": true
 }
