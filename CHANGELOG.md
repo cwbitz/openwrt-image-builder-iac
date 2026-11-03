@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.2.1...v0.2.2) (2026-11-03)
+
+
+### Features
+
+* **vault:** keep connection secrets per machine ([#5](https://github.com/cwbitz/openwrt-image-builder-iac/issues/5)) ([55df943](https://github.com/cwbitz/openwrt-image-builder-iac/commit/55df943b98070bd4bf69a065b5f61f17081f3907))
+
 ## [0.2.1](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.2.0...v0.2.1) (2026-11-03)
 
 
