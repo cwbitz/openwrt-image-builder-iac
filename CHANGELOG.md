@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.0](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.1.1...v0.2.0) (2026-11-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **imagebuilder:** the `enabled` flag is gone from the system, statistics and administration modules. Delete it from each module block: listing any field under the module enables it, and an empty mapping disables it. A config that still carries `enabled` fails validation with an `unknown key(s)` error.
+
+### Features
+
+* **imagebuilder:** enable modules by listing their fields ([#8](https://github.com/cwbitz/openwrt-image-builder-iac/issues/8)) ([ea6661c](https://github.com/cwbitz/openwrt-image-builder-iac/commit/ea6661cc0d8215fbcf2e30abf01d2237ea33cac6))
+
+
+### Bug Fixes
+
+* **bootstrap:** detect an installed sudo with a real command ([#9](https://github.com/cwbitz/openwrt-image-builder-iac/issues/9)) ([c111c62](https://github.com/cwbitz/openwrt-image-builder-iac/commit/c111c629354ca653c343c5736a627bc5c330047b))
+* **imagebuilder:** drop the inert dropbear _direct option ([#7](https://github.com/cwbitz/openwrt-image-builder-iac/issues/7)) ([e30a7d6](https://github.com/cwbitz/openwrt-image-builder-iac/commit/e30a7d6ec6f15e6f91e23e9ce236a99555f62f33))
+
 ## [0.1.1](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.1.0...v0.1.1) (2026-11-02)
 
 
