@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.1](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.2.0...v0.2.1) (2026-11-03)
+
+
+### Features
+
+* **bootstrap:** never take over another project's admin account or sshd policy ([#4](https://github.com/cwbitz/openwrt-image-builder-iac/issues/4)) ([48806b4](https://github.com/cwbitz/openwrt-image-builder-iac/commit/48806b4188c097524c93feda437ca36b07540f44))
+
+
+### Bug Fixes
+
+* **privacy:** treat vault backups as credential files ([#3](https://github.com/cwbitz/openwrt-image-builder-iac/issues/3)) ([73bef6c](https://github.com/cwbitz/openwrt-image-builder-iac/commit/73bef6c7fc9fbdf7166be1987bf67f78222a33cc))
+
 ## [0.2.0](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.1.1...v0.2.0) (2026-11-03)
 
 
