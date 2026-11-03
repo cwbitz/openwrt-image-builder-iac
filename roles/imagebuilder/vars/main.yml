@@ -5,9 +5,11 @@ builder_workdir: "{{ build_dir }}/work/{{ build_id }}"
 
 module_names:
   - system
-  - disable-ipv6
   - statistics
   - administration
+
+module_flags:
+  - disable-ipv6
 
 container_ulimits:
   - "nofile:65536:65536"

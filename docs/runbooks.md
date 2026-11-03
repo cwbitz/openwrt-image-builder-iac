@@ -166,9 +166,11 @@ variants without the mirror knob.
 
 1. Add overlay files under `roles/imagebuilder/files/overlay/<name>/...` (static)
    or `templates/overlay/<name>/...` (Jinja).
-2. Add `<name>` to `module_names` in `roles/imagebuilder/vars/main.yml`.
+2. Add `<name>` to `module_names` (a presence-based mapping) or `module_flags`
+   (a plain boolean) in `roles/imagebuilder/vars/main.yml`.
 3. Reference its operator variables in the role defaults and
-   `host_vars/example/main.yml`; add an `<name>:` mapping with `enabled`.
+   `host_vars/example/main.yml`; add an `<name>:` mapping with its fields (or a
+   boolean key for a flag module).
 4. Add any packages the module needs. A module with package logic (like
    `statistics`) owns its set in `packages.yml`; otherwise list them in the
    variant's `packages`.
@@ -212,7 +214,7 @@ host keeps its old login policy. The provider console remains the recovery path.
 | `Module ... does not expose VERSION_PATH/TARGET` | Use an official `openwrt/imagebuilder` tag |
 | `Packages are both added and removed` | Remove the `-pkg`/`pkg` conflict in a variant's `packages` |
 | `Duplicate overlay target files across modules` | Two active modules ship the same file path; rename or disable one |
-| A module does not run | Set `enabled: true` in that module's mapping |
+| A module does not run | The block is missing or empty; list at least one of its fields (a flag module needs `true`) |
 | `statistics` packages | The module adds `luci-app-statistics` + `collectd-mod-sensors`/`collectd-mod-irq` itself; entries in `packages` are removed/deduped |
 | WAN is not configured | The image intentionally leaves WAN (DHCP/PPPoE) unset; configure it after first boot |
 | Build fails after enabling a mirror | Mirror sync lag; disable `use_mirror`. `mirror` is a full base URL ending at the mirror's OpenWrt path |

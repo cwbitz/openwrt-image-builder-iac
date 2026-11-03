@@ -18,12 +18,15 @@ build_variants:
     imagebuilder_image: "openwrt/imagebuilder:<target>-<subtarget>[-<version>]"
     # [OPTIONAL] profile; empty => the target's first profile (`make info` lists them).
     target_profile: ""
-    # [OPTIONAL] force a fresh pull of the ImageBuilder image before building.
+    # [OPTIONAL] force a fresh pull of the ImageBuilder image before building;
+    # normally only needed for a mutable tag such as x86-64-SNAPSHOT, where the
+    # same tag is republished. Pinned release tags reuse the cached image.
     force_pull: false
-    # Modules are enabled by their own `enabled` flag; omit/empty => disabled.
+    # A module is enabled by listing any of its fields; omit the block (or leave
+    # it empty: `system: {}`) to keep the module disabled. `disable-ipv6` is a
+    # plain boolean flag.
     # Order below is bottom-up: system -> network -> IPv6 -> admin -> monitoring.
     system:
-      enabled: true
       hostname: "openwrt-main"
       timezone: "CST-8"
       zonename: "Asia/Shanghai"
@@ -36,10 +39,8 @@ build_variants:
       gateway: ""
       dns: []
       dhcp: true
-    disable-ipv6:
-      enabled: true
+    disable-ipv6: true
     administration:
-      enabled: true
       # empty = keep the system default; this is only the initial password.
       root_password: ""
       ssh:
@@ -48,7 +49,6 @@ build_variants:
         # empty = system default (22); e.g. "22".
         port: ""
     statistics:
-      enabled: true
       interfaces: [br-lan, eth1]
       sensors: true
       irq: true
@@ -95,7 +95,6 @@ build_variants:
   - name: ap
     imagebuilder_image: "openwrt/imagebuilder:<target>-<subtarget>[-<version>]"
     system:
-      enabled: true
       hostname: "openwrt-ap"
       timezone: "CST-8"
       zonename: "Asia/Shanghai"
@@ -104,16 +103,13 @@ build_variants:
       gateway: 192.0.2.1
       dns: [192.0.2.1]
       dhcp: false
-    disable-ipv6:
-      enabled: true
+    disable-ipv6: true
     administration:
-      enabled: true
       root_password: ""
       ssh:
         interface: ""
         port: ""
     statistics:
-      enabled: true
       interfaces: [br-lan, eth1]
       sensors: true
       irq: true

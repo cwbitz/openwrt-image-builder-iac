@@ -9,18 +9,15 @@ packages: "{{ (build_variant | default({})).packages | default([]) }}"
 custom_overlay: "{{ (build_variant | default({})).custom_overlay | default('') }}"
 network: "{{ (build_variant | default({})).network | default({}) }}"
 system:
-  enabled: "{{ ((build_variant | default({})).system | default({})).enabled | default(false) }}"
   hostname: "{{ ((build_variant | default({})).system | default({})).hostname | default('') }}"
   timezone: "{{ ((build_variant | default({})).system | default({})).timezone | default('CST-8') }}"
   zonename: "{{ ((build_variant | default({})).system | default({})).zonename | default('Asia/Shanghai') }}"
 statistics:
-  enabled: "{{ ((build_variant | default({})).statistics | default({})).enabled | default(false) }}"
   interfaces: "{{ ((build_variant | default({})).statistics | default({})).interfaces | default([]) }}"
   sensors: "{{ ((build_variant | default({})).statistics | default({})).sensors | default(false) }}"
   irq: "{{ ((build_variant | default({})).statistics | default({})).irq | default(false) }}"
   rrd_timespans: "{{ ((build_variant | default({})).statistics | default({})).rrd_timespans | default(['2hour', '1day', '1week', '1month', '1year']) }}"
 administration:
-  enabled: "{{ ((build_variant | default({})).administration | default({})).enabled | default(false) }}"
   root_password: "{{ ((build_variant | default({})).administration | default({})).root_password | default('') }}"
   ssh:
     interface: "{{ (((build_variant | default({})).administration | default({})).ssh | default({})).interface | default('') }}"

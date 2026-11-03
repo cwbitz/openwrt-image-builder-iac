@@ -2,9 +2,18 @@
 - name: Assert module entries are mappings
   ansible.builtin.assert:
     that:
-      - ((build_variant | default({})).get(item) | default({})) is mapping
-    fail_msg: "Module '{{ item }}' must be a mapping with an 'enabled' flag."
+      - ((build_variant | default({})).get(item) or {}) is mapping
+    fail_msg: "Module '{{ item }}' must be a mapping of its fields."
   loop: "{{ module_names }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Assert module flags are booleans
+  ansible.builtin.assert:
+    that:
+      - (build_variant | default({})).get(item, false) is boolean
+    fail_msg: "Module flag '{{ item }}' must be true or false."
+  loop: "{{ module_flags }}"
   loop_control:
     label: "{{ item }}"
 
@@ -12,12 +21,21 @@
   ansible.builtin.set_fact:
     modules_active: []
 
-- name: Add enabled modules
+- name: Add modules with any configured field
   ansible.builtin.set_fact:
     modules_active: >-
       {{ modules_active
-         + ([item] if (((build_variant | default({})).get(item) | default({})).get('enabled', false) | bool) else []) }}
+         + ([item] if (((build_variant | default({})).get(item) or {}) | length > 0) else []) }}
   loop: "{{ module_names }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Add enabled module flags
+  ansible.builtin.set_fact:
+    modules_active: >-
+      {{ modules_active
+         + ([item] if ((build_variant | default({})).get(item, false) | bool) else []) }}
+  loop: "{{ module_flags }}"
   loop_control:
     label: "{{ item }}"
 

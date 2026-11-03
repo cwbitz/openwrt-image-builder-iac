@@ -13,8 +13,9 @@ per variant and are individually selectable with `--tags`
 1. **preflight** — asserts `imagebuilder_image` (the variant's) is set and is
    not the example placeholder, the Docker CLI/daemon are reachable on the build
    host, and the `docker` Python SDK is importable by its interpreter.
-2. **modules** — resolves the enabled modules from each module mapping's
-   `enabled` flag.
+2. **modules** — resolves the active modules: a module mapping with any field set
+   counts as enabled (an empty mapping is off), plus each boolean module flag
+   (`disable-ipv6`).
 3. **setup** — pulls the image if needed and derives everything from the image's
    environment (see below).
 4. **packages** — merges the statistics module's package set (removing any

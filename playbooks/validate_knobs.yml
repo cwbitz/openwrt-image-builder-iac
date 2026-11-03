@@ -77,8 +77,10 @@
     - name: Validate the network fields
       vars:
         net: "{{ item.network | default({}) }}"
+        unknown_keys: "{{ net.keys() | difference(['lan_ip', 'gateway', 'dns', 'dhcp']) | list }}"
       ansible.builtin.assert:
         that:
+          - unknown_keys | length == 0
           - net.get('lan_ip', '') is string
           - net.get('gateway', '') is string
           - net.get('dns', []) is sequence
@@ -90,6 +92,7 @@
         fail_msg: >-
           {{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }}
           has invalid network={{ item.network | default({}) | to_json }}
+          {{ ('(unknown key(s): ' ~ (unknown_keys | join(', ')) ~ ')') if unknown_keys else '' }}
         quiet: true
       when: item.network is defined and item.network is mapping
       loop: "{{ build_variants }}"
@@ -110,9 +113,10 @@
     - name: Validate the system fields
       vars:
         sys: "{{ item.system | default({}) }}"
+        unknown_keys: "{{ sys.keys() | difference(['hostname', 'timezone', 'zonename']) | list }}"
       ansible.builtin.assert:
         that:
-          - sys.get('enabled', false) is boolean
+          - unknown_keys | length == 0
           - sys.get('hostname', '') is string
           - "sys.get('hostname', '') == '' or sys.get('hostname', '') is match('^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$')"
           - sys.get('timezone', '') is string
@@ -120,6 +124,7 @@
         fail_msg: >-
           {{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }}
           has invalid system={{ item.system | default({}) | to_json }}
+          {{ ('(unknown key(s): ' ~ (unknown_keys | join(', ')) ~ ')') if unknown_keys else '' }}
         quiet: true
       when: item.system is defined and item.system is mapping
       loop: "{{ build_variants }}"
@@ -140,9 +145,10 @@
     - name: Validate the statistics fields
       vars:
         stats: "{{ item.statistics | default({}) }}"
+        unknown_keys: "{{ stats.keys() | difference(['interfaces', 'sensors', 'irq', 'rrd_timespans']) | list }}"
       ansible.builtin.assert:
         that:
-          - stats.get('enabled', false) is boolean
+          - unknown_keys | length == 0
           - stats.get('interfaces', []) is sequence
           - stats.get('interfaces', []) is not string
           - stats.get('interfaces', []) | reject('string') | list | length == 0
@@ -154,6 +160,7 @@
         fail_msg: >-
           {{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }}
           has invalid statistics={{ item.statistics | default({}) | to_json }}
+          {{ ('(unknown key(s): ' ~ (unknown_keys | join(', ')) ~ ')') if unknown_keys else '' }}
         quiet: true
       when: item.statistics is defined and item.statistics is mapping
       loop: "{{ build_variants }}"
@@ -176,15 +183,20 @@
       vars:
         admin: "{{ item.administration | default({}) }}"
         admin_ssh: "{{ (item.administration | default({})).get('ssh', {}) }}"
+        unknown_keys: "{{ admin.keys() | difference(['root_password', 'ssh']) | list }}"
+        unknown_ssh_keys: "{{ admin_ssh.keys() | difference(['interface', 'port']) | list }}"
       ansible.builtin.assert:
         that:
-          - admin.get('enabled', false) is boolean
+          - unknown_keys | length == 0
+          - unknown_ssh_keys | length == 0
           - admin.get('root_password', '') is string
           - admin_ssh.get('interface', '') is string
           - (admin_ssh.get('port', '') | string) is match('^[0-9]*$')
         fail_msg: >-
           {{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }}
           has invalid administration={{ item.administration | default({}) | to_json }}
+          {{ ('(unknown key(s): ' ~ (unknown_keys | join(', ')) ~ ')') if unknown_keys else '' }}
+          {{ ('(unknown ssh key(s): ' ~ (unknown_ssh_keys | join(', ')) ~ ')') if unknown_ssh_keys else '' }}
         quiet: true
       when: >-
         item.administration is defined and item.administration is mapping
@@ -193,24 +205,12 @@
       loop_control:
         label: "{{ item.name | default('<unnamed>') }}"
 
-    - name: Validate the disable-ipv6 block type
+    - name: Validate the disable-ipv6 flag
       ansible.builtin.assert:
         that:
-          - item.get('disable-ipv6') is mapping
-        fail_msg: "{{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }} disable-ipv6 must be a mapping"
+          - item.get('disable-ipv6', false) is boolean
+        fail_msg: "{{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }} disable-ipv6 must be true or false"
         quiet: true
-      when: item.get('disable-ipv6') is defined
-      loop: "{{ build_variants }}"
-      loop_control:
-        label: "{{ item.name | default('<unnamed>') }}"
-
-    - name: Validate the disable-ipv6 enabled flag
-      ansible.builtin.assert:
-        that:
-          - item.get('disable-ipv6').get('enabled', false) is boolean
-        fail_msg: "{{ inventory_hostname }}: variant {{ item.name | default('<unnamed>') }} disable-ipv6.enabled must be a boolean"
-        quiet: true
-      when: item.get('disable-ipv6') is mapping
       loop: "{{ build_variants }}"
       loop_control:
         label: "{{ item.name | default('<unnamed>') }}"

@@ -44,11 +44,12 @@ falls back to the role default.
 | `name` | Variant name; forms the build id `<machine>-<variant>` |
 | `imagebuilder_image` | **[REQUIRED]** official ImageBuilder image (`openwrt/imagebuilder:<tag>`) |
 | `target_profile` | Build profile (empty ⇒ the target's first profile; `make info` lists them) |
-| `force_pull` | Force a fresh pull of the ImageBuilder image |
+| `force_pull` | Force a fresh pull of the ImageBuilder image; needed only for a mutable tag such as `x86-64-SNAPSHOT` |
 | `packages` | Exact package list passed to ImageBuilder (`-pkg` removes a package) |
 | `custom_overlay` | Control-node directory copied over the image rootfs after modules (see [Custom overlay](#custom-overlay)) |
 | `network` | LAN first-boot configuration (see [Network](#network)) |
-| `system` / `disable-ipv6` / `statistics` / `administration` | Module mappings; each has an `enabled` flag (see [Modules](#modules)) |
+| `system` / `statistics` / `administration` | Module mappings; listing any field enables the module (see [Modules](#modules)) |
+| `disable-ipv6` | Boolean flag; `true` disables IPv6, RA, and DHCPv6 on LAN/WAN |
 | `extra_firmware_name` | Tag inserted into the output filename after the version; ImageBuilder adds the separators (keep it distinct per variant) |
 | `disabled_services` | Space-separated init.d service names to disable in the image |
 | `rootfs_partsize` | Root filesystem partition size in MB, 64–32768 (empty ⇒ target default) |
@@ -63,19 +64,22 @@ root password after first boot.
 
 ## Modules
 
-A module is enabled by its own `enabled` flag (default `false`); there is no
-separate module list. A module contributes first-boot overlay files; packages
-are explicit in `packages` unless the module manages them (`statistics` does).
+A module is enabled by listing any of its fields. Omitting the block, or leaving
+an empty mapping such as `system: {}`, keeps the module disabled. Unknown keys
+inside a module mapping are rejected by `make lint` / `make build`, so a typo
+cannot silently disable a module. `disable-ipv6` is a plain boolean flag. A
+module contributes first-boot overlay files; packages are explicit in `packages`
+unless the module manages them (`statistics` does).
 
 | Module | Description | Variant keys |
 |--------|-------------|--------------|
-| `system` | Hostname, timezone, and zonename | `enabled`, `hostname`, `timezone`, `zonename` |
-| `disable-ipv6` | Disable IPv6, RA, and DHCPv6 on LAN/WAN | `enabled` |
-| `statistics` | collectd + LuCI statistics configuration | `enabled`, `interfaces`, `sensors`, `irq`, `rrd_timespans` |
-| `administration` | Initial root password, SSH listen interface/port, `authorized_keys` permissions | `enabled`, `root_password`, `ssh.interface`, `ssh.port` |
+| `system` | Hostname, timezone, and zonename | `hostname`, `timezone`, `zonename` |
+| `disable-ipv6` | Disable IPv6, RA, and DHCPv6 on LAN/WAN | `true` / `false` |
+| `statistics` | collectd + LuCI statistics configuration | `interfaces`, `sensors`, `irq`, `rrd_timespans` |
+| `administration` | Initial root password, SSH listen interface/port, `authorized_keys` permissions | `root_password`, `ssh.interface`, `ssh.port` |
 
 `network` is **not** a module: when a variant's `network` block is non-empty,
-the role renders it independently of the module flags.
+the role renders it with the same presence-based rule.
 
 ## Packages
 
@@ -149,24 +153,23 @@ are `CST-8` / `Asia/Shanghai`.
 
 ```yaml
 system:
-  enabled: true
   hostname: "openwrt-main"
   timezone: "CST-8"
   zonename: "Asia/Shanghai"
 ```
 
-When enabled, the module renders `etc/uci-defaults/91-system`. The log levels
-(`conloglevel` / `cronloglevel`) are intentionally not part of the build: the
-image keeps the base image's defaults and they can be adjusted after boot.
+When the block is present, the module renders `etc/uci-defaults/91-system`. The
+log levels (`conloglevel` / `cronloglevel`) are intentionally not part of the
+build: the image keeps the base image's defaults and they can be adjusted after
+boot.
 
 ## Statistics
 
-The `statistics` module configures collectd/LuCI statistics; the interface list
-is no longer hardcoded.
+The `statistics` module configures collectd/LuCI statistics; the collected
+interfaces come from `interfaces`.
 
 ```yaml
 statistics:
-  enabled: true
   interfaces: [br-lan, eth1]
   sensors: true
   irq: true
@@ -175,7 +178,6 @@ statistics:
 
 | Key | Default | Meaning |
 |-----|---------|---------|
-| `enabled` | `false` | Enable the module |
 | `interfaces` | `[]` | Interfaces collected by the interface plugin; empty disables it |
 | `sensors` | `false` | Enable hardware sensors (`collectd-mod-sensors`) |
 | `irq` | `false` | Enable IRQ statistics (`collectd-mod-irq`) |
@@ -232,7 +234,6 @@ The `administration` module renders the LuCI Administration settings:
 
 ```yaml
 administration:
-  enabled: true
   root_password: ""     # empty = keep the system default; setting it bakes a secret
   ssh:
     interface: ""       # empty = listen on all; e.g. "lan"
@@ -297,5 +298,6 @@ vault; connection credentials live in `group_vars/builders/vault.yml`.
   `target_profile`); nothing else changes.
 - **A custom module**: add `roles/imagebuilder/files/overlay/<name>/...` (static)
   or `templates/overlay/<name>/...` (templated), add `<name>` to `module_names`
-  in `roles/imagebuilder/vars/main.yml`, and add an `<name>:` mapping with
-  `enabled` plus its variant keys. Its packages stay explicit in `packages`.
+  (presence-based mapping) or `module_flags` (a plain boolean) in
+  `roles/imagebuilder/vars/main.yml`, and expose its variant keys. Its packages
+  stay explicit in `packages`.
