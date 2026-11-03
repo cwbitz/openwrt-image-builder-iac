@@ -103,6 +103,21 @@ vault (`vault_host_<id>_password`) and the non-secret group knobs
    human admin. Password hashes use a per-account random salt with
    `update_password: on_create`, so re-runs are idempotent.
 
+The bootstrap is safe to run from either IaC project on a shared machine. It
+converges instead of taking the host over:
+
+- the human `admin` account's password is only (re)written when the account is
+  new or the existing hash already matches this project's
+  `vault_host_admin_password`; a divergence — another project's value, or a
+  password set by cloud-init on a re-created machine — fails with an actionable
+  message instead of rotating it away from its owner, and a password is never
+  auto-generated for an account that already exists;
+- `roles/sshd` refuses to overwrite a managed drop-in that carries a different
+  `PermitRootLogin` policy;
+- everything else (the `iac` account, its key, the sudoers file, the docker
+  registry mirrors) is written to the same paths with the same content, so the
+  second project's run reports `changed=0`.
+
 ## Secrets model
 
 - **Connection credentials** are machine-wide and live in the shared vault

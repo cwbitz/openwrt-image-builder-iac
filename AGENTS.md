@@ -77,16 +77,21 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
 - **The probe must verify escalation, not just login.** An identity other than
   `root` is usable only when it can actually become root: proven with
   `sudo -n true` for the NOPASSWD `iac` account, while a password-sudo identity
-  (`admin`) is proven with `sudo -S` before it is chosen. A
-  half-provisioned account (login OK, sudoers not yet written) must never be
-  chosen, or the bootstrap can no longer repair that host.
+  (`admin`) is proven with `sudo -S` before it is chosen. A half-provisioned
+  account (login OK, sudoers not yet written) must never be chosen, or the
+  bootstrap can no longer repair that host.
+- **Bootstrap is safe from either IaC project on a shared host.** The `admin`
+  password is rewritten only when the account is new or the existing hash
+  matches this project's vault; sshd hardening refuses to overwrite a drop-in
+  with a different `PermitRootLogin`. Divergence fails loudly instead of
+  silently taking the account over.
 
 ## Secrets and local-only files
 
 - `inventory/group_vars/all/main.yml` — committed project-owned baseline for
   every build machine: the SSH connection identity wiring, the connection-plugin
   interface derived from it, the `iac` account's fixed uid/gid (operator override in `group_vars/builders/main.yml`, template `main.yml.example`),
-  the shared connection vault path, and the supported ansible-core range.
+  the per-machine connection vault path, and the supported ansible-core range.
 - `inventory/knob_schema.yml` — committed validation expression per top-level
   operator knob; `playbooks/validate_knobs.yml` asserts the effective values and
   the `build_variants` entries (`make lint` / `make build` run it).
