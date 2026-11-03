@@ -36,4 +36,5 @@ ansible_ssh_private_key_file: "{{ ssh_privkey_file }}"
 ansible_become: "{{ ssh_become }}"
 ansible_ssh_common_args: "{{ ssh_common_args }}"
 
-vault_file: "{{ playbook_dir | dirname }}/inventory/group_vars/builders/vault.yml"
+# Per-machine connection vault, created by `make host-init HOST=<machine>`.
+vault_file: "{{ playbook_dir | dirname }}/inventory/host_vars/{{ inventory_hostname }}/vault.yml"

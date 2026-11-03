@@ -1,11 +1,15 @@
-# Shared builder connection vault. Copy to
-# inventory/group_vars/builders/vault.yml, fill in real values, then encrypt:
-#   make vault-init          # one-time
-#   make vault-edit-group    # edit the shared vault
-# The identity belongs to the machine, so every variant on it shares the vault.
-# Values are control -> builder credentials; only PASSWORDS live here, while the
-# account name and the key paths are non-secret and live in
-# inventory/group_vars/builders/main.yml.
+# Per-machine connection vault. `make host-init HOST=<machine>` copies this
+# template to inventory/host_vars/<machine>/vault.yml (mode 0600); edit it with
+#   make vault-edit HOST=<machine>
+# and read it back with `make vault-view HOST=<machine>`.
+#
+# Only PASSWORDS live here; the account names and key paths are non-secret and
+# live in inventory/group_vars/builders/main.yml.
+#
+# A machine also managed by another IaC project should use SSH keys for the
+# `iac` account (host_iac_ssh_pubkey_file in both projects) and leave
+# vault_host_iac_password empty in both, so neither project generates a value
+# the other does not know.
 
 # Probed [iac, admin, root]; build/info use `iac`. Each identity needs a
 # password here and/or a key path in the group main.yml (SSH prefers the key).

@@ -12,10 +12,10 @@ own `host_vars`.
 | Location | Purpose |
 |----------|---------|
 | `inventory/hosts.yml` | the `builders` group: one host per machine, each with its `ansible_host` |
-| `inventory/group_vars/all/main.yml` | committed project-owned baseline: `ssh_identities` + the connection-plugin interface, the `iac` account's uid/gid + docker group, the shared vault path |
+| `inventory/group_vars/all/main.yml` | committed project-owned baseline: `ssh_identities` + the connection-plugin interface, the `iac` account's uid/gid + docker group, the per-machine vault path |
 | `inventory/group_vars/builders/main.yml` | machine-wide operator overrides, local-only (e.g. `create_admin_account`) |
 | `inventory/host_vars/<machine>/main.yml` | that machine's `build_variants` list |
-| `inventory/group_vars/builders/vault.yml` | shared connection secrets (one per fleet) |
+| `inventory/host_vars/<machine>/vault.yml` | that machine's connection secrets |
 | `inventory/knob_schema.yml` | committed validation expression per top-level operator knob |
 
 The committed files are `inventory/hosts.yml.example`, the project-owned baseline
@@ -286,7 +286,7 @@ the control node and rolls the drop-in back if either check fails.
 No firmware secrets are baked into the image. The WAN (PPPoE/DHCP) and root
 passwords are set after first boot (or by a separate provisioning mechanism), so
 the built artifact contains no credentials. There is no per-machine firmware
-vault; connection credentials live in `group_vars/builders/vault.yml`.
+vault; connection credentials live in each machine's `host_vars/<machine>/vault.yml`.
 
 ## Growth path
 

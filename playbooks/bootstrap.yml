@@ -121,7 +121,7 @@
             fail_msg: >-
               {{ inventory_hostname }}: could not log in as iac, admin or
               root with the configured credentials. Check
-              inventory/group_vars/builders/vault.yml
+              inventory/host_vars/{{ inventory_hostname }}/vault.yml
               (vault_host_{iac,admin,root}_password),
               inventory/group_vars/builders/main.yml
               (host_{iac,admin,root}_ssh_privkey_file) and the host.
@@ -562,5 +562,5 @@
           account '{{ bootstrap_service_user }}'{{ " and admin account '" ~
           bootstrap_admin.user ~ "'" if bootstrap_admin_defined | bool else "" }}
           should exist; subsequent runs connect as 'iac' with the
-          credentials in inventory/group_vars/builders/vault.yml and the key
+          credentials in inventory/host_vars/{{ inventory_hostname }}/vault.yml and the key
           paths in inventory/group_vars/builders/main.yml.

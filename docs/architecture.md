@@ -28,13 +28,13 @@ model, the secrets model, and how host bootstrap and variant isolation work.
 - `inventory/hosts.yml` — the `builders` group; one host per machine, each with its
   own `ansible_host`.
 - `inventory/host_vars/<machine>/main.yml` — that machine's `build_variants` list
-  (per-variant build config) and, next to it, `vault.yml` (per-machine firmware
-  secrets).
+  (per-variant build config) and, next to it, `vault.yml` (that machine's
+  connection secrets).
 - `inventory/group_vars/all/main.yml` — the committed project-owned baseline for
   every machine: the SSH identity map (`ssh_identities`) plus the
   connection-plugin interface derived from it, the `iac` account's fixed
   uid/gid (operator override in `group_vars/builders/main.yml`, template
-  `main.yml.example`), and the shared connection vault path.
+  `main.yml.example`), and the per-machine connection vault path.
 - `inventory/group_vars/builders/` — machine-wide operator overrides, local-only
   (e.g. `create_admin_account`).
 
@@ -96,7 +96,7 @@ vault (`vault_host_<id>_password`) and the non-secret group knobs
 3. **Sets credentials**: a supplied public key
    (`host_<id>_ssh_pubkey_file`, a control-node path) switches the account
    to key auth; otherwise an empty `vault_host_iac_password` is generated into
-   the shared vault under the same name (existing non-empty values are never
+   the machine's vault under the same name (existing non-empty values are never
    rotated). It optionally provisions the human `admin` account when
    `create_admin_account` is set.
 4. **Grants sudo**: NOPASSWD for the automation account, password sudo for the
@@ -120,8 +120,8 @@ converges instead of taking the host over:
 
 ## Secrets model
 
-- **Connection credentials** are machine-wide and live in the shared vault
-  `inventory/group_vars/builders/vault.yml`; the account name and the key paths
+- **Connection credentials** are per machine and live in that machine's vault
+  `inventory/host_vars/<machine>/vault.yml`; the account name and the key paths
   are non-secret and live in `inventory/group_vars/builders/main.yml`.
 - **No firmware secrets are baked into the image**: the WAN (PPPoE/DHCP) and root
   passwords are set after first boot; there is no per-machine firmware vault (see
