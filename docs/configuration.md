@@ -242,8 +242,8 @@ administration:
 - `root_password`: optional **initial** root password; the first-boot script
   sets it once, and you change it after login. Setting it bakes that initial
   password into the image; leave it empty to keep the system default.
-- `ssh.interface`: binds dropbear to that interface (`_direct=1` +
-  `DirectInterface`); empty keeps the system default.
+- `ssh.interface`: binds dropbear to that interface (`DirectInterface`);
+  empty keeps the system default.
 - `ssh.port`: sets `dropbear.Port`; empty keeps the default (22).
 
 ## Mirrors
