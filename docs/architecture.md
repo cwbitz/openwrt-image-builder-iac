@@ -138,12 +138,18 @@ converges instead of taking the host over:
 ## Variant isolation
 
 The inventory host is the machine, so the role appends the variant name to form a
-**build id** (`<machine>-<variant>`). Every per-variant artifact uses it:
+**build id** (`<machine>-<variant>`). The builder-side scratch paths use it:
 
 - builder-side scratch: `{{ build_dir }}/work/<machine>-<variant>` (removed after the build)
 - builder-side output: `~/.cache/openwrt-builder/artifacts/<machine>-<variant>` (removed after the build)
-- control-node copy: `<repo>/artifacts/<machine>-<variant>`
 - container name: `openwrt-bw-<target>-<version>-<machine>-<variant>`
+
+The control-node copy is named after the **artifact id** instead, so the folder is
+self-describing and two IaC projects that build the same machine with the same
+variant name never produce identical folder names:
+
+- `<artifact_id>` = `<machine>-<variant>-imagebuilder-<target>-<version>`
+- control-node copy: `<repo>/artifacts/<artifact_id>`
 
 `make build` runs machines in parallel (Ansible forks) and a machine's variants
 sequentially.
