@@ -78,7 +78,7 @@ container orchestration and overlay rendering.
 
 | Knob | Default | Effect |
 |------|---------|--------|
-| `artifacts_dir` | `<repo>/artifacts/<machine>-<variant>` | Control-node destination (always fetched) |
+| `artifacts_dir` | `<repo>/artifacts/<artifact_id>` | Control-node destination (always fetched); `<artifact_id>` = `<machine>-<variant>-imagebuilder-<target>-<version>` |
 | `output_dir` | `~/.cache/openwrt-builder/artifacts/<machine>-<variant>` | Builder-side staging, removed after the build |
 
 Artifacts are always fetched; the `artifacts/` directory is local-only and
