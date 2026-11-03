@@ -51,7 +51,7 @@ SKIP_SUFFIXES = {
     ".woff", ".woff2", ".ttf", ".pyc", ".so",
 }
 TRACKED_CREDENTIALS = (
-    re.compile(r"(^|/)vault\.ya?ml$"),
+    re.compile(r"(^|/)vault\.ya?ml($|\.)"),
     re.compile(r"(^|/)id_(rsa|dsa|ecdsa|ed25519)$"),
     re.compile(r"\.(pem|key|p12|pfx)$"),
     re.compile(r"\.tfstate(\..+)?$"),
