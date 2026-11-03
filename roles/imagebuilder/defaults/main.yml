@@ -4,7 +4,14 @@ target_profile: "{{ (build_variant | default({})).target_profile | default('') }
 force_pull: "{{ (build_variant | default({})).force_pull | default(false) }}"
 build_dir: "{{ ansible_facts.user_dir }}/.cache/openwrt-builder"
 output_dir: "{{ build_dir }}/artifacts/{{ build_id }}"
-artifacts_dir: "{{ project_root }}/artifacts/{{ build_id }}"
+# Control-node artifact directory. The name carries the backend, the target and
+# the resolved release, so a directory stays self-describing even when two IaC
+# projects build the same machine with the same variant name.
+artifact_id: >-
+  {{ [build_id, 'imagebuilder',
+      (build_target | default('unknown', true)) | replace('/', '-'),
+      builder_version | default('unknown', true)] | join('-') }}
+artifacts_dir: "{{ project_root }}/artifacts/{{ artifact_id }}"
 packages: "{{ (build_variant | default({})).packages | default([]) }}"
 custom_overlay: "{{ (build_variant | default({})).custom_overlay | default('') }}"
 network: "{{ (build_variant | default({})).network | default({}) }}"

@@ -98,7 +98,7 @@ the container.
 | Path | Where |
 |------|-------|
 | `~/.cache/openwrt-builder/artifacts/<machine>-<variant>` | builder-side staging (`output_dir`), removed after the build |
-| `<repo>/artifacts/<machine>-<variant>` | control-node copy (`artifacts_dir`), contents gitignored |
+| `<repo>/artifacts/<artifact_id>` | control-node copy (`artifacts_dir`), contents gitignored |
 
 The artifacts are always fetched with the `targets/<target>/<subtarget>/` layout
 preserved (firmware images, `profiles.json`, `sha256sums`, ...). The builder

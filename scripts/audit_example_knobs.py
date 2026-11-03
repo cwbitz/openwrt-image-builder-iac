@@ -34,7 +34,7 @@ GROUP_EXAMPLE = "inventory/group_vars/builders/main.yml.example"
 VARIANT_ROOTS = ["roles/imagebuilder/defaults/main.yml", "roles/imagebuilder/vars/main.yml"]
 
 TOOLING = {"helper_vault_password_file", "helper_ansible_vault_bin"}
-INTERNAL = {"build_dir", "output_dir", "artifacts_dir"}
+INTERNAL = {"build_dir", "output_dir", "artifacts_dir", "artifact_id"}
 GROUP_KNOBS = {"create_admin_account", "sshd_hardening_enabled", "sshd_permit_root_login"}
 EXTRA = {"build_variants"}
 
