@@ -8,13 +8,13 @@
 # inventory host = one build machine; its variants live in
 # host_vars/<machine>/main.yml (`build_variants`).
 
-# --- SSH connection identities (non-secret; passwords stay in vault.yml) ------
+# --- SSH connection identities (non-secret; passwords stay in the machine vault) ---
 # Probed in order [iac, admin, root] by `make host-bootstrap`;
-# build/info connect as `iac`. Each identity takes its password from the shared vault
+# build/info connect as `iac`. Each identity takes its password from the machine vault
 # and/or a key path here (SSH prefers the key; empty = not used). A pubkey path
 # is authorized for that account during bootstrap. The optional human 'admin'
 # account exists only while create_admin_account is true: it always gets a
-# password (generated into the shared vault when empty) plus any configured key;
+# password (generated into the machine vault when empty) plus any configured key;
 # false manages no admin account (least privilege).
 create_admin_account: false
 host_admin_username: "admin"

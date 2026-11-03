@@ -3,6 +3,12 @@ SHELL := /bin/bash
 
 ANS_PLAY := ansible-playbook
 INV      := inventory/hosts.yml
+# Connection secrets are per machine (inventory/host_vars/<machine>/vault.yml).
+# Select one with HOST=<machine>; with a single machine it is implied. VAULT_FILE
+# overrides the path outright (e.g. a separate test inventory). Keep the default
+# path in sync with `vault_file` in inventory/group_vars/all/main.yml.
+VAULT_FILE ?=
+VAULT_PATH  = $(if $(VAULT_FILE),$(VAULT_FILE),$(if $(filter command line environment,$(origin HOST)),inventory/host_vars/$(HOST)/vault.yml,))
 
 EXTRA ?=
 
@@ -68,12 +74,12 @@ ANSIBLE_PYTHON ?= $(shell \
 	if [ -n "$$p" ]; then f=$$(readlink -f "$$p" 2>/dev/null); \
 	  if [ -f "$$f" ] && head -c 2 "$$f" | grep -q '#!'; then head -1 "$$f" | sed -n 's|^#! *||; s| .*||p'; fi; fi)
 
-.PHONY: help install vault-init host-init vault-edit-group vault-view \
+.PHONY: help install vault-init host-init vault-edit vault-view \
         host-bootstrap info build deploy
 .PHONY: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections \
         ensure-passlib keychain-fetch verify-keychain-pin run-playbook \
         run-build-playbook agent-needed agent-fallback agent-ensure agent-load \
-        agent-check vault-edit-file lint
+        agent-check lint
 
 help: ## Show this help
 	@printf '\nUsage: make <target> [VAR=value ...]\n\n'
@@ -91,8 +97,11 @@ host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples
 	@[ -e inventory/group_vars/builders/main.yml ] || { python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/group_vars/builders/main.yml.example inventory/group_vars/builders/main.yml; echo "created inventory/group_vars/builders/main.yml (comments and blank lines stripped)"; }
 	@install -d -m 0700 inventory/host_vars/$(HOST)
 	@[ -e inventory/host_vars/$(HOST)/main.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/host_vars/example/main.yml inventory/host_vars/$(HOST)/main.yml
+	@[ -e inventory/host_vars/$(HOST)/vault.yml ] || { \
+		python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/host_vars/example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml; \
+		chmod 600 inventory/host_vars/$(HOST)/vault.yml; }
 	@python3 $(CURDIR)/scripts/ensure_inventory_host.py $(INV) "$(HOST)" --group builders --ansible-host "$(HOST_IP)" $(if $(FORCE),--force)
-	@echo "scaffolded inventory/host_vars/$(HOST)/ (machine registered under the builders group; edit build_variants[] in main.yml)"
+	@echo "scaffolded inventory/host_vars/$(HOST)/ (machine registered under the builders group; edit build_variants[] in main.yml, then: make vault-edit HOST=$(HOST))"
 
 host-bootstrap: hostkey-init ## Create the iac automation account (bootstrap.yml; EXTRA=<extra -e vars>; REFRESH=1 refreshes host keys first)
 	@test -f $(INV) || { \
@@ -116,40 +125,68 @@ vault-init: ## One-time: generate the vault password (idempotent)
 			|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
 	fi
 
-vault-edit-group: vault-init ## Edit the shared builder connection vault (plaintext auto-encrypted first; keys re-sorted)
-	@$(MAKE) --no-print-directory vault-edit-file VAULT_EDIT_FILE=inventory/group_vars/builders/vault.yml
-
-vault-edit-file:
-	@test -f $(VAULT_EDIT_FILE) || { echo "No such vault file: $(VAULT_EDIT_FILE)" >&2; exit 1; }
-	@if grep -q 'ANSIBLE_VAULT' $(VAULT_EDIT_FILE); then :; else \
-		echo "Encrypting plaintext $(VAULT_EDIT_FILE) before editing..."; \
-		ansible-vault encrypt $(VAULT_EDIT_FILE) >/dev/null; \
-	fi
+vault-edit: vault-init ## Edit one machine's connection vault (HOST=<machine>; auto when a single machine; VAULT_FILE=<path>)
 	@set -e; \
-	edit_rc=0; ansible-vault edit $(VAULT_EDIT_FILE) || edit_rc=$$?; \
+	p="$(VAULT_PATH)"; \
+	if [ -z "$$p" ]; then \
+		found="$$(ls -1d inventory/host_vars/*/vault.yml 2>/dev/null | grep -v '/example/' || true)"; \
+		if [ -z "$$found" ]; then \
+			echo "ERROR: no machine vault yet; run: make host-init HOST=<machine>" >&2; \
+			exit 1; \
+		fi; \
+		if [ "$$(printf '%s\n' "$$found" | wc -l)" -gt 1 ]; then \
+			echo "ERROR: several machine vaults; pass HOST=<machine> or VAULT_FILE=<path>:" >&2; \
+			printf '%s\n' "$$found" | sed 's/^/  /' >&2; \
+			exit 1; \
+		fi; \
+		p="$$found"; \
+	fi; \
+	if [ ! -f "$$p" ]; then \
+		echo "No such vault file: $$p" >&2; \
+		if [ -f "$$p.example" ]; then \
+			echo "Create it from the template: cp $$p.example $$p && chmod 600 $$p" >&2; \
+		fi; \
+		exit 1; \
+	fi; \
+	if grep -q 'ANSIBLE_VAULT' "$$p"; then :; else \
+		echo "Encrypting plaintext $$p before editing..."; \
+		ansible-vault encrypt "$$p" >/dev/null; \
+	fi; \
+	edit_rc=0; ansible-vault edit "$$p" || edit_rc=$$?; \
 	if [ $$edit_rc -eq 0 ]; then \
 		b=$$(mktemp); a=$$(mktemp); rc=0; \
 		trap 'rm -f "$$b" "$$a"' EXIT; \
-		ansible-vault view $(VAULT_EDIT_FILE) > "$$b" || rc=1; \
+		ansible-vault view "$$p" > "$$b" || rc=1; \
 		if [ $$rc -eq 0 ]; then cp "$$b" "$$a" || rc=1; fi; \
 		if [ $$rc -eq 0 ]; then keys=$$(python3 $(CURDIR)/scripts/sort_vault_keys.py "$$a") || rc=1; fi; \
 		if [ $$rc -ne 0 ]; then \
-			echo "ERROR: could not normalise the key order of $(VAULT_EDIT_FILE); it is unchanged (as edited)" >&2; \
+			echo "ERROR: could not normalise the key order of $$p; it is unchanged (as edited)" >&2; \
 		elif ! cmp -s "$$b" "$$a"; then \
-			ansible-vault encrypt --output $(VAULT_EDIT_FILE) "$$a" >/dev/null || rc=1; \
+			ansible-vault encrypt --output "$$p" "$$a" >/dev/null || rc=1; \
 		fi; \
 		if [ $$rc -ne 0 ]; then exit $$rc; fi; \
 		echo "Encryption successful! (Total keys: $$keys)"; \
 	fi; \
 	exit $$edit_rc
 
-vault-view: vault-init ## View the shared builder connection vault (read-only)
-	@p=inventory/group_vars/builders/vault.yml; \
-	if [ ! -f "$$p" ]; then echo "(missing) $$p"; exit 0; fi; \
-	if grep -q 'ANSIBLE_VAULT' "$$p"; then \
-		ansible-vault view "$$p" 2>/dev/null \
-			|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
-	else cat "$$p"; fi
+vault-view: vault-init ## View machine connection vaults (read-only; HOST=<machine>; no HOST = every machine)
+	@set -e; \
+	files="$(VAULT_PATH)"; \
+	if [ -z "$$files" ]; then \
+		files="$$(ls -1d inventory/host_vars/*/vault.yml 2>/dev/null | grep -v '/example/' || true)"; \
+	fi; \
+	if [ -z "$$files" ]; then \
+		echo "(no machine vaults yet; run: make host-init HOST=<machine>)" >&2; \
+		exit 0; \
+	fi; \
+	for p in $$files; do \
+		if [ ! -f "$$p" ]; then echo "(missing) $$p"; continue; fi; \
+		printf '\n\033[1m== %s ==\033[0m\n' "$$p"; \
+		if grep -q 'ANSIBLE_VAULT' "$$p"; then \
+			ansible-vault view "$$p" 2>/dev/null \
+				|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
+		else cat "$$p"; fi; \
+	done
 
 .PHONY: test
 test: ## Run the unit tests for the control-node helpers

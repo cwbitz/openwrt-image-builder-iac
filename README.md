@@ -40,13 +40,13 @@ mise install           # or: asdf install
 make host-init HOST=builder-1 HOST_IP=10.0.10.50
 #    (comment-free; builder-1 is added under builder.hosts automatically)
 #    -> edit inventory/host_vars/builder-1/main.yml (build_variants)
-#    -> add another machine: make host-init HOST=openwrt-ib-prod-2 HOST_IP=10.0.10.51
+#    -> add another machine: make host-init HOST=builder-2 HOST_IP=10.0.10.51
 
-# 2) Secrets: connection secrets go in the shared vault (once per fleet);
+# 2) Secrets: connection secrets go in each machine's vault;
 #    no firmware secrets are baked (WAN/root passwords are set after boot).
 make install           # toolchain + collections + sshpass/passlib + Keychain
 make vault-init        # one-time: vault password (back it up)
-make vault-edit-group  # shared SSH identity vault
+make vault-edit HOST=builder-1   # per-machine SSH identity vault
 
 # 3) Bootstrap the build machine(s) once (probe iac -> admin -> root,
 #    provision the 'iac' automation account: password, keys, NOPASSWD sudo).
@@ -75,13 +75,13 @@ openwrt-image-builder-iac/
 ├── inventory/
 │   ├── hosts.yml.example              # builders group: one host per build machine
 │   ├── group_vars/
-│   │   ├── all/                       # committed project-owned baseline (SSH identity wiring, uid/gid, shared vault path)
+│   │   ├── all/                       # committed project-owned baseline (SSH identity wiring, uid/gid, vault path)
 │   │   └── builders/                  # machine-wide operator overrides (main.yml local-only)
-│   │       ├── main.yml.example       # operator knob template (main.yml is local-only)
-│   │       └── vault.yml.example      # shared connection secrets template
+│   │       └── main.yml.example       # operator knob template (main.yml is local-only)
 │   └── host_vars/
 │       └── example/                   # machine template; real machines gitignored
-│           └── main.yml               # per-machine build variants (build_variants)
+│           ├── main.yml               # per-machine build variants (build_variants)
+│           └── vault.yml.example      # per-machine connection secrets template
 ├── playbooks/
 │   ├── bootstrap.yml                  # probe + provision the service account (make host-bootstrap)
 │   ├── build.yml                      # build firmware (make build)
@@ -112,8 +112,8 @@ openwrt-image-builder-iac/
 | `make build` | Build every variant of every machine (ImageBuilder container) |
 | `make info` | Query image/profile information (no build) |
 | `make vault-init` | One-time: generate the vault password |
-| `make vault-edit-group` | Edit the shared builder connection vault |
-| `make vault-view` | View the shared builder connection vault (read-only) |
+| `make vault-edit HOST=<machine>` | Edit that machine's connection vault |
+| `make vault-view [HOST=<machine>]` | View one machine's vault, or all (read-only) |
 
 `make lint` (syntax-check + `ansible-lint` + the operator-example audit) is an
 **internal** target invoked by CI; it is hidden from `make help` but can be run
