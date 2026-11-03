@@ -270,6 +270,43 @@
         bootstrap_admin_defined: "{{ create_admin_account | default(false) | bool }}"
       no_log: true
 
+    - name: "[Bootstrap] Check whether the admin account already exists"
+      ansible.builtin.command:
+        argv: [getent, passwd, "{{ bootstrap_admin.user }}"]
+      register: bootstrap_admin_passwd
+      changed_when: false
+      failed_when: false
+      when:
+        - bootstrap_admin_defined | bool
+        - bootstrap_admin.user != 'root'
+        - bootstrap_admin.user != bootstrap_service_user
+
+    - name: "[Bootstrap] Resolve whether the admin account already exists"
+      ansible.builtin.set_fact:
+        bootstrap_admin_present: "{{ (bootstrap_admin_passwd.rc | default(1)) == 0 }}"
+      when:
+        - bootstrap_admin_defined | bool
+        - bootstrap_admin.user != 'root'
+        - bootstrap_admin.user != bootstrap_service_user
+
+    - name: "[Bootstrap] Refuse to generate a second admin password on a shared host"
+      ansible.builtin.assert:
+        that:
+          - (vault_host_admin_password | default('', true) | length) > 0
+        fail_msg: |-
+          {{ inventory_hostname }}: create_admin_account is true and the
+          '{{ bootstrap_admin.user }}' account already exists, but this project's
+          vault carries no vault_host_admin_password. Generating one here would
+          rotate the password away from the project that owns the account.
+          Copy the same value into both vaults (make vault-view in the owning
+          project, then make vault-edit here), or set
+          create_admin_account: false in this project.
+      when:
+        - bootstrap_admin_defined | bool
+        - bootstrap_admin.user != 'root'
+        - bootstrap_admin.user != bootstrap_service_user
+        - bootstrap_admin_present | bool
+
     - name: "[Bootstrap] Provision the admin password (enabled, none supplied)"
       ansible.builtin.include_role:
         name: helpers
@@ -328,6 +365,54 @@
         - bootstrap_admin_defined | bool
         - bootstrap_admin.user != 'root'
         - bootstrap_admin.user != bootstrap_service_user
+
+    - name: "[Bootstrap] Resolve the existing admin password hash"
+      ansible.builtin.set_fact:
+        bootstrap_admin_existing_hash: >-
+          {{ (((bootstrap_admin_shadow.ansible_facts | default({}))
+              .get('getent_shadow', {})).get(bootstrap_admin.user))
+             | default([''], true) | first | default('', true) }}
+      no_log: true
+      when:
+        - bootstrap_admin_defined | bool
+        - bootstrap_admin.user != 'root'
+        - bootstrap_admin.user != bootstrap_service_user
+        - bootstrap_admin_present | bool
+
+    - name: "[Bootstrap] Refuse to rotate an admin password owned by another project"
+      ansible.builtin.assert:
+        that:
+          - (bootstrap_admin_existing_hash | default('') | length) == 0
+            or (bootstrap_admin_salt | default('') | length) == 0
+            or bootstrap_admin_existing_hash == bootstrap_admin_password_hash
+        fail_msg: |-
+          {{ inventory_hostname }}: the '{{ bootstrap_admin.user }}' password on
+          this machine does not match vault_host_admin_password in this project's
+          vault. This is expected after the machine was re-created (cloud-init
+          set the password) or when another IaC project owns the account, and
+          rewriting it here would lock that owner out.
+          Fix: put the machine's current password (or the same value the owning
+          project uses) into this project's vault and re-run, or set
+          create_admin_account: false in this project.
+      when:
+        - bootstrap_admin_defined | bool
+        - bootstrap_admin.user != 'root'
+        - bootstrap_admin.user != bootstrap_service_user
+        - bootstrap_admin_present | bool
+
+    - name: "[Bootstrap] Warn when the existing admin hash uses another algorithm"
+      ansible.builtin.debug:
+        msg: >-
+          {{ bootstrap_admin.user }}: the existing password hash is not sha512,
+          so the shared-host comparison is skipped and the password will be
+          rewritten from this project's vault.
+      when:
+        - bootstrap_admin_defined | bool
+        - bootstrap_admin.user != 'root'
+        - bootstrap_admin.user != bootstrap_service_user
+        - bootstrap_admin_present | bool
+        - (bootstrap_admin_existing_hash | default('') | length) > 0
+        - (bootstrap_admin_salt | default('') | length) == 0
 
     - name: "[Bootstrap] Create/repair the admin account"
       ansible.builtin.user:

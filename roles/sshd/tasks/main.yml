@@ -48,6 +48,22 @@
   failed_when: false
   check_mode: false
 
+- name: "[SSHD] Assert no other project manages a different root-login policy"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (sshd_current.content | default('') | b64decode)
+        is not search('MANAGED BY ANSIBLE')
+        or (sshd_current.content | default('') | b64decode)
+        is search('(?m)^PermitRootLogin ' ~ sshd_permit_root_login ~ '\s*$')
+    fail_msg: |-
+      {{ sshd_conf }} already exists on this shared host and does not match this
+      project's policy (sshd_permit_root_login={{ sshd_permit_root_login }}).
+      Two IaC projects manage the same machine: keep sshd_permit_root_login
+      identical in both, or leave sshd_hardening_enabled false in the project
+      that does not own the hardening.
+  when: not ansible_check_mode
+
 - name: "[SSHD] Build the key-only login probe"
   ansible.builtin.set_fact:
     sshd_probe_argv: >-
