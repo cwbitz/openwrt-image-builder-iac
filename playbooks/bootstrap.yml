@@ -430,7 +430,7 @@
              else [] }}
 
     - name: "[Bootstrap] Check whether sudo is installed"
-      ansible.builtin.command: command -v sudo
+      ansible.builtin.command: sudo --version
       register: bootstrap_sudo_bin
       changed_when: false
       failed_when: false
