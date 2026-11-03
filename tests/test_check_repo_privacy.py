@@ -64,6 +64,15 @@ def test_credential_file_is_rejected(run_python, tmp_path):
     assert "credential file is tracked" in result.stdout
 
 
+def test_vault_backup_file_is_rejected(run_python, tmp_path):
+    root = init_repo(tmp_path, {"inventory/group_vars/builders/vault.yml.pre-migration": "secret: x\n"})
+
+    result = run_python("check_repo_privacy.py", root)
+
+    assert result.returncode == 1
+    assert "credential file is tracked" in result.stdout
+
+
 def test_vault_template_is_accepted(run_python, tmp_path):
     root = init_repo(tmp_path, {"inventory/host_vars/example/vault.yml.example": "vault_x: \"\"\n"})
 

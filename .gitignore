@@ -37,6 +37,7 @@ id_ed25519.*
 # All vault*.yml stay OUT of the repo (secrets are local-only, not committed).
 # Only *.example templates are committed (re-included below).
 **/*vault*.yml
+**/*vault*.yml.*
 !**/*.example
 # The shared helpers role's read/write vault tasks are code, not secret data.
 !roles/helpers/tasks/read_vault.yml
