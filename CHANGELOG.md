@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.2.2...v0.2.3) (2026-11-03)
+
+
+### Bug Fixes
+
+* **artifacts:** make the control-node artifact directory self-describing ([#9](https://github.com/cwbitz/openwrt-image-builder-iac/issues/9)) ([529d96b](https://github.com/cwbitz/openwrt-image-builder-iac/commit/529d96b71568726598fadd07b9af679df6644255))
+
 ## [0.2.2](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.2.1...v0.2.2) (2026-11-03)
 
 
