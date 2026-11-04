@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.2.3...v0.2.4) (2026-11-04)
+
+
+### Bug Fixes
+
+* **artifacts:** end the artifact directory with a version label ([#11](https://github.com/cwbitz/openwrt-image-builder-iac/issues/11)) ([d3025b3](https://github.com/cwbitz/openwrt-image-builder-iac/commit/d3025b3efd23a8de1110cffd997efceb3e31ff63))
+
 ## [0.2.3](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.2.2...v0.2.3) (2026-11-03)
 
 
