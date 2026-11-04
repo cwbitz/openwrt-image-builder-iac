@@ -37,7 +37,7 @@ The role reads `VERSION_PATH` and `TARGET` from the image's `Config.Env` (an
 official `openwrt/imagebuilder` tag always exposes them) and derives:
 
 - the release path (`snapshots` for SNAPSHOT images, else the release path),
-- the target and version,
+- the target, and the version label (`v<release>` or `SNAPSHOT`),
 - the container name `openwrt-bw-<target>-<version>-<machine>-<variant>`.
 
 `force_pull` forces a fresh image pull.

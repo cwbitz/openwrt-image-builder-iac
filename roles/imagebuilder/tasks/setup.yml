@@ -25,21 +25,24 @@
       The image '{{ imagebuilder_image }}' does not expose VERSION_PATH/TARGET in its
       environment. Use an official openwrt/imagebuilder tag.
 
-- name: Derive the raw version path, target and version from the image
+- name: Derive the version path, target and version label from the image
   ansible.builtin.set_fact:
-    builder_version_path: >-
-      {{ (image_env | select('match', '^VERSION_PATH=') | first).split('=', 1)[1] }}
+    builder_version_path: "{{ version_path }}"
+    builder_version: >-
+      {{ 'SNAPSHOT' if 'snapshot' in (version_path | lower)
+         else 'v' ~ (version_path | basename | regex_replace('^v', '')) }}
     build_target: >-
       {{ (image_env | select('match', '^TARGET=') | first).split('=', 1)[1] }}
-    builder_version: >-
-      {{ ((image_env | select('match', '^VERSION_PATH=') | first).split('=', 1)[1]) | basename }}
     build_target_name: >-
       {{ ((image_env | select('match', '^TARGET=') | first).split('=', 1)[1]) | replace('/', '-') }}
+  vars:
+    version_path: >-
+      {{ (image_env | select('match', '^VERSION_PATH=') | first).split('=', 1)[1] }}
 
 - name: Derive the setup path and container name
   ansible.builtin.set_fact:
     setup_version_path: >-
-      {{ 'snapshots' if 'SNAPSHOT' in builder_version_path else builder_version_path }}
+      {{ 'snapshots' if 'snapshot' in (builder_version_path | lower) else builder_version_path }}
     container_name: "openwrt-bw-{{ build_target_name }}-{{ builder_version }}-{{ build_id }}"
 
 - name: Show the detected build target
