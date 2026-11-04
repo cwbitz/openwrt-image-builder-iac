@@ -148,8 +148,11 @@ The control-node copy is named after the **artifact id** instead, so the folder 
 self-describing and two IaC projects that build the same machine with the same
 variant name never produce identical folder names:
 
-- `<artifact_id>` = `<machine>-<variant>-imagebuilder-<target>-<version>`
+- `<artifact_id>` = `<machine>-<variant>-imagebuilder-<target>-<version-label>`
 - control-node copy: `<repo>/artifacts/<artifact_id>`
+
+`<version-label>` is `v<release>` for a release image and `SNAPSHOT` for a
+snapshot, so the folder ends with the same kind of token the source-builder uses.
 
 `make build` runs machines in parallel (Ansible forks) and a machine's variants
 sequentially.
