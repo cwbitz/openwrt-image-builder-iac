@@ -142,7 +142,11 @@ The inventory host is the machine, so the role appends the variant name to form 
 
 - builder-side scratch: `{{ build_dir }}/work/<machine>-<variant>` (removed after the build)
 - builder-side output: `~/.cache/openwrt-builder/artifacts/<machine>-<variant>` (removed after the build)
-- container name: `openwrt-bw-<target>-<version>-<machine>-<variant>`
+
+The container is named after the image it runs,
+`openwrt-ib-<target>-<version-label>`: variants that share an ImageBuilder image
+share that name, and the build id travels in the container labels instead. A
+machine's variants build sequentially, so the shared name never collides.
 
 The control-node copy is named after the **artifact id** instead, so the folder is
 self-describing and two IaC projects that build the same machine with the same
