@@ -38,6 +38,17 @@
   gather_facts: true
   become: false
   tasks:
+    - name: "Prefetch every distinct ImageBuilder image before the serial builds"
+      community.docker.docker_image:
+        name: "{{ item }}"
+        source: pull
+      loop: >-
+        {{ build_variants | map(attribute='imagebuilder_image', default='')
+           | select | reject('search', '[<>]') | unique | list }}
+      loop_control:
+        label: "{{ item }}"
+      tags: [always]
+
     - name: "Build each variant of the machine"
       ansible.builtin.include_role:
         name: imagebuilder
