@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.5](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.2.4...v0.2.5) (2026-11-04)
+
+
+### Features
+
+* **artifacts:** name the artifact directory after a variant digest ([#14](https://github.com/cwbitz/openwrt-image-builder-iac/issues/14)) ([ba85bb6](https://github.com/cwbitz/openwrt-image-builder-iac/commit/ba85bb6e1f1e27eec7026bbadf3739667a0c886e))
+* **build:** prefetch each distinct image before the build loop ([#13](https://github.com/cwbitz/openwrt-image-builder-iac/issues/13)) ([e7c7a17](https://github.com/cwbitz/openwrt-image-builder-iac/commit/e7c7a17cbaabe6dcdfffc3a4d0716726644fc427))
+
 ## [0.2.4](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.2.3...v0.2.4) (2026-11-04)
 
 
