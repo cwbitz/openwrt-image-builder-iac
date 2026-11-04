@@ -43,7 +43,7 @@
   ansible.builtin.set_fact:
     setup_version_path: >-
       {{ 'snapshots' if 'snapshot' in (builder_version_path | lower) else builder_version_path }}
-    container_name: "openwrt-bw-{{ build_target_name }}-{{ builder_version }}-{{ build_id }}"
+    container_name: "openwrt-ib-{{ build_target_name }}-{{ builder_version }}"
 
 - name: Show the detected build target
   ansible.builtin.debug:

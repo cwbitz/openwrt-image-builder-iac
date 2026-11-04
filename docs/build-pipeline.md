@@ -38,7 +38,9 @@ official `openwrt/imagebuilder` tag always exposes them) and derives:
 
 - the release path (`snapshots` for SNAPSHOT images, else the release path),
 - the target, and the version label (`v<release>` or `SNAPSHOT`),
-- the container name `openwrt-bw-<target>-<version>-<machine>-<variant>`.
+- the container name `openwrt-ib-<target>-<version-label>`, which carries the
+  image identity rather than the variant (variants sharing an image build
+  sequentially on one machine).
 
 `force_pull` forces a fresh image pull.
 
