@@ -8,6 +8,14 @@ orchestration, the ImageBuilder internals, the overlay, and artifact handling.
 per variant and are individually selectable with `--tags`
 (`preflight|modules|setup|packages|overlay|build`).
 
+Before that loop, the play pulls every distinct `imagebuilder_image` once,
+deduplicated across the machine's variants, so an unusable tag fails the run in
+seconds instead of after a long serial build. A tag still carrying the example
+placeholder is skipped here, so the role's preflight keeps reporting it. The
+per-variant pull in `setup` stays: it is a no-op once the image is cached, and it
+keeps `force_pull` (and a mutable tag such as `x86-64-SNAPSHOT`) working per
+variant.
+
 ## Pipeline
 
 1. **preflight** — asserts `imagebuilder_image` (the variant's) is set and is
