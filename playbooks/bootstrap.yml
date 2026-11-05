@@ -348,7 +348,7 @@
           {%- set parts = shadow_hash.split('$') -%}
           {{ parts[2].split('=', 1)[1] | int
              if (parts | length >= 4 and parts[1] == '6' and parts[2].startswith('rounds='))
-             else 656000 }}
+             else (5000 if (parts | length == 4 and parts[1] == '6') else 656000) }}
       no_log: true
       when:
         - bootstrap_admin_defined | bool
@@ -379,12 +379,26 @@
         - bootstrap_admin.user != bootstrap_service_user
         - bootstrap_admin_present | bool
 
+    - name: "[Bootstrap] Compare the existing admin hash with this project's vault"
+      ansible.builtin.set_fact:
+        bootstrap_admin_hash_matches: >-
+          {{ (bootstrap_admin_existing_hash
+              | regex_replace('^\$6\$rounds=[0-9]+\$', '$6$'))
+             == (bootstrap_admin_password_hash
+              | regex_replace('^\$6\$rounds=[0-9]+\$', '$6$')) }}
+      no_log: true
+      when:
+        - bootstrap_admin_defined | bool
+        - bootstrap_admin.user != 'root'
+        - bootstrap_admin.user != bootstrap_service_user
+        - bootstrap_admin_present | bool
+
     - name: "[Bootstrap] Refuse to rotate an admin password owned by another project"
       ansible.builtin.assert:
         that:
           - (bootstrap_admin_existing_hash | default('') | length) == 0
             or (bootstrap_admin_salt | default('') | length) == 0
-            or bootstrap_admin_existing_hash == bootstrap_admin_password_hash
+            or bootstrap_admin_hash_matches | bool
         fail_msg: |-
           {{ inventory_hostname }}: the '{{ bootstrap_admin.user }}' password on
           this machine does not match vault_host_admin_password in this project's
