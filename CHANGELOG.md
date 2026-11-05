@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.6](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.2.5...v0.2.6) (2026-11-05)
+
+
+### Bug Fixes
+
+* **bootstrap:** treat a rounds-less sha512 admin hash as 5000 rounds ([#17](https://github.com/cwbitz/openwrt-image-builder-iac/issues/17)) ([214a3d7](https://github.com/cwbitz/openwrt-image-builder-iac/commit/214a3d76ecc8a744bf7ff6d4a148ddf672202c9f))
+
 ## [0.2.5](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.2.4...v0.2.5) (2026-11-04)
 
 
