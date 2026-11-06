@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.2.6...v0.3.0) (2026-11-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **make:** rename EXTRA to ANSIBLE_ARGS ([#19](https://github.com/cwbitz/openwrt-image-builder-iac/issues/19))
+
+### Code Refactoring
+
+* **make:** rename EXTRA to ANSIBLE_ARGS ([#19](https://github.com/cwbitz/openwrt-image-builder-iac/issues/19)) ([1e539c6](https://github.com/cwbitz/openwrt-image-builder-iac/commit/1e539c60b9265153e63aa656f1da488ad91bcc7b))
+
 ## [0.2.6](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.2.5...v0.2.6) (2026-11-05)
 
 
