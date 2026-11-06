@@ -10,7 +10,7 @@ INV      := inventory/hosts.yml
 VAULT_FILE ?=
 VAULT_PATH  = $(if $(VAULT_FILE),$(VAULT_FILE),$(if $(filter command line environment,$(origin HOST)),inventory/host_vars/$(HOST)/vault.yml,))
 
-EXTRA ?=
+ANSIBLE_ARGS ?=
 
 export ANSIBLE_VAULT_PASSWORD_FILE := $(HOME)/.config/projects/openwrt-image-builder-iac/ansible_vault_password
 HOST              ?= builder-1
@@ -103,7 +103,7 @@ host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples
 	@python3 $(CURDIR)/scripts/ensure_inventory_host.py $(INV) "$(HOST)" --group builders --ansible-host "$(HOST_IP)" $(if $(FORCE),--force)
 	@echo "scaffolded inventory/host_vars/$(HOST)/ (machine registered under the builders group; edit build_variants[] in main.yml, then: make vault-edit HOST=$(HOST))"
 
-host-bootstrap: hostkey-init ## Create the iac automation account (bootstrap.yml; EXTRA=<extra -e vars>; REFRESH=1 refreshes host keys first)
+host-bootstrap: hostkey-init ## Create the iac automation account (bootstrap.yml; ANSIBLE_ARGS=<extra ansible args>; REFRESH=1 refreshes host keys first)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/bootstrap.yml
@@ -241,7 +241,7 @@ hostkey-init: vault-init ## Refresh every managed host's SSH host key in known_h
 	echo "host keys refreshed in $$nh"
 
 
-info: ## Query ImageBuilder image/profile info (no build; EXTRA=<extra -e vars>)
+info: ## Query ImageBuilder image/profile info (no build; ANSIBLE_ARGS=<extra ansible args>)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@log=$$(mktemp); spin=""; \
@@ -262,12 +262,12 @@ info: ## Query ImageBuilder image/profile info (no build; EXTRA=<extra -e vars>)
 	cat "$$log"; \
 	exit $$rc
 
-build: validate-knobs ## Build a customized OpenWrt firmware image (EXTRA=<extra -e vars>)
+build: validate-knobs ## Build a customized OpenWrt firmware image (ANSIBLE_ARGS=<extra ansible args>)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@$(MAKE) --no-print-directory run-build-playbook
 
-deploy: host-bootstrap build ## One-click: bootstrap the build host, then build every variant (EXTRA=<extra -e vars>; REFRESH=1 refreshes host keys first)
+deploy: host-bootstrap build ## One-click: bootstrap the build host, then build every variant (ANSIBLE_ARGS=<extra ansible args>; REFRESH=1 refreshes host keys first)
 
 agent-needed: vault-init
 	@$(SSH_AGENT_PROBE)
@@ -396,12 +396,12 @@ ensure-keychain: verify-keychain-pin
 	fi
 
 run-playbook: install vault-init agent-fallback
-	@$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(EXTRA)
+	@$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(ANSIBLE_ARGS)
 
 run-build-playbook: install vault-init agent-fallback
 	@ANS_PLAY="$(ANS_PLAY)" INV="$(INV)" SSH_AGENT_RUN="$(SSH_AGENT_RUN)" \
-		BUILD_EXTRA="$(EXTRA)" $(CURDIR)/scripts/run-build.sh
+		BUILD_EXTRA="$(ANSIBLE_ARGS)" $(CURDIR)/scripts/run-build.sh
 
 .PHONY: validate-knobs
 validate-knobs: vault-init
-	@if [ -f $(INV) ]; then $(ANS_PLAY) -i $(INV) playbooks/validate_knobs.yml $(EXTRA); else echo "validate-knobs: $(INV) missing, skipped"; fi
+	@if [ -f $(INV) ]; then $(ANS_PLAY) -i $(INV) playbooks/validate_knobs.yml $(ANSIBLE_ARGS); else echo "validate-knobs: $(INV) missing, skipped"; fi

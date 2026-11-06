@@ -14,7 +14,7 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
 
 ## Commands
 
-- `make help` — aligned target list; overridable variables (`HOST`, `EXTRA`) are
+- `make help` — aligned target list; overridable variables (`HOST`, `ANSIBLE_ARGS`) are
   shown inline. `help` is listed last.
 - `make install` — the sole dependency entry point (toolchain, collections,
   `sshpass`, `passlib`, Keychain). Every other target depends on it.
@@ -30,7 +30,7 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
   `REFRESH=1` refreshes host keys first.
 - `make deploy` — one-click: `host-bootstrap` then `build`.
 - `make build` / `make info` — build every variant (machines in parallel) / query
-  ImageBuilder info; limit to one machine with `EXTRA='--limit <machine>'`.
+  ImageBuilder info; limit to one machine with `ANSIBLE_ARGS='--limit <machine>'`.
 - `make hostkey-init` — refresh every machine's SSH host key in the control node's
   `known_hosts` (drop the stale entry, re-add); `host-bootstrap`/`deploy` run it
   first when `REFRESH=1` is set.
@@ -49,8 +49,8 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
   `agent-*` / `keychain-*` / `run-playbook` helpers. `make build` and `make lint`
   assert every operator knob against `inventory/knob_schema.yml` through
   `playbooks/validate_knobs.yml`.
-- `EXTRA` is appended to every `ansible-playbook` invocation, e.g.
-  `make build EXTRA='--limit builder-1'`.
+- `ANSIBLE_ARGS` is appended to every `ansible-playbook` invocation, e.g.
+  `make build ANSIBLE_ARGS='--limit builder-1'`.
 
 ## Ansible conventions: probe & bootstrap host targeting
 

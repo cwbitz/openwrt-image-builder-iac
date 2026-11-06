@@ -52,7 +52,7 @@ templates are tracked.
 ### `host-bootstrap`
 
 `make host-bootstrap` probes `iac → admin → root` on **every**
-machine (or only `EXTRA='--limit <machine>'`) and uses the first identity that
+machine (or only `ANSIBLE_ARGS='--limit <machine>'`) and uses the first identity that
 works on each; when that is not `iac`, it
 (re)creates the `iac` automation account (key-first, NOPASSWD sudo, the `docker`
 group when present) and the optional human `admin` account. It self-heals a
@@ -65,7 +65,7 @@ See [architecture](architecture.md) for the full model.
 
 ```bash
 make build                            # build every variant (machines in parallel)
-make build EXTRA='--limit builder-1'  # single machine
+make build ANSIBLE_ARGS='--limit builder-1'  # single machine
 make deploy                           # host-bootstrap, then build (fresh host to image)
 ```
 
@@ -115,7 +115,7 @@ ssh <builder> 'docker ps -aq --filter label=openwrt-builder=true | xargs -r dock
 
 ```bash
 make info
-make info EXTRA='--limit builder-1'   # single machine
+make info ANSIBLE_ARGS='--limit builder-1'   # single machine
 ```
 
 Runs `make info` inside the container without building; use it to discover the
@@ -134,7 +134,7 @@ base URL (default `https://mirrors.tuna.tsinghua.edu.cn/openwrt`). To use it for
 a release build:
 
 ```bash
-make build EXTRA='-e use_mirror=true'
+make build ANSIBLE_ARGS='-e use_mirror=true'
 ```
 
 A mirror that has not yet synced a new release can cause build failures: turn it
@@ -190,7 +190,7 @@ closes password login, so it needs a key-only login that survives it — the
 with `sshd_permit_root_login: prohibit-password`. Run it alone with:
 
 ```bash
-make build EXTRA='--tags sshd'
+make build ANSIBLE_ARGS='--tags sshd'
 ```
 
 The role validates the drop-in (`sshd -t`), asserts the effective configuration

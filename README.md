@@ -54,7 +54,7 @@ make host-bootstrap
 
 # 4) Build every variant (machines in parallel; connects as 'iac')
 make build
-make build EXTRA='--limit builder-1'   # or just one machine
+make build ANSIBLE_ARGS='--limit builder-1'   # or just one machine
 
 # One-shot alternative to steps 3-4: bootstrap the hosts, then build
 make deploy

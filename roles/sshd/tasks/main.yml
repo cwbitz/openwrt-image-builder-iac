@@ -188,4 +188,4 @@
           SSH hardening was NOT applied: {{ sshd_conf }} was rolled back to
           its previous state and sshd reloaded, so the host keeps its previous
           login policy. Fix the cause reported above and re-run
-          `make build EXTRA='--tags sshd'`.
+          `make build ANSIBLE_ARGS='--tags sshd'`.
