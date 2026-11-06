@@ -86,7 +86,7 @@ vault (`vault_host_<id>_password`) and the non-secret group knobs
 `make host-bootstrap` (once per machine):
 
 1. **Probes** `iac → admin → root` over SSH on every machine (or only the
-   machines selected by `EXTRA='--limit …'`) and uses the first identity that
+   machines selected by `ANSIBLE_ARGS='--limit …'`) and uses the first identity that
    works on each. The probe runs on the selected builder hosts with
    `connection: local`, so the limit applies to the probe itself.
 2. **Creates/repairs** the least-privilege `iac` automation account (fixed
