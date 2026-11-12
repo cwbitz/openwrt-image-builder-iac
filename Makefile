@@ -125,7 +125,7 @@ vault-init: ## One-time: generate the vault password (idempotent)
 			|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
 	fi
 
-vault-edit: vault-init ## Edit one machine's connection vault (HOST=<machine>; auto when a single machine; VAULT_FILE=<path>)
+vault-edit: vault-init ## Edit one machine's connection vault (keys re-sorted alphabetically; refuses a save when the vault changed during the edit; HOST=<machine>; auto when a single machine; VAULT_FILE=<path>)
 	@set -e; \
 	p="$(VAULT_PATH)"; \
 	if [ -z "$$p" ]; then \
@@ -152,22 +152,7 @@ vault-edit: vault-init ## Edit one machine's connection vault (HOST=<machine>; a
 		echo "Encrypting plaintext $$p before editing..."; \
 		ansible-vault encrypt "$$p" >/dev/null; \
 	fi; \
-	edit_rc=0; ansible-vault edit "$$p" || edit_rc=$$?; \
-	if [ $$edit_rc -eq 0 ]; then \
-		b=$$(mktemp); a=$$(mktemp); rc=0; \
-		trap 'rm -f "$$b" "$$a"' EXIT; \
-		ansible-vault view "$$p" > "$$b" || rc=1; \
-		if [ $$rc -eq 0 ]; then cp "$$b" "$$a" || rc=1; fi; \
-		if [ $$rc -eq 0 ]; then keys=$$(python3 $(CURDIR)/scripts/sort_vault_keys.py "$$a") || rc=1; fi; \
-		if [ $$rc -ne 0 ]; then \
-			echo "ERROR: could not normalise the key order of $$p; it is unchanged (as edited)" >&2; \
-		elif ! cmp -s "$$b" "$$a"; then \
-			ansible-vault encrypt --output "$$p" "$$a" >/dev/null || rc=1; \
-		fi; \
-		if [ $$rc -ne 0 ]; then exit $$rc; fi; \
-		echo "Encryption successful! (Total keys: $$keys)"; \
-	fi; \
-	exit $$edit_rc
+	python3 $(CURDIR)/scripts/edit_vault.py "$$p"
 
 vault-view: vault-init ## View machine connection vaults (read-only; HOST=<machine>; no HOST = every machine)
 	@set -e; \

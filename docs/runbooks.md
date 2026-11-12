@@ -155,7 +155,9 @@ variants without the mirror knob.
   `make vault-edit` encrypts a plaintext vault before editing.
 - Vault keys are kept in alphabetical order: `make vault-edit` re-sorts
   the top-level keys after the editor closes (comment-preserving) and re-encrypts
-  only when the order changed. Hand edits should stay alphabetical too.
+  only when the order changed. Hand edits should stay alphabetical too. A save is
+  refused when the vault changed while the editor was open, so a secret a deploy
+  wrote in the meantime is never lost (the edited text is kept for a merge).
 - Values are Jinja-templated and shell-quoted automatically, so special
   characters are safe. WAN (PPPoE/DHCP) and the root password are set after
   first boot.
