@@ -36,9 +36,10 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
   first when `REFRESH=1` is set.
 - `make vault-init` — generate the vault password file (outside the repo).
 - `make vault-edit HOST=<machine>` — edit that machine's connection vault; a
-  plaintext vault is encrypted first, and the top-level keys are re-sorted
-  alphabetically after the editor closes. With a single machine `HOST` is
-  implied; `VAULT_FILE=<path>` overrides the path.
+  plaintext vault is encrypted first, the top-level keys are re-sorted
+  alphabetically after the editor closes, and a save is refused when the vault
+  changed while the editor was open (the edited text is kept for a merge). With a
+  single machine `HOST` is implied; `VAULT_FILE=<path>` overrides the path.
 - `make vault-view [HOST=<machine>]` — read-only: print one machine's vault, or
   every machine's when `HOST` is omitted.
 - Internal (hidden from `make help`): `lint` (syntax-check + `ansible-lint` +
