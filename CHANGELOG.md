@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.3.1...v0.3.2) (2026-11-16)
+
+
+### Features
+
+* **imagebuilder:** keep uhttpd core and modules on one feed snapshot ([#24](https://github.com/cwbitz/openwrt-image-builder-iac/issues/24)) ([4632a54](https://github.com/cwbitz/openwrt-image-builder-iac/commit/4632a5498fbe0d8c4e40cd878ca60db1782a559e))
+
 ## [0.3.1](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.3.0...v0.3.1) (2026-11-12)
 
 
