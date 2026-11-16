@@ -226,3 +226,13 @@ Two layers, and only one of them is executable:
 - [docs/build-pipeline.md](docs/build-pipeline.md) — per-variant pipeline,
   container orchestration, overlay/uci-defaults, artifacts.
 - [docs/runbooks.md](docs/runbooks.md) — operational procedures and troubleshooting.
+
+## Rebuilt hosts
+
+A reinstalled host changes its SSH host key, and the cached facts belong to the
+old machine. Run the first deploy with `REBUILD=1`: `host-bootstrap` (and `deploy`, which depends on it) then accept the
+changed key (printing the fingerprint), drop `.cache/facts` and print the reminder
+to delete host-returned secrets (tokens, setup keys) from `vault.yml`. The vault is
+never touched, and `REBUILD` is not a replacement for `FORCE` (the single,
+fingerprint-verified override). The convention is documented in
+`ansible-scaffold/docs/rebuild.md`.
