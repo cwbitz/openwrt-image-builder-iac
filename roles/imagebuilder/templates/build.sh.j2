@@ -97,3 +97,17 @@ if [ -n "$OPENWRT_PROFILE" ]; then
 else
     make image "${make_args[@]}" -S
 fi
+
+if printf '%s\n' "$OPENWRT_PACKAGES" | grep -qw -- uhttpd-mod-lua; then
+    manifest=$(find bin/targets -type f -name '*.manifest' -print -quit)
+    if [ -z "$manifest" ]; then
+        echo "WARNING: uhttpd-mod-lua is requested but the build produced no .manifest; the uhttpd versions were not checked." >&2
+    else
+        uhttpd_packages=$(awk '$1 ~ /^uhttpd(-|$)/ { version = substr($0, length($1) + 1); sub(/^[ \t]*-?[ \t]*/, "", version); print $1 "=" version }' "$manifest")
+        uhttpd_versions=$(printf '%s\n' "$uhttpd_packages" | sed 's/^[^=]*=//' | sort -u)
+        uhttpd_version_count=$(printf '%s\n' "$uhttpd_versions" | awk 'NF { count++ } END { print count + 0 }')
+        if [ -z "$uhttpd_packages" ] || [ "$uhttpd_version_count" -ne 1 ]; then
+            echo "WARNING: the image's uhttpd packages do not share one version: ${uhttpd_packages:-none}. The router's monitoring slice upgrades them together at deploy time; prefer a base image from the same feed snapshot." >&2
+        fi
+    fi
+fi

@@ -100,6 +100,17 @@ older releases.
 To resize a rootfs on the device, include `e2fsprogs` (`resize2fs`), `parted`,
 and `fdisk` in `packages`.
 
+### uhttpd and its Lua plugin
+
+`uhttpd` loads its modules (`uhttpd-mod-lua`, `uhttpd-mod-ubus`, ...) into its
+own process, so the core and every module must come from one feed snapshot. List
+`uhttpd` and every `uhttpd-mod-*` the image needs in `packages` so they are
+present and built together; when the release base lags the feed, `apk add` does
+not upgrade the installed core and the build log warns about the mixed versions.
+The router project's monitoring slice upgrades the whole set at deploy time
+before it uses the Lua plugin, so a lagging base is survivable, but an image
+built from the current feed snapshot needs no such repair.
+
 ### Ansible management
 
 To let Ansible manage the built router with Python-based modules, include these
