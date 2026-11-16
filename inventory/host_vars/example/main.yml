@@ -59,6 +59,9 @@ build_variants:
     # The statistics module installs its own packages; list non-module packages here.
     packages:
       - luci
+      - uhttpd
+      - uhttpd-mod-lua
+      - uhttpd-mod-ubus
       - "-dnsmasq"
       - dnsmasq-full
       - "-wpad-basic-mbedtls"
@@ -117,6 +120,9 @@ build_variants:
       rrd_timespans: [2hour, 1day, 1week, 1month, 1year]
     packages:
       - luci
+      - uhttpd
+      - uhttpd-mod-lua
+      - uhttpd-mod-ubus
       - "-dnsmasq"
       - dnsmasq-full
       - "-wpad-basic-mbedtls"
