@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+if command -v mise >/dev/null 2>&1; then
+    exec mise exec -- ansible-lint "$@"
+fi
+
+if [ -x "$HOME/.local/share/mise/shims/ansible-lint" ]; then
+    exec "$HOME/.local/share/mise/shims/ansible-lint" "$@"
+fi
+
+exec ansible-lint "$@"

@@ -38,6 +38,7 @@
   ],
   "ansible.validation.enabled": true,
   "ansible.validation.lint.enabled": true,
+  "ansible.validation.lint.path": "./scripts/ansible-lint",
   "python.analysis.exclude": [
     "**/collections/**",
     "**/.ansible/**"

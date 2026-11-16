@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.3.0...v0.3.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **vault:** refuse a vault edit that would drop newly written secrets ([#21](https://github.com/cwbitz/openwrt-image-builder-iac/issues/21)) ([85665e7](https://github.com/cwbitz/openwrt-image-builder-iac/commit/85665e7b1649d88d25a6282278c167b261ccd7f7))
+
 ## [0.3.0](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.2.6...v0.3.0) (2026-11-06)
 
 
