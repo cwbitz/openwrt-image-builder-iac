@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.3.2...v0.3.3) (2026-11-16)
+
+
+### Features
+
+* **make:** add a rebuilt-host reset switch ([#26](https://github.com/cwbitz/openwrt-image-builder-iac/issues/26)) ([dea984d](https://github.com/cwbitz/openwrt-image-builder-iac/commit/dea984d3361b0aa597028a60bda4e1a533489b81))
+
 ## [0.3.2](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.3.1...v0.3.2) (2026-11-16)
 
 
