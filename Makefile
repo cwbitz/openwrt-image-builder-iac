@@ -10,12 +10,16 @@ INV      := inventory/hosts.yml
 VAULT_FILE ?=
 VAULT_PATH  = $(if $(VAULT_FILE),$(VAULT_FILE),$(if $(filter command line environment,$(origin HOST)),inventory/host_vars/$(HOST)/vault.yml,))
 
-ANSIBLE_ARGS ?=
+TAGS ?=
+USE_MIRROR ?=
 
 export ANSIBLE_VAULT_PASSWORD_FILE := $(HOME)/.config/projects/openwrt-image-builder-iac/ansible_vault_password
-HOST              ?= builder-1
 
 HOST_IP           ?=
+
+LIMIT_ARG  = $(if $(HOST),--limit $(HOST),)
+TAGS_ARG   = $(if $(TAGS),--tags $(TAGS),)
+MIRROR_ARG = $(if $(USE_MIRROR),-e use_mirror=true,)
 
 $(foreach v,HOST HOST_IP,$(if $(filter environment,$(origin $(v))),$(warning $(v) is inherited from the environment; pass $(v)=... explicitly if unintended)))
 
@@ -93,7 +97,8 @@ help: ## Show this help
 
 install: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections ensure-passlib ## Install the pinned toolchain, collections, and control-node dependencies
 
-host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples (comment-free); HOST default builder-1, HOST_IP default CHANGE_ME_HOST_IP, FORCE=1 replaces an existing entry
+host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples (comment-free); HOST=<machine> is required, HOST_IP default CHANGE_ME_HOST_IP, FORCE=1 replaces an existing entry
+	@test -n "$(HOST)" || { echo "ERROR: HOST=<machine> is required, e.g. make host-init HOST=builder-1 HOST_IP=192.0.2.10" >&2; exit 1; }
 	@[ -e $(INV) ] || { python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines $(INV).example $(INV); echo "created $(INV) (comments and blank lines stripped)"; }
 	@[ -e inventory/group_vars/builders/main.yml ] || { python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/group_vars/builders/main.yml.example inventory/group_vars/builders/main.yml; echo "created inventory/group_vars/builders/main.yml (comments and blank lines stripped)"; }
 	@install -d -m 0700 inventory/host_vars/$(HOST)
@@ -104,7 +109,7 @@ host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples
 	@python3 $(CURDIR)/scripts/ensure_inventory_host.py $(INV) "$(HOST)" --group builders --ansible-host "$(HOST_IP)" $(if $(FORCE),--force)
 	@echo "scaffolded inventory/host_vars/$(HOST)/ (machine registered under the builders group; edit build_variants[] in main.yml, then: make vault-edit HOST=$(HOST))"
 
-host-bootstrap: rebuild-reset hostkey-init ## Create the iac automation account (bootstrap.yml; ANSIBLE_ARGS=<extra ansible args>; REFRESH=1 refreshes host keys first; REBUILD=1 after a host rebuild)
+host-bootstrap: rebuild-reset hostkey-init ## Create the iac automation account (bootstrap.yml; HOST=<machine>, TAGS=<tags>; REFRESH=1 refreshes host keys first; REBUILD=1 after a host rebuild)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/bootstrap.yml
@@ -238,7 +243,7 @@ hostkey-init: vault-init ## Refresh every managed host's SSH host key in known_h
 	echo "host keys refreshed in $$nh"
 
 
-info: ## Query ImageBuilder image/profile info (no build; ANSIBLE_ARGS=<extra ansible args>)
+info: ## Query ImageBuilder image/profile info (no build; HOST=<machine>, TAGS=<tags>)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@log=$$(mktemp); spin=""; \
@@ -259,12 +264,12 @@ info: ## Query ImageBuilder image/profile info (no build; ANSIBLE_ARGS=<extra an
 	cat "$$log"; \
 	exit $$rc
 
-build: validate-knobs ## Build a customized OpenWrt firmware image (ANSIBLE_ARGS=<extra ansible args>)
+build: validate-knobs ## Build a customized OpenWrt firmware image (HOST=<machine>, TAGS=<tags>, USE_MIRROR=1)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@$(MAKE) --no-print-directory run-build-playbook
 
-deploy: host-bootstrap build ## One-click: bootstrap the build host, then build every variant (ANSIBLE_ARGS=<extra ansible args>; REFRESH=1 refreshes host keys first; REBUILD=1 after a host rebuild)
+deploy: host-bootstrap build ## One-click: bootstrap the build host, then build every variant (HOST=<machine>, TAGS=<tags>, USE_MIRROR=1; REFRESH=1 refreshes host keys first; REBUILD=1 after a host rebuild)
 
 agent-needed: vault-init
 	@$(SSH_AGENT_PROBE)
@@ -393,12 +398,12 @@ ensure-keychain: verify-keychain-pin
 	fi
 
 run-playbook: install vault-init agent-fallback
-	@$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(ANSIBLE_ARGS)
+	@$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(LIMIT_ARG) $(TAGS_ARG) $(MIRROR_ARG)
 
 run-build-playbook: install vault-init agent-fallback
 	@ANS_PLAY="$(ANS_PLAY)" INV="$(INV)" SSH_AGENT_RUN="$(SSH_AGENT_RUN)" \
-		BUILD_EXTRA="$(ANSIBLE_ARGS)" $(CURDIR)/scripts/run-build.sh
+		BUILD_EXTRA="$(LIMIT_ARG) $(TAGS_ARG) $(MIRROR_ARG)" $(CURDIR)/scripts/run-build.sh
 
 .PHONY: validate-knobs
 validate-knobs: vault-init
-	@if [ -f $(INV) ]; then $(ANS_PLAY) -i $(INV) playbooks/validate_knobs.yml $(ANSIBLE_ARGS); else echo "validate-knobs: $(INV) missing, skipped"; fi
+	@if [ -f $(INV) ]; then $(ANS_PLAY) -i $(INV) playbooks/validate_knobs.yml; else echo "validate-knobs: $(INV) missing, skipped"; fi

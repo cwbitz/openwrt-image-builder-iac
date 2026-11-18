@@ -14,7 +14,7 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
 
 ## Commands
 
-- `make help` — aligned target list; overridable variables (`HOST`, `ANSIBLE_ARGS`) are
+- `make help` — aligned target list; overridable variables (`HOST`, `TAGS`, `USE_MIRROR`) are
   shown inline. `help` is listed last.
 - `make install` — the sole dependency entry point (toolchain, collections,
   `sshpass`, `passlib`, Keychain). Every other target depends on it.
@@ -22,7 +22,7 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
   `group_vars/builders/main.yml` comment-free from the examples, plus
   `host_vars/<name>/` (with a `build_variants` list); add `<name>` under
   `builders.hosts` with `HOST_IP` as its `ansible_host`; encrypt the vault (dir
-  `0700`, file `0600`). HOST defaults to `builder-1` and `HOST_IP` to a
+  `0700`, file `0600`). HOST is required and `HOST_IP` falls back to a
   placeholder; re-running does not overwrite existing files.
 - `make host-bootstrap` — once: probe `iac → admin → root` on
   every machine and create/repair the `iac` automation account (key-first, NOPASSWD sudo,
@@ -30,7 +30,8 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
   `REFRESH=1` refreshes host keys first.
 - `make deploy` — one-click: `host-bootstrap` then `build`.
 - `make build` / `make info` — build every variant (machines in parallel) / query
-  ImageBuilder info; limit to one machine with `ANSIBLE_ARGS='--limit <machine>'`.
+  ImageBuilder info; limit to one machine with `HOST=<machine>` and select task
+  slices with `TAGS=<tags>`.
 - `make hostkey-init` — refresh every machine's SSH host key in the control node's
   `known_hosts` (drop the stale entry, re-add); `host-bootstrap`/`deploy` run it
   first when `REFRESH=1` is set.
@@ -50,8 +51,8 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
   `agent-*` / `keychain-*` / `run-playbook` helpers. `make build` and `make lint`
   assert every operator knob against `inventory/knob_schema.yml` through
   `playbooks/validate_knobs.yml`.
-- `ANSIBLE_ARGS` is appended to every `ansible-playbook` invocation, e.g.
-  `make build ANSIBLE_ARGS='--limit builder-1'`.
+- `TAGS` appends `--tags`, `HOST` appends `--limit`, and `USE_MIRROR=1`
+  sets `-e use_mirror=true`, e.g. `make build HOST=builder-1 TAGS=sshd`.
 
 ## Ansible conventions: probe & bootstrap host targeting
 
