@@ -30,7 +30,7 @@ host_root_ssh_privkey_file: ""
 iac_uid: 6000
 iac_gid: 6000
 
-# --- Host security (role sshd; make build ANSIBLE_ARGS='--tags sshd') ------------------
+# --- Host security (role sshd; make build TAGS=sshd) ------------------
 # Key-only SSH administration, OFF by default: it closes password login, so it is
 # only safe once a keyed login survives it. Root policy is independent.
 sshd_hardening_enabled: false
