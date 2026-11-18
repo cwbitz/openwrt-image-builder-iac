@@ -2,7 +2,7 @@
   "files.associations": {
     "*.j2": "jinja"
   },
-  "yaml.format.bracketSpacing": false,
+  "yaml.format.bracketSpacing": true,
   "yaml.format.printWidth": 160,
   "yaml.format.trailingComma": false,
   "yaml.disableSchemaDetection": [
