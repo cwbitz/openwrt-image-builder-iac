@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.4](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.3.3...v0.3.4) (2026-11-18)
+
+
+### Features
+
+* **make:** select machines and task slices with HOST and TAGS ([#28](https://github.com/cwbitz/openwrt-image-builder-iac/issues/28)) ([c224628](https://github.com/cwbitz/openwrt-image-builder-iac/commit/c2246289f110cc5e9364ab8b432a350ee2589914))
+
 ## [0.3.3](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.3.2...v0.3.3) (2026-11-16)
 
 
