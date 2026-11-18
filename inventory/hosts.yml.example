@@ -13,8 +13,7 @@
 # `ansible_host: 127.0.0.1`). Add another machine as a sibling under `builders`.
 builders:
   hosts:
-    # `make host-init HOST=<machine> HOST_IP=<addr>` adds the entry; with no
-    # arguments it scaffolds the default machine `builder-1` with a
-    # placeholder address. Example entry:
+    # `make host-init HOST=<machine> HOST_IP=<addr>` adds the entry (HOST is
+    # required; HOST_IP falls back to a placeholder address). Example entry:
     #   builder-1:
     #     ansible_host: 203.0.113.50
