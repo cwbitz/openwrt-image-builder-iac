@@ -39,36 +39,9 @@
           vaults). Nothing to load.
       when: agent_privkeys | length == 0
 
-    - name: "[SSHAgent] Load each private key into the SSH agent"
-      ansible.builtin.shell: |
-        set -u
-        key="${KEY/#\~/$HOME}"
-        if [ ! -f "$key" ]; then
-          echo "SKIP (missing): $key"
-          exit 0
-        fi
-        if ssh-add "$key" >/dev/null 2>&1; then
-          echo "ADDED: $key"
-        elif ssh-add - < "$key" >/dev/null 2>&1; then
-          echo "ADDED (via stdin, permissions): $key"
-        else
-          echo "FAILED: $key"
-          exit 1
-        fi
-      args:
-        executable: /bin/bash
-      environment:
-        KEY: "{{ item }}"
-      loop: "{{ agent_privkeys }}"
-      loop_control:
-        label: "{{ item }}"
-      changed_when: false
-      register: agent_load
-
-    - name: "[SSHAgent] Show what was loaded"
-      ansible.builtin.debug:
-        msg: "{{ agent_load.results | map(attribute='stdout') | list }}"
-      when: agent_load.results | length > 0
+    - name: "[SSHAgent] Load the configured private keys"
+      tags: [always]
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/helpers/tasks/load_agent_keys.yml"
 
     - name: "[SSHAgent] List the identities currently held by the agent"
       ansible.builtin.command: ssh-add -l
