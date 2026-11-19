@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.5](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.3.4...v0.3.5) (2026-11-19)
+
+
+### Features
+
+* **ssh-agent:** gate the insecure key fallback behind AGENT_ALLOW_INSECURE ([#31](https://github.com/cwbitz/openwrt-image-builder-iac/issues/31)) ([4181d98](https://github.com/cwbitz/openwrt-image-builder-iac/commit/4181d98f65b03dfbf31dd136292d1010a342d6c1))
+
 ## [0.3.4](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.3.3...v0.3.4) (2026-11-18)
 
 
