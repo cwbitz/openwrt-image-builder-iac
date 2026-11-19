@@ -1,0 +1,49 @@
+---
+- name: "[SSHAgent] Load each private key into the ssh-agent"
+  ansible.builtin.shell: |
+    set -u
+    key="${KEY/#\~/$HOME}"
+    if [ ! -f "$key" ]; then
+      echo "SKIP (missing): $key"
+      exit 0
+    fi
+    mode=$(stat -c '%a' "$key" 2>/dev/null || echo '')
+    if ssh-add -t "$AGENT_KEY_LIFETIME" "$key" >/dev/null 2>&1; then
+      echo "ADDED: $key (lifetime $AGENT_KEY_LIFETIME)"
+      exit 0
+    fi
+    if [ -z "$mode" ] || [ $((0$mode & 077)) -eq 0 ]; then
+      echo "FAILED: $key (unreadable key or wrong passphrase; mode ${mode:-unknown} is acceptable)"
+      exit 1
+    fi
+    if [ "${AGENT_ALLOW_INSECURE:-0}" != "1" ]; then
+      echo "REFUSED: $key has mode $mode; run 'chmod 600 \"$key\"' or set AGENT_ALLOW_INSECURE=1 to load it anyway"
+      exit 1
+    fi
+    if ssh-keygen -y -P '' -f <(cat "$key") >/dev/null 2>&1; then
+      echo "WARNING: $key has mode $mode and no passphrase; loading via stdin because AGENT_ALLOW_INSECURE=1"
+    else
+      echo "WARNING: loading $key (mode $mode) via stdin; chmod 600 to avoid this path"
+    fi
+    if ssh-add -t "$AGENT_KEY_LIFETIME" - < "$key" >/dev/null 2>&1; then
+      echo "ADDED (insecure permissions): $key (lifetime $AGENT_KEY_LIFETIME)"
+    else
+      echo "FAILED: $key"
+      exit 1
+    fi
+  args:
+    executable: /bin/bash
+  environment:
+    KEY: "{{ item }}"
+    AGENT_ALLOW_INSECURE: "{{ lookup('ansible.builtin.env', 'AGENT_ALLOW_INSECURE') | default('', true) }}"
+    AGENT_KEY_LIFETIME: "{{ agent_key_lifetime | default('8h') }}"
+  loop: "{{ agent_privkeys | default([], true) }}"
+  loop_control:
+    label: "{{ item }}"
+  changed_when: false
+  register: agent_load
+
+- name: "[SSHAgent] Show what was loaded"
+  ansible.builtin.debug:
+    msg: "{{ agent_load.results | default([]) | map(attribute='stdout') | list }}"
+  when: agent_load.results | default([]) | length > 0
