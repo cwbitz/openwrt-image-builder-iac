@@ -4,31 +4,29 @@ SHELL := /bin/bash
 ANS_PLAY := ansible-playbook
 INV      := inventory/hosts.yml
 # Connection secrets are per machine (inventory/host_vars/<machine>/vault.yml).
-# Select one with HOST=<machine>; with a single machine it is implied. VAULT_FILE
-# overrides the path outright (e.g. a separate test inventory). Keep the default
-# path in sync with `vault_file` in inventory/group_vars/all/main.yml.
-VAULT_FILE ?=
-VAULT_PATH  = $(if $(VAULT_FILE),$(VAULT_FILE),$(if $(filter command line environment,$(origin HOST)),inventory/host_vars/$(HOST)/vault.yml,))
+# HOST selects one. Keep the default path in sync with `vault_file` in
+# inventory/group_vars/all/main.yml.
+EFFECTIVE_HOST = $(if $(HOST),$(HOST),$(shell ansible-inventory -i $(INV) --list 2>/dev/null | python3 -c 'import json,sys; h=list(json.load(sys.stdin).get("_meta",{}).get("hostvars",{}) or {}); print(h[0] if len(h)==1 else "")'))
+VAULT_PATH  = $(if $(EFFECTIVE_HOST),inventory/host_vars/$(EFFECTIVE_HOST)/vault.yml,)
 
 TAGS ?=
-USE_MIRROR ?=
 
 export ANSIBLE_VAULT_PASSWORD_FILE := $(HOME)/.config/projects/openwrt-image-builder-iac/ansible_vault_password
 
-HOST_IP           ?=
+IP                ?=
 
-LIMIT_ARG  = $(if $(HOST),--limit $(HOST),)
+comma := ,
+HOST_LITERAL_BAD = $(strip $(findstring *,$(HOST))$(findstring ?,$(HOST))$(findstring [,$(HOST))$(findstring ],$(HOST))$(findstring !,$(HOST))$(findstring :,$(HOST)))
+$(if $(HOST_LITERAL_BAD),$(error HOST must be comma-separated literal host names (no Ansible pattern syntax); got '$(HOST)'))
+$(if $(word 2,$(HOST)),$(error HOST must be comma-separated literal host names (no spaces); got '$(HOST)'))
+HOST_LIST = $(strip $(subst $(comma), ,$(HOST)))
+HOST_ARG   = $(if $(HOST),--limit '$(HOST):localhost',)
+HOST_SINGLE_GUARD = test "$$(printf '%s' '$(HOST_LIST)' | wc -w)" -le 1 || { echo "ERROR: this target needs exactly one HOST; got '$(HOST)'." >&2; exit 2; }
 TAGS_ARG   = $(if $(TAGS),--tags $(TAGS),)
-MIRROR_ARG = $(if $(USE_MIRROR),-e use_mirror=true,)
 
-$(foreach v,HOST HOST_IP,$(if $(filter environment,$(origin $(v))),$(warning $(v) is inherited from the environment; pass $(v)=... explicitly if unintended)))
+$(foreach v,HOST IP,$(if $(filter environment,$(origin $(v))),$(warning $(v) is inherited from the environment; pass $(v)=... explicitly if unintended)))
 
-QUIET ?=
-say = $(if $(QUIET),:,echo)
-
-REFRESH ?=
 REBUILD ?=
-KNOWN_HOSTS ?= $(HOME)/.ssh/known_hosts
 
 VAULT_PASSWORD_HINT := ERROR: Ansible Vault cannot decrypt this file - the password in $(ANSIBLE_VAULT_PASSWORD_FILE) is missing or incorrect. Restore the original password, or re-encrypt the vault file with the current one.
 
@@ -61,13 +59,13 @@ define SSH_AGENT_PREPARE
 	mkdir -p "$$(dirname "$(SSH_AGENT_ENV)")"; \
 	rm -f "$(SSH_AGENT_ENV)"; \
 	if [ -n "$${SSH_AUTH_SOCK:-}" ] && ssh-add -l >/dev/null 2>&1; then \
-		$(say) "ssh-agent: reusing loaded agent"; \
+		echo "ssh-agent: reusing loaded agent"; \
 		echo "export SSH_AUTH_SOCK='$$SSH_AUTH_SOCK'" > "$(SSH_AGENT_ENV)"; exit 0; \
 	fi; \
 	if [ "$(SSH_AGENT_FORCE)" != "1" ] && ! $(SSH_AGENT_PROBE); then \
-		$(say) "ssh-agent: not needed (keys usable or password auth)"; exit 0; \
+		echo "ssh-agent: not needed (keys usable or password auth)"; exit 0; \
 	fi; \
-	$(say) "ssh-agent: starting Keychain and loading keys"; \
+	echo "ssh-agent: starting Keychain and loading keys"; \
 	eval "$$($(KEYCHAIN_BIN) agent start --eval --quiet 2>/dev/null)"; \
 	echo "export SSH_AUTH_SOCK='$$SSH_AUTH_SOCK'" > "$(SSH_AGENT_ENV)"; \
 	$(ANS_PLAY) -i $(INV) $(SSH_AGENT_LOAD_PLAYBOOK)
@@ -79,8 +77,8 @@ ANSIBLE_PYTHON ?= $(shell \
 	if [ -n "$$p" ]; then f=$$(readlink -f "$$p" 2>/dev/null); \
 	  if [ -f "$$f" ] && head -c 2 "$$f" | grep -q '#!'; then head -1 "$$f" | sed -n 's|^#! *||; s| .*||p'; fi; fi)
 
-.PHONY: help install vault-init host-init vault-edit vault-view \
-        host-bootstrap info build deploy
+.PHONY: help install vault-init prep edit view \
+        bootstrap-accounts info build deploy
 .PHONY: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections \
         ensure-passlib keychain-fetch verify-keychain-pin run-playbook \
         run-build-playbook agent-needed agent-fallback agent-ensure agent-load \
@@ -97,8 +95,8 @@ help: ## Show this help
 
 install: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections ensure-passlib ## Install the pinned toolchain, collections, and control-node dependencies
 
-host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples (comment-free); HOST=<machine> is required, HOST_IP default CHANGE_ME_HOST_IP, FORCE=1 replaces an existing entry
-	@test -n "$(HOST)" || { echo "ERROR: HOST=<machine> is required, e.g. make host-init HOST=builder-1 HOST_IP=192.0.2.10" >&2; exit 1; }
+prep: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples (comment-free); HOST=<machine> is required, IP default CHANGE_ME_HOST_IP, FORCE=1 replaces an existing entry
+	@$(HOST_SINGLE_GUARD); test -n "$(HOST)" || { echo "ERROR: HOST=<machine> is required, e.g. make prep HOST=builder-1 IP=192.0.2.10" >&2; exit 1; }
 	@[ -e $(INV) ] || { python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines $(INV).example $(INV); echo "created $(INV) (comments and blank lines stripped)"; }
 	@[ -e inventory/group_vars/builders/main.yml ] || { python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/group_vars/builders/main.yml.example inventory/group_vars/builders/main.yml; echo "created inventory/group_vars/builders/main.yml (comments and blank lines stripped)"; }
 	@install -d -m 0700 inventory/host_vars/$(HOST)
@@ -106,15 +104,15 @@ host-init: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples
 	@[ -e inventory/host_vars/$(HOST)/vault.yml ] || { \
 		python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/host_vars/example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml; \
 		chmod 600 inventory/host_vars/$(HOST)/vault.yml; }
-	@python3 $(CURDIR)/scripts/ensure_inventory_host.py $(INV) "$(HOST)" --group builders --ansible-host "$(HOST_IP)" $(if $(FORCE),--force)
-	@echo "scaffolded inventory/host_vars/$(HOST)/ (machine registered under the builders group; edit build_variants[] in main.yml, then: make vault-edit HOST=$(HOST))"
+	@python3 $(CURDIR)/scripts/ensure_inventory_host.py $(INV) "$(HOST)" --group builders --ansible-host "$(IP)" $(if $(FORCE),--force)
+	@echo "scaffolded inventory/host_vars/$(HOST)/ (machine registered under the builders group; edit build_variants[] in main.yml, then: make edit HOST=$(HOST))"
 
-host-bootstrap: rebuild-reset hostkey-init ## Create the iac automation account (bootstrap.yml; HOST=<machine>, TAGS=<tags>; REFRESH=1 refreshes host keys first; REBUILD=1 after a host rebuild)
+bootstrap-accounts: rebuild-reset hostkeys
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/bootstrap.yml
 
-vault-init: ## One-time: generate the vault password (idempotent)
+vault-init:
 	@mkdir -p $(dir $(ANSIBLE_VAULT_PASSWORD_FILE))
 	@if [ ! -s $(ANSIBLE_VAULT_PASSWORD_FILE) ]; then \
 		openssl rand -base64 32 > $(ANSIBLE_VAULT_PASSWORD_FILE); \
@@ -131,21 +129,12 @@ vault-init: ## One-time: generate the vault password (idempotent)
 			|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
 	fi
 
-vault-edit: vault-init ## Edit one machine's connection vault (keys re-sorted alphabetically; refuses a save when the vault changed during the edit; HOST=<machine>; auto when a single machine; VAULT_FILE=<path>)
-	@set -e; \
+edit: vault-init ## Edit one machine's connection vault (keys re-sorted alphabetically; refuses a save when the vault changed during the edit; HOST=<machine>)
+	@$(HOST_SINGLE_GUARD); set -e; \
 	p="$(VAULT_PATH)"; \
 	if [ -z "$$p" ]; then \
-		found="$$(ls -1d inventory/host_vars/*/vault.yml 2>/dev/null | grep -v '/example/' || true)"; \
-		if [ -z "$$found" ]; then \
-			echo "ERROR: no machine vault yet; run: make host-init HOST=<machine>" >&2; \
-			exit 1; \
-		fi; \
-		if [ "$$(printf '%s\n' "$$found" | wc -l)" -gt 1 ]; then \
-			echo "ERROR: several machine vaults; pass HOST=<machine> or VAULT_FILE=<path>:" >&2; \
-			printf '%s\n' "$$found" | sed 's/^/  /' >&2; \
-			exit 1; \
-		fi; \
-		p="$$found"; \
+		echo "ERROR: cannot determine the host (several machines in the inventory); pass HOST=<machine>." >&2; \
+		exit 1; \
 	fi; \
 	if [ ! -f "$$p" ]; then \
 		echo "No such vault file: $$p" >&2; \
@@ -160,14 +149,14 @@ vault-edit: vault-init ## Edit one machine's connection vault (keys re-sorted al
 	fi; \
 	python3 $(CURDIR)/scripts/edit_vault.py "$$p"
 
-vault-view: vault-init ## View machine connection vaults (read-only; HOST=<machine>; no HOST = every machine)
+view: vault-init ## View machine connection vaults (read-only; HOST=<machine>; no HOST = every machine)
 	@set -e; \
 	files="$(VAULT_PATH)"; \
 	if [ -z "$$files" ]; then \
 		files="$$(ls -1d inventory/host_vars/*/vault.yml 2>/dev/null | grep -v '/example/' || true)"; \
 	fi; \
 	if [ -z "$$files" ]; then \
-		echo "(no machine vaults yet; run: make host-init HOST=<machine>)" >&2; \
+		echo "(no machine vaults yet; run: make prep HOST=<machine>)" >&2; \
 		exit 0; \
 	fi; \
 	for p in $$files; do \
@@ -180,7 +169,7 @@ vault-view: vault-init ## View machine connection vaults (read-only; HOST=<machi
 	done
 
 .PHONY: test
-test: ## Run the unit tests for the control-node helpers
+test:
 	pytest -q tests
 
 lint: install vault-init validate-knobs
@@ -208,13 +197,13 @@ rebuild-reset:
 		rm -rf .cache/facts; \
 	fi
 
-.PHONY: hostkey-init
-hostkey-init: vault-init ## Refresh every managed host's SSH host key in known_hosts (FORCE=1 or REBUILD=1 replaces a changed key)
+.PHONY: hostkeys
+hostkeys: vault-init
 	@set -e; \
-	nh="$(KNOWN_HOSTS)"; mkdir -p "$$(dirname "$$nh")"; tmp=$$(mktemp); targets=$$(mktemp); tsv=$$(mktemp); pub=$$(mktemp); failures=0; \
+	nh="$(HOME)/.ssh/known_hosts"; mkdir -p "$$(dirname "$$nh")"; tmp=$$(mktemp); targets=$$(mktemp); tsv=$$(mktemp); pub=$$(mktemp); failures=0; \
 	trap 'rm -f "$$tmp" "$$targets" "$$tsv" "$$pub"' EXIT; \
 	if [ -f "$$nh" ]; then cp "$$nh" "$$tmp"; else : > "$$tmp"; fi; \
-	$(ANS_PLAY) -i $(INV) playbooks/host_keys.yml -e host_keys_out="$$targets" >/dev/null; \
+	$(ANS_PLAY) -i $(INV) playbooks/host_keys.yml -e host_keys_out="$$targets" -e host_keys_hosts='$(HOST)' >/dev/null; \
 	python3 -c 'import json,sys; [print("{}\t{}\t{}".format(t["name"],t["host"],t["port"])) for t in json.load(open(sys.argv[1]))]' "$$targets" > "$$tsv"; \
 	mv "$$tsv" "$$targets"; \
 	test -s "$$targets" || { echo "ERROR: no hosts resolved from the inventory."; exit 1; }; \
@@ -243,7 +232,7 @@ hostkey-init: vault-init ## Refresh every managed host's SSH host key in known_h
 	echo "host keys refreshed in $$nh"
 
 
-info: ## Query ImageBuilder image/profile info (no build; HOST=<machine>, TAGS=<tags>)
+info: ## Query ImageBuilder image/profile info (no build; HOST=<name>, TAGS=<tags>)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@log=$$(mktemp); spin=""; \
@@ -254,7 +243,6 @@ info: ## Query ImageBuilder image/profile info (no build; HOST=<machine>, TAGS=<
 	else \
 		printf 'Querying ImageBuilder info\n' >&2; \
 	fi; \
-	QUIET=1 \
 	ANSIBLE_STDOUT_CALLBACK=info_format \
 	ANSIBLE_CALLBACK_PLUGINS=$(CURDIR)/callback_plugins \
 	ANSIBLE_CALLBACKS_ENABLED=info_silent \
@@ -264,12 +252,12 @@ info: ## Query ImageBuilder image/profile info (no build; HOST=<machine>, TAGS=<
 	cat "$$log"; \
 	exit $$rc
 
-build: validate-knobs ## Build a customized OpenWrt firmware image (HOST=<machine>, TAGS=<tags>, USE_MIRROR=1)
+build: validate-knobs ## Build a customized OpenWrt firmware image (HOST=<name>, TAGS=<tags>)
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@$(MAKE) --no-print-directory run-build-playbook
 
-deploy: host-bootstrap build ## One-click: bootstrap the build host, then build every variant (HOST=<machine>, TAGS=<tags>, USE_MIRROR=1; REFRESH=1 refreshes host keys first; REBUILD=1 after a host rebuild)
+deploy: bootstrap-accounts build ## One-click: bootstrap the build host, then build every variant (HOST=<name>, TAGS=<tags>; REBUILD=1 after a host rebuild)
 
 agent-needed: vault-init
 	@$(SSH_AGENT_PROBE)
@@ -302,19 +290,19 @@ ensure-toolchain:
 		|| { echo "ERROR: python3 >= 3.8 required; found $$(python3 --version 2>&1)."; exit 1; }
 	@command -v openssl >/dev/null 2>&1 \
 		|| { echo "ERROR: openssl is required (secret generation). Install it."; exit 1; }
-	@$(say) "toolchain: python3 $$(python3 --version 2>&1 | awk '{print $$2}'), openssl $$(openssl version | awk '{print $$2}')"
+	@echo "toolchain: python3 $$(python3 --version 2>&1 | awk '{print $$2}'), openssl $$(openssl version | awk '{print $$2}')"
 
 ensure-sshpass:
 	@set -e; \
 	if command -v sshpass >/dev/null 2>&1 || [ -x "$(SSHPASS_BIN)" ]; then \
-		$(say) "sshpass: present"; exit 0; \
+		echo "sshpass: present"; exit 0; \
 	fi; \
 	if sudo -n true >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then \
-		$(say) "sshpass: installing via sudo apt-get..."; \
+		echo "sshpass: installing via sudo apt-get..."; \
 		if sudo -n apt-get install -y sshpass; then exit 0; fi; \
-		$(say) "sshpass: sudo install failed — trying a rootless install..."; \
+		echo "sshpass: sudo install failed — trying a rootless install..."; \
 	fi; \
-	$(say) "sshpass: installing rootless into $(dir $(SSHPASS_BIN))..."; \
+	echo "sshpass: installing rootless into $(dir $(SSHPASS_BIN))..."; \
 	if ! command -v apt-get >/dev/null 2>&1 || ! command -v dpkg-deb >/dev/null 2>&1; then \
 		echo "ERROR: cannot auto-install sshpass (apt-get/dpkg-deb not found)." >&2; \
 		echo "  Install sshpass manually, or use key-only bootstrap credentials" >&2; \
@@ -329,18 +317,18 @@ ensure-sshpass:
 	dpkg-deb -x sshpass_*.deb root; \
 	mkdir -p "$(dir $(SSHPASS_BIN))"; \
 	install -m 0755 root/usr/bin/sshpass "$(SSHPASS_BIN)"; \
-	$(say) "sshpass installed: $(SSHPASS_BIN)"
+	echo "sshpass installed: $(SSHPASS_BIN)"
 
 ensure-passlib:
 	@set -e; \
 	py="$(ANSIBLE_PYTHON)"; [ -n "$$py" ] || py=$$(command -v python3); \
 	if "$$py" -c 'import passlib' >/dev/null 2>&1; then \
-		$(say) "passlib: present ($$py)"; exit 0; \
+		echo "passlib: present ($$py)"; exit 0; \
 	fi; \
 	if "$$py" -m pip install --quiet passlib >/dev/null 2>&1; then \
-		$(say) "passlib: installed with pip ($$py)"; exit 0; \
+		echo "passlib: installed with pip ($$py)"; exit 0; \
 	fi; \
-	$(say) "passlib: pip unavailable for $$py — using the rootless deb fallback..."; \
+	echo "passlib: pip unavailable for $$py — using the rootless deb fallback..."; \
 	if ! command -v apt-get >/dev/null 2>&1 || ! command -v dpkg-deb >/dev/null 2>&1; then \
 		echo "ERROR: cannot auto-install passlib (apt-get/dpkg-deb not found)." >&2; \
 		echo "  Install python3-passlib with pip or your package manager." >&2; \
@@ -355,10 +343,10 @@ ensure-passlib:
 	dpkg-deb -x python3-passlib_*.deb root; \
 	mkdir -p "$$dest"; \
 	cp -a root/usr/lib/python3/dist-packages/passlib "$$dest/"; \
-	$(say) "passlib installed: $$dest/passlib"
+	echo "passlib installed: $$dest/passlib"
 
 ensure-ansible-collections:
-	@ansible-galaxy collection install -r requirements.yml $(if $(QUIET),1>/dev/null,)
+	@ansible-galaxy collection install -r requirements.yml 
 
 keychain-fetch:
 	@set -e; \
@@ -367,7 +355,7 @@ keychain-fetch:
 	   && printf '%s  %s\n' "$(KEYCHAIN_SHA256)" "$(KEYCHAIN_ASSET)" | sha256sum -c - >/dev/null 2>&1; then \
 		exit 0; \
 	fi; \
-	$(say) "downloading keychain $(KEYCHAIN_VERSION)..."; \
+	echo "downloading keychain $(KEYCHAIN_VERSION)..."; \
 	if ! curl -fsSL -o "$(KEYCHAIN_ASSET).tmp" "$(KEYCHAIN_URL)"; then \
 		rm -f "$(KEYCHAIN_ASSET).tmp"; \
 		echo "ERROR: failed to download keychain v$(KEYCHAIN_VERSION)." >&2; \
@@ -384,25 +372,25 @@ verify-keychain-pin: keychain-fetch
 		|| { echo "ERROR: keychain asset checksum mismatch: $(KEYCHAIN_ASSET)" >&2; \
 		     echo "  Remove it and re-run, or download it manually from $(KEYCHAIN_URL)." >&2; \
 		     exit 1; }; \
-	$(say) "keychain pin OK: v$(KEYCHAIN_VERSION)"
+	echo "keychain pin OK: v$(KEYCHAIN_VERSION)"
 
 ensure-keychain: verify-keychain-pin
 	@set -e; \
 	if [ -f "$(KEYCHAIN_BIN)" ] \
 	   && printf '%s  %s\n' "$(KEYCHAIN_SHA256)" "$(KEYCHAIN_BIN)" | sha256sum -c - >/dev/null 2>&1; then \
-		$(say) "keychain:  present (v$(KEYCHAIN_VERSION), $(KEYCHAIN_BIN))"; \
+		echo "keychain:  present (v$(KEYCHAIN_VERSION), $(KEYCHAIN_BIN))"; \
 	else \
 		mkdir -p "$$(dirname "$(KEYCHAIN_BIN)")"; \
 		install -m 0755 "$(KEYCHAIN_ASSET)" "$(KEYCHAIN_BIN)"; \
-		$(say) "keychain installed: $(KEYCHAIN_BIN) (v$(KEYCHAIN_VERSION))"; \
+		echo "keychain installed: $(KEYCHAIN_BIN) (v$(KEYCHAIN_VERSION))"; \
 	fi
 
 run-playbook: install vault-init agent-fallback
-	@$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(LIMIT_ARG) $(TAGS_ARG) $(MIRROR_ARG)
+	@$(SSH_AGENT_RUN) $(ANS_PLAY) -i $(INV) $(PLAYBOOK) $(HOST_ARG) $(TAGS_ARG) 
 
 run-build-playbook: install vault-init agent-fallback
 	@ANS_PLAY="$(ANS_PLAY)" INV="$(INV)" SSH_AGENT_RUN="$(SSH_AGENT_RUN)" \
-		BUILD_EXTRA="$(LIMIT_ARG) $(TAGS_ARG) $(MIRROR_ARG)" $(CURDIR)/scripts/run-build.sh
+		BUILD_EXTRA="$(HOST_ARG) $(TAGS_ARG) " $(CURDIR)/scripts/run-build.sh
 
 .PHONY: validate-knobs
 validate-knobs: vault-init

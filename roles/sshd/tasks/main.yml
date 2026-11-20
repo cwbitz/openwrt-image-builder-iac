@@ -38,7 +38,7 @@
       (host_iac_ssh_pubkey_file), or — for a root-administered host —
       root's public key (host_root_ssh_pubkey_file) with
       sshd_permit_root_login=prohibit-password. Set one and run
-      `make host-bootstrap` to authorize it, or set sshd_hardening_enabled=false
+      `make deploy` to authorize it, or set sshd_hardening_enabled=false
       to keep password login.
 
 - name: "[SSHD] Read the current drop-in (for the rollback)"

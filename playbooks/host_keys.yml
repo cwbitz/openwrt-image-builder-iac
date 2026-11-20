@@ -7,7 +7,19 @@
   vars:
     ansible_become: false
     host_keys_out: "host_keys.json"
+    host_keys_group: builders
+    host_keys_hosts: ""
   tasks:
+    - name: "[HostKeys] Fail when a HOST entry is not a managed host"
+      ansible.builtin.assert:
+        that:
+          - item in (groups[host_keys_group] | default([]))
+        fail_msg: >-
+          HOST '{{ item }}' is not a host in {{ host_keys_group }}.
+        quiet: true
+      loop: "{{ (host_keys_hosts | replace(',', ' ')).split() }}"
+      when: host_keys_hosts | length > 0
+
     - name: "[HostKeys] Build the resolved target list"
       ansible.builtin.set_fact:
         host_keys_targets: >-
@@ -15,7 +27,9 @@
                'name': item,
                'host': hostvars[item].ansible_host | default(item),
                'port': hostvars[item].ansible_port | default(22) } ] }}
-      loop: "{{ groups['builders'] | default([]) }}"
+      loop: >-
+        {{ (host_keys_hosts | replace(',', ' ')).split() if (host_keys_hosts | length > 0)
+           else (groups[host_keys_group] | default([])) }}
       changed_when: false
 
     - name: "[HostKeys] Write the resolved SSH targets"
