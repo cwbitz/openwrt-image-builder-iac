@@ -18,5 +18,5 @@
           '{{ ansible_host | default('<unset>', true) }}', which is not a usable
           management address. Set the real address in the gitignored
           inventory/hosts.yml, or re-scaffold the host:
-            make host-init HOST={{ inventory_hostname }} HOST_IP=<builder-address>
+            make prep HOST={{ inventory_hostname }} IP=<builder-address>
         quiet: true

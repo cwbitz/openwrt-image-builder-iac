@@ -298,8 +298,8 @@
           '{{ bootstrap_admin.user }}' account already exists, but this project's
           vault carries no vault_host_admin_password. Generating one here would
           rotate the password away from the project that owns the account.
-          Copy the same value into both vaults (make vault-view in the owning
-          project, then make vault-edit here), or set
+          Copy the same value into both vaults (make view in the owning
+          project, then make edit here), or set
           create_admin_account: false in this project.
       when:
         - bootstrap_admin_defined | bool
