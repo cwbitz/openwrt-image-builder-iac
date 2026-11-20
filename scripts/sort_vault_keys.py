@@ -3,7 +3,7 @@
 
 The control node's writers (roles/helpers/tasks/write_vault.yml) already render
 every vault rewrite sorted, so a real vault.yml only drifts out of order when it
-is edited by hand. `make vault-edit` runs this after the editor closes, so the
+is edited by hand. `make edit` runs this after the editor closes, so the
 file keeps the deterministic layout.
 
 Only the top-level key *blocks* move: a block is a top-level `key:` line plus

@@ -37,20 +37,20 @@ mise install           # or: asdf install
 
 # 1) Scaffold one config dir per build MACHINE (the dir name must match the
 #    inventory host name). Then list its variants in the machine's main.yml.
-make host-init HOST=builder-1 HOST_IP=10.0.10.50
+make prep HOST=builder-1 IP=10.0.10.50
 #    (comment-free; builder-1 is added under builder.hosts automatically)
 #    -> edit inventory/host_vars/builder-1/main.yml (build_variants)
-#    -> add another machine: make host-init HOST=builder-2 HOST_IP=10.0.10.51
+#    -> add another machine: make prep HOST=builder-2 IP=10.0.10.51
 
 # 2) Secrets: connection secrets go in each machine's vault;
 #    no firmware secrets are baked (WAN/root passwords are set after boot).
 make install           # toolchain + collections + sshpass/passlib + Keychain
-make vault-init        # one-time: vault password (back it up)
-make vault-edit HOST=builder-1   # per-machine SSH identity vault
+make vault-init  # one-time: vault password (back it up)
+make edit HOST=builder-1   # per-machine SSH identity vault
 
 # 3) Bootstrap the build machine(s) once (probe iac -> admin -> root,
 #    provision the 'iac' automation account: password, keys, NOPASSWD sudo).
-make host-bootstrap
+make deploy
 
 # 4) Build every variant (machines in parallel; connects as 'iac')
 make build
@@ -86,7 +86,7 @@ openwrt-image-builder-iac/
 │           ├── main.yml               # per-machine build variants (build_variants)
 │           └── vault.yml.example      # per-machine connection secrets template
 ├── playbooks/
-│   ├── bootstrap.yml                  # probe + provision the service account (make host-bootstrap)
+│   ├── bootstrap.yml                  # probe + provision the service account (make deploy)
 │   ├── build.yml                      # build firmware (make build)
 │   └── info.yml                       # query ImageBuilder info (make info)
 ├── roles/imagebuilder/
@@ -109,14 +109,13 @@ openwrt-image-builder-iac/
 | Command | Purpose |
 |---------|---------|
 | `make install` | **Sole dependency entry**: ensures the control-node toolchain, collections, `sshpass`, `passlib` and Keychain |
-| `make host-init HOST=<name>` | Scaffold `group_vars/builders/main.yml` + `host_vars/<name>/` from the examples; add the machine with `HOST_IP=<addr>` |
-| `make host-bootstrap` | Probe iac → admin → root on every machine and provision the automation account |
-| `make deploy` | One-click first build: `host-bootstrap` then `build` |
+| `make prep HOST=<name>` | Scaffold `group_vars/builders/main.yml` + `host_vars/<name>/` from the examples; add the machine with `IP=<addr>` |
+| `make deploy` | One-click: probe iac → admin → root on every selected machine, provision the automation account, then build every variant (`HOST=<machine>` narrows the selection) |
 | `make build` | Build every variant of every machine (ImageBuilder container) |
 | `make info` | Query image/profile information (no build) |
 | `make vault-init` | One-time: generate the vault password |
-| `make vault-edit HOST=<machine>` | Edit that machine's connection vault |
-| `make vault-view [HOST=<machine>]` | View one machine's vault, or all (read-only) |
+| `make edit HOST=<machine>` | Edit that machine's connection vault |
+| `make view [HOST=<machine>]` | View one machine's vault, or all (read-only) |
 
 `make lint` (syntax-check + `ansible-lint` + the operator-example audit) is an
 **internal** target invoked by CI; it is hidden from `make help` but can be run

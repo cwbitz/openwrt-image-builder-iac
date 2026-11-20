@@ -3,13 +3,13 @@
 # Machine-wide operator overrides for the `builders` group
 # (inventory/group_vars/builders/main.yml.example)
 # ==============================================================================
-# Copy to inventory/group_vars/builders/main.yml (`make host-init` creates it) to
+# Copy to inventory/group_vars/builders/main.yml (`make prep` creates it) to
 # change a shared value for every build machine; an empty copy is valid. One
 # inventory host = one build machine; its variants live in
 # host_vars/<machine>/main.yml (`build_variants`).
 
 # --- SSH connection identities (non-secret; passwords stay in the machine vault) ---
-# Probed in order [iac, admin, root] by `make host-bootstrap`;
+# Probed in order [iac, admin, root] by `make deploy`;
 # build/info connect as `iac`. Each identity takes its password from the machine vault
 # and/or a key path here (SSH prefers the key; empty = not used). A pubkey path
 # is authorized for that account during bootstrap. The optional human 'admin'
@@ -25,7 +25,7 @@ host_admin_ssh_privkey_file: ""
 host_root_ssh_pubkey_file: ""
 host_root_ssh_privkey_file: ""
 
-# --- 'iac' automation account (created by `make host-bootstrap`) --------------
+# --- 'iac' automation account (created by `make deploy`) ----------------------
 # Fixed service uid/gid; project-wide automation accounts use 6000-6499.
 iac_uid: 6000
 iac_gid: 6000

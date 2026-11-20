@@ -1,5 +1,5 @@
 ---
-# Per-machine build variants (`make host-init` creates host_vars/<machine>/; the
+# Per-machine build variants (`make prep` creates host_vars/<machine>/; the
 # name MUST match the inventory host). Each entry is one (target, profile,
 # modules, packages, settings) build; keys are optional and fall back to the
 # role defaults. Machine-wide settings live in group_vars/builders/main.yml;

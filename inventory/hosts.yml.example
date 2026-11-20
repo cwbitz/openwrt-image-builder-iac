@@ -1,5 +1,5 @@
 ---
-# Static inventory: the build machine(s); `make host-init` creates it.
+# Static inventory: the build machine(s); `make prep` creates it.
 #
 # One inventory host = ONE physical build machine. A machine builds one or more
 # VARIANTS (target/profile/settings), declared in host_vars/<machine>/main.yml
@@ -7,13 +7,13 @@
 # `make build` builds them in parallel on it.
 #
 # Do NOT set ansible_user here: the connection identity comes from
-# group_vars/all/main.yml. Run `make host-bootstrap` once per machine first.
+# group_vars/all/main.yml. Run `make deploy` once per machine first.
 #
 # Building on the control node is also possible (`ansible_connection: local`,
 # `ansible_host: 127.0.0.1`). Add another machine as a sibling under `builders`.
 builders:
   hosts:
-    # `make host-init HOST=<machine> HOST_IP=<addr>` adds the entry (HOST is
-    # required; HOST_IP falls back to a placeholder address). Example entry:
+    # `make prep HOST=<machine> IP=<addr>` adds the entry (HOST is
+    # required; IP falls back to a placeholder address). Example entry:
     #   builder-1:
     #     ansible_host: 203.0.113.50

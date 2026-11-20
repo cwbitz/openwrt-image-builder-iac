@@ -1,7 +1,7 @@
-# Per-machine connection vault. `make host-init HOST=<machine>` copies this
+# Per-machine connection vault. `make prep HOST=<machine>` copies this
 # template to inventory/host_vars/<machine>/vault.yml (mode 0600); edit it with
-#   make vault-edit HOST=<machine>
-# and read it back with `make vault-view HOST=<machine>`.
+#   make edit HOST=<machine>
+# and read it back with `make view HOST=<machine>`.
 #
 # Only PASSWORDS live here; the account names and key paths are non-secret and
 # live in inventory/group_vars/builders/main.yml.
@@ -17,7 +17,7 @@ vault_host_root_password: ""
 # Optional human 'admin' account, created only when create_admin_account is true;
 # always gets a password (generated here when empty) for console login and sudo.
 vault_host_admin_password: ""
-# The automation account host-bootstrap creates/repairs (name fixed). Its
+# The automation account `make deploy` creates/repairs (name fixed). Its
 # password is generated here when no public key path is set in the group main.yml.
 vault_host_iac_password: ""
 
