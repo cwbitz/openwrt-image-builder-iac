@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.3.5...v0.4.0) (2026-11-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **make:** unify host targeting and the command surface ([#33](https://github.com/cwbitz/openwrt-image-builder-iac/issues/33))
+
+### Code Refactoring
+
+* **make:** unify host targeting and the command surface ([#33](https://github.com/cwbitz/openwrt-image-builder-iac/issues/33)) ([c6e436e](https://github.com/cwbitz/openwrt-image-builder-iac/commit/c6e436ea8cc291295899102906dbcd1d8212bf5c))
+
 ## [0.3.5](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.3.4...v0.3.5) (2026-11-19)
 
 
