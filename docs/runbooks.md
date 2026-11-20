@@ -12,13 +12,13 @@ Operational procedures for building OpenWrt firmware with
 |-------------|-------|
 | Control node | Where you run `make`; hosts the repo and the Ansible toolchain |
 | Build host | A separate LAN machine (by default) running Docker Engine; SSH-reachable as the connection user, who must access the Docker daemon |
-| sudo (or root) on the build host | Required on the first `make host-bootstrap` run to create the `iac` automation account |
+| sudo (or root) on the build host | Required on the first `make deploy` run to create the `iac` automation account |
 | Docker Engine / Desktop | Must be running on the `builders` host(s) |
 | python >= 3.8 | Control node; runs `ansible-core` and the `community.docker` modules |
 | `ansible-core` + `python` | Pinned in `.tool-versions` (`mise install` / `asdf install`) |
 | `community.docker` | Installed into `collections/` by `make install` |
 | `openssl` | Control node; generates secret values (`make install`) |
-| `sshpass` | Control node; password SSH during `make host-bootstrap` (`make install`) |
+| `sshpass` | Control node; password SSH during `make deploy` (`make install`) |
 | `passlib` | Control node; `password_hash` for the automation user (`make install`) |
 | Keychain 3 | Control node; **fallback** ssh-agent, ensured by `make install` |
 | vault password | Created once by `make vault-init`; required to store/read generated secrets |
@@ -32,15 +32,13 @@ Operational procedures for building OpenWrt firmware with
 ```bash
 mise install
 # One inventory host = one build machine; list its variants in the machine's main.yml.
-make host-init HOST=builder-1 HOST_IP=10.0.10.50   # scaffolds group_vars + host_vars/<machine>/
-make host-init HOST=openwrt-ib-prod-2 HOST_IP=10.0.10.51   # repeat for each machine
+make prep HOST=builder-1 IP=10.0.10.50   # scaffolds group_vars + host_vars/<machine>/
+make prep HOST=openwrt-ib-prod-2 IP=10.0.10.51   # repeat for each machine
 # edit each host_vars/<machine>/main.yml (build_variants: build config)
 make install
 make vault-init
-make vault-edit HOST=builder-1      # per-machine SSH identity vault
-make host-bootstrap                       # once; probe iac -> admin -> root
-# or, to bootstrap and then build everything in one shot:
-make deploy
+make edit HOST=builder-1      # per-machine SSH identity vault
+make deploy                   # once: probe iac -> admin -> root, then build
 ```
 
 Configuration is split by scope (machine-wide vs per-machine); see
@@ -49,9 +47,9 @@ Configuration is split by scope (machine-wide vs per-machine); see
 gitignored; the committed `group_vars/all/main.yml` baseline and `*.example`
 templates are tracked.
 
-### `host-bootstrap`
+### Account bootstrap (`make deploy`)
 
-`make host-bootstrap` probes `iac → admin → root` on **every**
+`make deploy` probes `iac → admin → root` on **every**
 machine (or only `HOST=<machine>`) and uses the first identity that
 works on each; when that is not `iac`, it
 (re)creates the `iac` automation account (key-first, NOPASSWD sudo, the `docker`
@@ -66,7 +64,7 @@ See [architecture](architecture.md) for the full model.
 ```bash
 make build                            # build every variant (machines in parallel)
 make build HOST=builder-1  # single machine
-make deploy                           # host-bootstrap, then build (fresh host to image)
+make deploy                           # bootstrap the accounts, then build (fresh host to image)
 ```
 
 `make build` targets `hosts: builders`; the role loops each machine's
@@ -122,7 +120,7 @@ Runs `make info` inside the container without building; use it to discover the
 target's profiles before setting a variant's `target_profile`. It prints one
 machine banner followed by one `== <machine>-<variant> ==` block per variant, with
 the dependency-helper chatter
-silenced (`QUIET=1`). The query pulls the image/profile index over the network;
+suppressed. The query pulls the image/profile index over the network;
 `make info` captures its own run to drive the `Querying ImageBuilder info`
 spinner, then prints the result. Builds, by contrast, stream live.
 
@@ -130,12 +128,9 @@ spinner, then prints the result. Builds, by contrast, stream live.
 
 The knob is off by default (official OpenWrt sources); see
 [configuration](configuration.md) for the exact semantics. `mirror` is a full
-base URL (default `https://mirrors.tuna.tsinghua.edu.cn/openwrt`). To use it for
-a release build:
-
-```bash
-make build USE_MIRROR=1
-```
+base URL (default `https://mirrors.tuna.tsinghua.edu.cn/openwrt`). Enable it per
+variant with `use_mirror: true` in `build_variants[]` (`host_vars/<machine>/main.yml`)
+before the build.
 
 A mirror that has not yet synced a new release can cause build failures: turn it
 off and use the official source.
@@ -152,8 +147,8 @@ variants without the mirror knob.
   root passwords after first boot.
 - **Connection credentials** are per machine (`inventory/host_vars/<machine>/vault.yml`).
 - The vault password file lives outside the repo and is never committed;
-  `make vault-edit` encrypts a plaintext vault before editing.
-- Vault keys are kept in alphabetical order: `make vault-edit` re-sorts
+  `make edit` encrypts a plaintext vault before editing.
+- Vault keys are kept in alphabetical order: `make edit` re-sorts
   the top-level keys after the editor closes (comment-preserving) and re-encrypts
   only when the order changed. Hand edits should stay alphabetical too. A save is
   refused when the vault changed while the editor was open, so a secret a deploy
@@ -204,11 +199,11 @@ host keeps its old login policy. The provider console remains the recovery path.
 
 | Symptom | Cause / fix |
 |---------|-------------|
-| `host-bootstrap`: "no working identity" | Configure the connection passwords in the machine's vault and/or the key paths in `group_vars/builders/main.yml`, or load a key into the SSH agent. If only `root` works, set the root password (or a root private key) |
-| `build`/`info` cannot connect as `iac` | Run `make host-bootstrap` once; the effective password is `vault_host_iac_password` (generated when empty), else set `host_iac_ssh_privkey_file`/pubkey |
-| Need the auto-generated password | `make vault-view` |
-| `build` fails: vault password file missing | Run `make vault-init` |
-| `host-bootstrap` user tasks fail (sudo/become) | The probed identity needs sudo or root; the first run must reach the host as `root` or a sudo-capable `admin` |
+| `make deploy`: "no working identity" | Configure the connection passwords in the machine's vault and/or the key paths in `group_vars/builders/main.yml`, or load a key into the SSH agent. If only `root` works, set the root password (or a root private key) |
+| `build`/`info` cannot connect as `iac` | Run `make deploy` once; the effective password is `vault_host_iac_password` (generated when empty), else set `host_iac_ssh_privkey_file`/pubkey |
+| Need the auto-generated password | `make view` |
+| `build` fails: vault password file missing | Run `make prep` |
+| `make deploy` user tasks fail (sudo/become) | The probed identity needs sudo or root; the first run must reach the host as `root` or a sudo-capable `admin` |
 | preflight: "Docker CLI not found" | Install Docker and ensure it is on PATH on the builder |
 | preflight: "Cannot reach the Docker daemon" | Start Docker; ensure the connection user can access the socket (the `iac` user joins the `docker` group when present) |
 | preflight: "Docker Python SDK" | Install `docker` for the build host's Python: `<python> -m pip install docker` |
@@ -223,7 +218,7 @@ host keeps its old login policy. The provider console remains the recovery path.
 | Build hangs at "Building package index..." (25.12+, APK) | The container `nofile` ulimit is unbounded and fakeroot's `faked` spins; the role pins `nofile:65536:65536`, keep it bounded |
 | Artifacts owned by root | The in-container `chown` needs `HOST_UID`/`HOST_GID` (from facts) |
 | Artifacts not in the control node's `artifacts/` | The fetch failed; the builder staging directory is only removed after a successful fetch, so re-run `make build` and check the fetch task |
-| `--tags sshd` fails at "Prove a key-only login" | The chosen identity has no authorized key yet: set `host_iac_ssh_pubkey_file` (or root's) and run `make host-bootstrap`, or unset `sshd_hardening_enabled` |
+| `--tags sshd` fails at "Prove a key-only login" | The chosen identity has no authorized key yet: set `host_iac_ssh_pubkey_file` (or root's) and run `make deploy`, or unset `sshd_hardening_enabled` |
 | Cannot reach a builder over SSH | Fix its `ansible_host` in `hosts.yml`; the connection identity comes from the committed `group_vars/all/main.yml` |
 
 ## Manual verification on a disposable host
@@ -237,9 +232,9 @@ reason to skip.
 
 ### Bootstrap and build
 
-- [ ] `make host-init` scaffolds `inventory/hosts.yml` and `host_vars/<machine>/`;
+- [ ] `make prep` scaffolds `inventory/hosts.yml` and `host_vars/<machine>/`;
       the `CHANGE_ME_HOST_IP` placeholder is refused until replaced.
-- [ ] `make host-bootstrap`: `iac` created with passwordless sudo and the configured
+- [ ] `make deploy`: `iac` created with passwordless sudo and the configured
       keys, Docker Engine and Compose v2 present; a second run changes nothing.
 - [ ] `make build` builds every declared variant and fetches the images into the
       control node's `artifacts/`; each artifact is a complete image for its target
@@ -264,7 +259,7 @@ reason to skip.
 
 - [ ] No firmware secrets are in the artifacts or the tree: a built image carries
       no WAN/root password.
-- [ ] Each machine vault is `0600` and encrypted; `make vault-view` reads it
+- [ ] Each machine vault is `0600` and encrypted; `make view` reads it
       and `-vvv` shows no value.
 - [ ] With `sshd_hardening_enabled`: password login refused, keyed login works, and
       a missing authorized key blocks the role before it writes the config.

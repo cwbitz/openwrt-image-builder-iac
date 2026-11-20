@@ -301,7 +301,7 @@ vault; connection credentials live in each machine's `host_vars/<machine>/vault.
 
 ## Growth path
 
-- **Another machine**: `make host-init HOST=<machine> HOST_IP=<addr>` and list its
+- **Another machine**: `make prep HOST=<machine> IP=<addr>` and list its
   variants in `host_vars/<machine>/main.yml`.
 - **Another variant on a machine**: append an entry to `build_variants` in that
   machine's `main.yml`; no role change.

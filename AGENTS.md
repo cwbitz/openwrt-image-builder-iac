@@ -14,34 +14,34 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
 
 ## Commands
 
-- `make help` — aligned target list; overridable variables (`HOST`, `TAGS`, `USE_MIRROR`) are
+- `make help` — aligned target list; overridable variables (`HOST`, `TAGS`) are
   shown inline. `help` is listed last.
 - `make install` — the sole dependency entry point (toolchain, collections,
   `sshpass`, `passlib`, Keychain). Every other target depends on it.
-- `make host-init HOST=<name> HOST_IP=<addr>` — scaffold `inventory/hosts.yml` and
+- `make prep HOST=<name> IP=<addr>` — scaffold `inventory/hosts.yml` and
   `group_vars/builders/main.yml` comment-free from the examples, plus
   `host_vars/<name>/` (with a `build_variants` list); add `<name>` under
-  `builders.hosts` with `HOST_IP` as its `ansible_host`; encrypt the vault (dir
-  `0700`, file `0600`). HOST is required and `HOST_IP` falls back to a
+  `builders.hosts` with `IP` as its `ansible_host`; encrypt the vault (dir
+  `0700`, file `0600`). HOST is required and `IP` falls back to a
   placeholder; re-running does not overwrite existing files.
-- `make host-bootstrap` — once: probe `iac → admin → root` on
-  every machine and create/repair the `iac` automation account (key-first, NOPASSWD sudo,
-  `docker` group) plus the human `admin` account when `create_admin_account` is set.
-  `REFRESH=1` refreshes host keys first.
-- `make deploy` — one-click: `host-bootstrap` then `build`.
+- `make deploy` — one-click: probe `iac → admin → root` on every selected machine,
+  create/repair the `iac` automation account (key-first, NOPASSWD sudo,
+  `docker` group) plus the human `admin` account when `create_admin_account` is
+  set, then build every variant. `HOST=<machine>` (or `HOST=a,b`) narrows the
+  selection.
 - `make build` / `make info` — build every variant (machines in parallel) / query
-  ImageBuilder info; limit to one machine with `HOST=<machine>` and select task
-  slices with `TAGS=<tags>`.
-- `make hostkey-init` — refresh every machine's SSH host key in the control node's
-  `known_hosts` (drop the stale entry, re-add); `host-bootstrap`/`deploy` run it
-  first when `REFRESH=1` is set.
+  ImageBuilder info; limit the reachable machines with `HOST=<machine>` and select task slices
+  with `TAGS=<tags>`.
+- `make hostkeys` — refresh the selected machines' SSH host keys in the
+  control node's `known_hosts` (drop the stale entry, re-add; `HOST=<machine>`
+  narrows it); `deploy` runs it first.
 - `make vault-init` — generate the vault password file (outside the repo).
-- `make vault-edit HOST=<machine>` — edit that machine's connection vault; a
+- `make edit HOST=<machine>` — edit that machine's connection vault; a
   plaintext vault is encrypted first, the top-level keys are re-sorted
   alphabetically after the editor closes, and a save is refused when the vault
   changed while the editor was open (the edited text is kept for a merge). With a
-  single machine `HOST` is implied; `VAULT_FILE=<path>` overrides the path.
-- `make vault-view [HOST=<machine>]` — read-only: print one machine's vault, or
+  `HOST` selects it; a single-machine inventory implies it.
+- `make view [HOST=<machine>]` — read-only: print one machine's vault, or
   every machine's when `HOST` is omitted.
 - Internal (hidden from `make help`): `lint` (syntax-check + `ansible-lint` +
   `yamllint` + `shellcheck` + the operator-example audit + the knob validation +
@@ -51,8 +51,8 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
   `agent-*` / `keychain-*` / `run-playbook` helpers. `make build` and `make lint`
   assert every operator knob against `inventory/knob_schema.yml` through
   `playbooks/validate_knobs.yml`.
-- `TAGS` appends `--tags`, `HOST` appends `--limit`, and `USE_MIRROR=1`
-  sets `-e use_mirror=true`, e.g. `make build HOST=builder-1 TAGS=sshd`.
+- `TAGS` appends `--tags` and `HOST` appends `--limit '<HOST>:localhost'`,
+  e.g. `make build HOST=builder-1 TAGS=sshd` or `make deploy HOST=builder-1`.
 
 ## Ansible conventions: probe & bootstrap host targeting
 
@@ -100,22 +100,22 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
   operator knob; `playbooks/validate_knobs.yml` asserts the effective values and
   the `build_variants` entries (`make lint` / `make build` run it).
 - `inventory/group_vars/builders/main.yml` — machine-wide operator overrides, local
-  only; the committed template is `main.yml.example` (scaffolded by `host-init`).
+  only; the committed template is `main.yml.example` (scaffolded by `prep`).
   The project-owned wiring lives in the committed `group_vars/all/main.yml`. The
   non-secret connection knobs (the admin account name and the per-identity key
   paths) live here; connection passwords stay in the vault.
 - `inventory/host_vars/<machine>/vault.yml` — that machine's connection
   passwords (`vault_host_<id>_password`), operator-owned; a missing generated
   value (the `iac` password when no key is set, the `admin` password when
-  `create_admin_account`) is merged in place by `make host-bootstrap` under the
-  same name. `make host-init` scaffolds it from
+  `create_admin_account`) is merged in place by `make deploy` under the
+  same name. `make prep` scaffolds it from
   `inventory/host_vars/example/vault.yml.example` (mode 0600).
 - No per-machine firmware vault exists. No firmware secrets are baked into the
   image: the WAN (PPPoE/DHCP) and root passwords are set after first boot.
   Connection credentials live in each machine's `host_vars/<machine>/vault.yml`.
 - Vault password file:
   `~/.config/projects/openwrt-image-builder-iac/ansible_vault_password`
-  (pointed to by `ansible.cfg`, auto-generated by `make vault-init`); never
+  (pointed to by `ansible.cfg`, auto-generated by `make prep`); never
   committed.
 - Reference secrets by path only; the private key content is never stored in the
   vault. SSH prefers the key (explicit path `host_<id>_ssh_privkey_file` in the
@@ -221,7 +221,7 @@ Two layers, and only one of them is executable:
 ## Detailed documentation
 
 - [docs/architecture.md](docs/architecture.md) — component model, configuration
-  scope, dependency model, secrets and host-bootstrap.
+  scope, dependency model, secrets and account bootstrap.
 - [docs/configuration.md](docs/configuration.md) — inventory & variant schema,
   modules, packages, mirrors, and post-boot credentials.
 - [docs/build-pipeline.md](docs/build-pipeline.md) — per-variant pipeline,
@@ -231,7 +231,7 @@ Two layers, and only one of them is executable:
 ## Rebuilt hosts
 
 A reinstalled host changes its SSH host key, and the cached facts belong to the
-old machine. Run the first deploy with `REBUILD=1`: `host-bootstrap` (and `deploy`, which depends on it) then accept the
+old machine. Run the first deploy with `REBUILD=1`: `deploy` then accepts the
 changed key (printing the fingerprint), drop `.cache/facts` and print the reminder
 to delete host-returned secrets (tokens, setup keys) from `vault.yml`. The vault is
 never touched, and `REBUILD` is not a replacement for `FORCE` (the single,
