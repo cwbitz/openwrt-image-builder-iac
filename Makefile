@@ -200,7 +200,7 @@ rebuild-reset:
 	fi
 
 .PHONY: hostkeys
-hostkeys: vault-init ## Refresh the machines' SSH host keys in known_hosts; FORCE=1 accepts a changed key
+hostkeys: vault-init
 	@set -e; \
 	nh="$(HOME)/.ssh/known_hosts"; mkdir -p "$$(dirname "$$nh")"; tmp=$$(mktemp); targets=$$(mktemp); tsv=$$(mktemp); pub=$$(mktemp); failures=0; \
 	trap 'rm -f "$$tmp" "$$targets" "$$tsv" "$$pub"' EXIT; \
