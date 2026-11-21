@@ -78,7 +78,7 @@ official `openwrt/imagebuilder` tag always exposes them) and derives:
 
 In the container, `templates/build.sh.j2` sets `TMPDIR` to a workspace on disk
 (avoiding tmpfs exhaustion), runs `setup.sh` (release images with
-`use_mirror`: via `mirror` first, then the official source; SNAPSHOT images
+`mirrors.openwrt`: via it first, then the official source; SNAPSHOT images
 always via the official source) when the ImageBuilder environment is missing,
 applies the repository mirror when enabled (release images only), then calls
 `make info` and `make image`. On exit it restores ownership of the artifacts

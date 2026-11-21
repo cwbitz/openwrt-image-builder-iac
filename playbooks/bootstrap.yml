@@ -156,6 +156,8 @@
     bootstrap_become: "{{ hostvars[inventory_hostname].bootstrap_conn.become }}"
     ansible_become: "{{ bootstrap_become }}"
     ansible_become_password: "{{ hostvars[inventory_hostname].bootstrap_conn.password | default('', true) }}"
+    apt_mirror: "{{ ((mirrors | default({}, true)).apt | default('', true)) }}"
+    docker_registry_mirrors: "{{ ((mirrors | default({}, true)).docker_registry | default([])) }}"
   become: "{{ bootstrap_become }}"
   handlers:
     - name: Restart docker
@@ -518,6 +520,82 @@
         loop_var: pubkey_file
         label: "{{ pubkey_file.pubkey_spec.id }}"
 
+    - name: "Bootstrap | Configure the APT mirror"
+      when: apt_mirror | default('', true) | length > 0
+      vars:
+        bootstrap_apt_security_mirror: >-
+          {{ apt_mirror | default('', true) | regex_replace('/debian/?$', '') ~ '/debian-security' }}
+        bootstrap_apt_mirror_file: "/etc/apt/sources.list.d/openwrt-image-builder-mirror.list"
+      block:
+        - name: "Bootstrap | Validate the APT mirror settings"
+          ansible.builtin.assert:
+            that:
+              - ansible_os_family == 'Debian'
+            fail_msg: >-
+              mirrors.apt is set, but the host is not Debian-family.
+              Example: mirrors.apt: https://mirrors.tuna.tsinghua.edu.cn/debian
+
+        - name: "Bootstrap | Read the one-line APT sources file"
+          ansible.builtin.stat:
+            path: /etc/apt/sources.list
+          register: bootstrap_apt_sources_legacy
+
+        - name: "Bootstrap | Find the distro APT source definitions in sources.list.d"
+          ansible.builtin.find:
+            paths: /etc/apt/sources.list.d
+            patterns:
+              - "*.list"
+              - "*.sources"
+            contains: '(?im)^\s*signed-by\s*[=:]\s*\S*(debian|ubuntu)-archive-keyring\.gpg'
+            read_whole_file: true
+            file_type: file
+          register: bootstrap_apt_sources_found
+
+        - name: "Bootstrap | Resolve the distro APT source definitions"
+          ansible.builtin.set_fact:
+            bootstrap_apt_sources: >-
+              {{ (([{'path': '/etc/apt/sources.list'}]
+                   if bootstrap_apt_sources_legacy.stat.exists | default(false)
+                   else [])
+                  + (bootstrap_apt_sources_found.files | default([])))
+                 | rejectattr('path', 'equalto', bootstrap_apt_mirror_file) | list }}
+
+        - name: "Bootstrap | Back up the distro APT source definitions (once)"
+          ansible.builtin.copy:
+            src: "{{ item.path }}"
+            dest: "{{ item.path }}.bak.bootstrap"
+            remote_src: true
+            force: false
+            mode: "0644"
+          loop: "{{ bootstrap_apt_sources | default([]) }}"
+          loop_control:
+            label: "{{ item.path }}"
+
+        - name: "Bootstrap | Disable the distro APT source definitions"
+          ansible.builtin.file:
+            path: "{{ item.path }}"
+            state: absent
+          loop: "{{ bootstrap_apt_sources | default([]) }}"
+          loop_control:
+            label: "{{ item.path }}"
+
+        - name: "Bootstrap | Render the APT sources from the mirror"
+          ansible.builtin.template:
+            src: templates/apt_sources.list.j2
+            dest: "{{ bootstrap_apt_mirror_file }}"
+            owner: root
+            group: root
+            mode: "0644"
+          register: bootstrap_apt_sources_rendered
+
+        - name: "Bootstrap | Refresh the APT cache"
+          ansible.builtin.apt:
+            update_cache: true
+            lock_timeout: "{{ apt_lock_timeout }}"
+          when:
+            - bootstrap_apt_sources_rendered is changed
+            - apt_mirror | default('', true) | length > 0
+
     - name: "Bootstrap | Resolve the sudo accounts"
       ansible.builtin.set_fact:
         bootstrap_sudo_nopasswd_users: "{{ [bootstrap_service_user | default('iac')] }}"
@@ -543,6 +621,7 @@
         name: sudo
         state: present
         update_cache: true
+        lock_timeout: "{{ apt_lock_timeout }}"
       when:
         - ansible_os_family == 'Debian'
         - (bootstrap_sudo_nopasswd_users | length

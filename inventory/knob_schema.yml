@@ -1,9 +1,14 @@
 ---
 operator_knob_schema:
-  docker_registry_mirrors: >-
-    docker_registry_mirrors is not defined
-    or ((docker_registry_mirrors is sequence) and not (docker_registry_mirrors is string)
-    and not (docker_registry_mirrors is mapping))
+  mirrors: >-
+    mirrors is not defined
+    or ((mirrors is mapping)
+        and ((mirrors.keys() | difference(['apt', 'docker_registry']) | length) == 0)
+        and ((((mirrors | default({}, true)).apt | default('', true)) | string | trim) == ''
+             or (((mirrors | default({}, true)).apt | string) is match('^https?://[^\s]+/debian/?$')))
+        and (((mirrors | default({}, true)).docker_registry | default([])) is sequence)
+        and (((mirrors | default({}, true)).docker_registry | default([])) is not string)
+        and (((mirrors | default({}, true)).docker_registry | default([])) is not mapping))
   build_variants: >-
     (build_variants is defined)
     and ((build_variants is sequence) and not (build_variants is string)

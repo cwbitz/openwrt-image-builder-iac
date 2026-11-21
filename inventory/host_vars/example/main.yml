@@ -5,9 +5,9 @@
 # role defaults. Machine-wide settings live in group_vars/builders/main.yml;
 # no firmware secrets are baked into the image.
 
-# Docker Hub pull-through mirrors for the build host; e.g. ["https://mirror.gcr.io"]
-# is the fastest from an APAC host and also lifts Docker Hub's anonymous pull limit.
-docker_registry_mirrors: []
+mirrors:
+  apt: ""
+  docker_registry: []
 
 build_variants:
   - name: main
@@ -90,9 +90,9 @@ build_variants:
     disabled_services: ""
     # [OPTIONAL] root filesystem partition size in MB, 64-32768 (empty = target default).
     rootfs_partsize: ""
-    # [OPTIONAL] release-image mirror; `mirror` is the full base URL.
-    use_mirror: false
-    mirror: https://mirrors.tuna.tsinghua.edu.cn/openwrt
+    # [OPTIONAL] release-image mirror; empty = official downloads.openwrt.org.
+    mirrors:
+      openwrt: ""
 
   # A second variant on the same machine; omitted keys use the role defaults.
   - name: ap

@@ -1,0 +1,6 @@
+# Managed by openwrt-image-builder-iac (playbooks/bootstrap.yml). Do not edit on the host.
+# The distro source definitions are backed up next to them as *.bak.bootstrap.
+deb {{ apt_mirror }} {{ ansible_distribution_release }} main contrib non-free non-free-firmware
+deb {{ apt_mirror }} {{ ansible_distribution_release }}-updates main contrib non-free non-free-firmware
+deb {{ apt_mirror }} {{ ansible_distribution_release }}-backports main contrib non-free non-free-firmware
+deb {{ bootstrap_apt_security_mirror }} {{ ansible_distribution_release }}-security main contrib non-free non-free-firmware
