@@ -8,7 +8,7 @@
   gather_facts: false
   tags: [always]
   tasks:
-    - name: "[Preflight] Require at least one build machine"
+    - name: "Preflight | Require at least one build machine"
       ansible.builtin.assert:
         that:
           - groups['builders'] | default([]) | length > 0
@@ -17,7 +17,7 @@
           under builders.hosts in inventory/hosts.yml (see hosts.yml.example).
         quiet: true
 
-    - name: "[Preflight] Assert a supported ansible-core engine on the control node"
+    - name: "Preflight | Assert a supported ansible-core engine on the control node"
       ansible.builtin.assert:
         that:
           - ansible_version.full is version(ansible_core_min_version | default('2.19.0'), '>=')

@@ -1,5 +1,5 @@
 ---
-- name: "[ImageBuilder] Remove the builder-side build scratch"
+- name: "ImageBuilder | Remove the builder-side build scratch"
   become: true
   vars:
     ansible_become: true

@@ -1,5 +1,5 @@
 ---
-- name: "[SSHAgent] Load each private key into the ssh-agent"
+- name: "SSHAgent | Load each private key into the ssh-agent"
   ansible.builtin.shell: |
     set -u
     key="${KEY/#\~/$HOME}"
@@ -43,7 +43,7 @@
   changed_when: false
   register: agent_load
 
-- name: "[SSHAgent] Show what was loaded"
+- name: "SSHAgent | Show what was loaded"
   ansible.builtin.debug:
     msg: "{{ agent_load.results | default([]) | map(attribute='stdout') | list }}"
   when: agent_load.results | default([]) | length > 0

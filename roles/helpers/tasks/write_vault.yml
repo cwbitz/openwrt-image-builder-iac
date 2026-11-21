@@ -1,5 +1,5 @@
 ---
-- name: "[VaultWrite] Validate the write contract"
+- name: "VaultWrite | Validate the write contract"
   tags: [always]
   ansible.builtin.assert:
     that:
@@ -14,7 +14,7 @@
   vars:
     ansible_become: false
 
-- name: "[VaultWrite] Ensure the vault directory exists"
+- name: "VaultWrite | Ensure the vault directory exists"
   tags: [always]
   ansible.builtin.file:
     path: "{{ write_vault_dir }}"
@@ -25,21 +25,21 @@
   vars:
     ansible_become: false
 
-- name: "[VaultWrite] Persist the encrypted vault file"
+- name: "VaultWrite | Persist the encrypted vault file"
   tags: [always]
   delegate_to: localhost
   become: false
   vars:
     ansible_become: false
   block:
-    - name: "[VaultWrite] Create a throwaway plaintext file"
+    - name: "VaultWrite | Create a throwaway plaintext file"
       ansible.builtin.tempfile:
         state: file
         suffix: ".yml"
       register: write_vault_tmp
       changed_when: false
 
-    - name: "[VaultWrite] Render the plaintext content"
+    - name: "VaultWrite | Render the plaintext content"
       ansible.builtin.copy:
         dest: "{{ write_vault_tmp.path }}"
         content: "{{ write_vault_data | to_nice_yaml(sort_keys=true) }}"
@@ -47,7 +47,7 @@
       no_log: true
       changed_when: false
 
-    - name: "[VaultWrite] Encrypt into the vault file"
+    - name: "VaultWrite | Encrypt into the vault file"
       ansible.builtin.command:
         argv:
           - "{{ helper_ansible_vault_bin }}"
@@ -62,7 +62,7 @@
       changed_when: true
       no_log: true
   always:
-    - name: "[VaultWrite] Remove the throwaway plaintext file"
+    - name: "VaultWrite | Remove the throwaway plaintext file"
       ansible.builtin.file:
         path: "{{ write_vault_tmp.path }}"
         state: absent

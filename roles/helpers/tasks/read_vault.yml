@@ -1,5 +1,5 @@
 ---
-- name: "[VaultRead] Validate the read contract"
+- name: "VaultRead | Validate the read contract"
   tags: [always]
   ansible.builtin.assert:
     that:
@@ -13,7 +13,7 @@
   vars:
     ansible_become: false
 
-- name: "[VaultRead] Stat the vault file"
+- name: "VaultRead | Stat the vault file"
   tags: [always]
   ansible.builtin.stat:
     path: "{{ read_vault_dir }}/{{ read_vault_file }}"
@@ -24,7 +24,7 @@
   vars:
     ansible_become: false
 
-- name: "[VaultRead] Slurp the vault file"
+- name: "VaultRead | Slurp the vault file"
   tags: [always]
   ansible.builtin.slurp:
     src: "{{ read_vault_dir }}/{{ read_vault_file }}"
@@ -36,7 +36,7 @@
   vars:
     ansible_become: false
 
-- name: "[VaultRead] Determine whether the vault file is encrypted"
+- name: "VaultRead | Determine whether the vault file is encrypted"
   tags: [always]
   ansible.builtin.set_fact:
     read_vault_encrypted: >-
@@ -48,7 +48,7 @@
   vars:
     ansible_become: false
 
-- name: "[VaultRead] Decrypt the vault file"
+- name: "VaultRead | Decrypt the vault file"
   tags: [always]
   ansible.builtin.command:
     argv:
@@ -67,7 +67,7 @@
   vars:
     ansible_become: false
 
-- name: "[VaultRead] Set the parsed data (encrypted file)"
+- name: "VaultRead | Set the parsed data (encrypted file)"
   tags: [always]
   ansible.builtin.set_fact:
     "{{ read_vault_var | default('read_vault_data') }}": >-
@@ -79,7 +79,7 @@
   vars:
     ansible_become: false
 
-- name: "[VaultRead] Set the parsed data (plaintext file)"
+- name: "VaultRead | Set the parsed data (plaintext file)"
   tags: [always]
   ansible.builtin.set_fact:
     "{{ read_vault_var | default('read_vault_data') }}": >-
@@ -93,7 +93,7 @@
   vars:
     ansible_become: false
 
-- name: "[VaultRead] Set empty data when the file is absent"
+- name: "VaultRead | Set empty data when the file is absent"
   tags: [always]
   ansible.builtin.set_fact:
     "{{ read_vault_var | default('read_vault_data') }}": {}
