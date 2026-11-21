@@ -9,8 +9,11 @@ cd "$repo_root" || exit 1
 : "${SSH_AGENT_RUN:?SSH_AGENT_RUN must point at run-with-ssh-agent.sh}"
 
 extra_args=()
-if [ -n "${BUILD_EXTRA:-}" ]; then
-  read -r -a extra_args <<<"$BUILD_EXTRA"
+if [ -n "${BUILD_LIMIT:-}" ]; then
+  extra_args+=(--limit "$BUILD_LIMIT")
+fi
+if [ -n "${BUILD_TAGS:-}" ]; then
+  extra_args+=(--tags "$BUILD_TAGS")
 fi
 
 run_id="build-$(date -u +%Y%m%dT%H%M%SZ)-$$"

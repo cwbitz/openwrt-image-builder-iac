@@ -12,7 +12,7 @@ def make_script(tmp_path: pathlib.Path, name: str, body: str) -> pathlib.Path:
     return path
 
 
-def run_build(run_shell, tmp_path: pathlib.Path, ansible_exit: int):
+def run_build(run_shell, tmp_path: pathlib.Path, ansible_exit: int, **env):
     calls = tmp_path / "calls"
     calls.write_text("", encoding="utf-8")
     runner = make_script(
@@ -27,7 +27,9 @@ def run_build(run_shell, tmp_path: pathlib.Path, ansible_exit: int):
             "ANS_PLAY": str(ansible),
             "INV": str(tmp_path / "inventory.yml"),
             "SSH_AGENT_RUN": str(runner),
-            "BUILD_EXTRA": "--limit builder-1",
+            "BUILD_LIMIT": "builder-1:localhost",
+            "BUILD_TAGS": "sshd",
+            **env,
         },
     )
     return result, calls.read_text(encoding="utf-8")
@@ -39,7 +41,8 @@ def test_run_build_leaves_cleanup_to_the_playbook_on_success(run_shell, tmp_path
     assert result.returncode == 0, result.stdout + result.stderr
     assert "playbooks/build.yml" in calls
     assert "playbooks/cleanup_build.yml" not in calls
-    assert "--limit builder-1" in calls
+    assert "--limit builder-1:localhost" in calls
+    assert "--tags sshd" in calls
 
 
 def test_run_build_cleans_up_after_a_failed_build(run_shell, tmp_path):
@@ -48,5 +51,22 @@ def test_run_build_cleans_up_after_a_failed_build(run_shell, tmp_path):
     assert result.returncode == 7
     assert "playbooks/build.yml" in calls
     assert "playbooks/cleanup_build.yml" in calls
-    assert "--limit builder-1" in calls
+    assert "--limit builder-1:localhost" in calls
+    assert "--tags sshd" in calls
     assert "removing containers and scratch" in result.stderr
+
+
+def test_run_build_passes_the_limit_and_tags_unquoted(run_shell, tmp_path):
+    result, calls = run_build(run_shell, tmp_path, 0)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "'" not in calls
+    assert '"' not in calls
+
+
+def test_run_build_omits_limit_and_tags_when_unset(run_shell, tmp_path):
+    result, calls = run_build(run_shell, tmp_path, 0, BUILD_LIMIT="", BUILD_TAGS="")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "--limit" not in calls
+    assert "--tags" not in calls
