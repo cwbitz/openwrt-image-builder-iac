@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.4.1...v0.4.2) (2026-11-21)
+
+
+### Features
+
+* **make:** imply HOST for a single-machine inventory ([3d9c604](https://github.com/cwbitz/openwrt-image-builder-iac/commit/3d9c604ea625a929944ad8db49f15e07abef85e9))
+
 ## [0.4.1](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.4.0...v0.4.1) (2026-11-21)
 
 
