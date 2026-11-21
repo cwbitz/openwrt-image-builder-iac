@@ -43,6 +43,11 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
   `HOST` selects it; a single-machine inventory implies it.
 - `make view [HOST=<machine>]` — read-only: print one machine's vault, or
   every machine's when `HOST` is omitted.
+- `make dry-run [HOST=<machine>] [TAGS=<tags>]` — validate the inventory, the
+  knobs and the build machines' SSH reachability without pulling or building.
+- `make print [HOST=<machine>]` — print one machine's resolved variables,
+  including decrypted vault values; `HOST` is implied when the inventory holds
+  one machine.
 - Internal (hidden from `make help`): `lint` (syntax-check + `ansible-lint` +
   `yamllint` + `shellcheck` + the operator-example audit + the knob validation +
   `scripts/check_repo_privacy.py` — tracked local-only trees, credential files

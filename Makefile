@@ -77,7 +77,7 @@ ANSIBLE_PYTHON ?= $(shell \
 	if [ -n "$$p" ]; then f=$$(readlink -f "$$p" 2>/dev/null); \
 	  if [ -f "$$f" ] && head -c 2 "$$f" | grep -q '#!'; then head -1 "$$f" | sed -n 's|^#! *||; s| .*||p'; fi; fi)
 
-.PHONY: help install vault-init prep edit view \
+.PHONY: help install vault-init prep edit view print dry-run \
         bootstrap-accounts info build deploy
 .PHONY: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections \
         ensure-passlib keychain-fetch verify-keychain-pin run-playbook \
@@ -231,6 +231,19 @@ hostkeys: vault-init
 	[ "$$failures" -eq 0 ] || { echo "some host keys were not refreshed; known_hosts updated for the rest" >&2; exit 1; }; \
 	echo "host keys refreshed in $$nh"
 
+
+dry-run: validate-knobs agent-fallback ## Check the inventory, knobs and build-host reachability without building; HOST=<machine>
+	@test -f $(INV) || { echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
+	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/preflight_managed_hosts.yml
+	@$(SSH_AGENT_RUN) ansible -i $(INV) $(HOST_ARG) -m ansible.builtin.ping builders
+
+print: vault-init ## Print one machine's resolved variables, including decrypted vault values; HOST=<machine>
+	@test -f $(INV) || { echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
+	@$(HOST_SINGLE_GUARD); \
+	machine="$(EFFECTIVE_HOST)"; \
+	test -n "$$machine" || { echo "ERROR: HOST is required when the inventory holds several machines." >&2; exit 1; }; \
+	echo "Resolved machine: $$machine"; \
+	ansible-inventory -i $(INV) --host "$$machine" --yaml
 
 info: ## Query ImageBuilder image/profile info (no build; HOST=<name>, TAGS=<tags>)
 	@test -f $(INV) || { \
