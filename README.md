@@ -109,13 +109,13 @@ openwrt-image-builder-iac/
 | Command | Purpose |
 |---------|---------|
 | `make install` | **Sole dependency entry**: ensures the control-node toolchain, collections, `sshpass`, `passlib` and Keychain |
-| `make prep HOST=<name>` | Scaffold `group_vars/builders/main.yml` + `host_vars/<name>/` from the examples; add the machine with `IP=<addr>` |
+| `make prep HOST=<name>` | Scaffold `group_vars/builders/main.yml` + `host_vars/<name>/` from the examples; add the machine with `IP=<addr>`; `HOST` is implied when the inventory holds one machine |
 | `make deploy` | One-click: probe iac → admin → root on every selected machine, provision the automation account, then build every variant (`HOST=<machine>` narrows the selection) |
 | `make build` | Build every variant of every machine (ImageBuilder container) |
 | `make info` | Query image/profile information (no build) |
 | `make dry-run` | Validate inventory, knobs and build-host reachability without building (`HOST=<machine>`, `TAGS=<tags>`) |
 | `make vault-init` | One-time: generate the vault password |
-| `make edit HOST=<machine>` | Edit that machine's connection vault |
+| `make edit [HOST=<machine>]` | Edit that machine's connection vault; `HOST` is implied when the inventory holds one machine |
 | `make view [HOST=<machine>]` | View one machine's vault, or all (read-only) |
 | `make print [HOST=<machine>]` | Print one machine's resolved variables, including decrypted vault values |
 
