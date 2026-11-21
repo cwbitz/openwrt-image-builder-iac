@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.0](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.5.0...v0.6.0) (2026-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* **inventory:** `host_iac_ssh_{pubkey,privkey}_file`, `host_admin_ssh_{pubkey,privkey}_file`, `host_root_ssh_{pubkey,privkey}_file` and `host_admin_username` are replaced by the `ssh_keys` map and `admin_username`; `create_admin_account` is renamed `create_admin_user`.
+
+### Features
+
+* **inventory:** group the SSH key paths under ssh_keys ([35c515f](https://github.com/cwbitz/openwrt-image-builder-iac/commit/35c515f059bccd4bd4d5e343736b484f5a686e2a))
+
 ## [0.5.0](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.4.2...v0.5.0) (2026-11-21)
 
 
