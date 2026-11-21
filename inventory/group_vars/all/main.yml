@@ -11,20 +11,20 @@ ssh_identities:
   iac:
     user: "iac"
     password: "{{ vault_host_iac_password | default('', true) }}"
-    privkey: "{{ host_iac_ssh_privkey_file | default('', true) }}"
-    pubkey: "{{ host_iac_ssh_pubkey_file | default('', true) }}"
+    privkey: "{{ ((ssh_keys | default({}, true)).iac | default({}, true)).privkey | default('', true) }}"
+    pubkey: "{{ ((ssh_keys | default({}, true)).iac | default({}, true)).pubkey | default('', true) }}"
     become: false
   admin:
-    user: "{{ host_admin_username | default('admin', true) }}"
+    user: "{{ admin_username | default('admin', true) }}"
     password: "{{ vault_host_admin_password | default('', true) }}"
-    privkey: "{{ host_admin_ssh_privkey_file | default('', true) }}"
-    pubkey: "{{ host_admin_ssh_pubkey_file | default('', true) }}"
+    privkey: "{{ ((ssh_keys | default({}, true)).admin | default({}, true)).privkey | default('', true) }}"
+    pubkey: "{{ ((ssh_keys | default({}, true)).admin | default({}, true)).pubkey | default('', true) }}"
     become: true
   root:
     user: "root"
     password: "{{ vault_host_root_password | default('', true) }}"
-    privkey: "{{ host_root_ssh_privkey_file | default('', true) }}"
-    pubkey: "{{ host_root_ssh_pubkey_file | default('', true) }}"
+    privkey: "{{ ((ssh_keys | default({}, true)).root | default({}, true)).privkey | default('', true) }}"
+    pubkey: "{{ ((ssh_keys | default({}, true)).root | default({}, true)).pubkey | default('', true) }}"
     become: false
 
 ssh_identity: "{{ ssh_identities['iac'] }}"

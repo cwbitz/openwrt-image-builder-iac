@@ -13,17 +13,21 @@
 # build/info connect as `iac`. Each identity takes its password from the machine vault
 # and/or a key path here (SSH prefers the key; empty = not used). A pubkey path
 # is authorized for that account during bootstrap. The optional human 'admin'
-# account exists only while create_admin_account is true: it always gets a
+# account exists only while create_admin_user is true: it always gets a
 # password (generated into the machine vault when empty) plus any configured key;
 # false manages no admin account (least privilege).
-create_admin_account: false
-host_admin_username: "admin"
-host_iac_ssh_pubkey_file: ""
-host_iac_ssh_privkey_file: ""
-host_admin_ssh_pubkey_file: ""
-host_admin_ssh_privkey_file: ""
-host_root_ssh_pubkey_file: ""
-host_root_ssh_privkey_file: ""
+create_admin_user: false
+admin_username: "admin"
+ssh_keys:
+  root:
+    pubkey: ""
+    privkey: ""
+  admin:
+    pubkey: ""
+    privkey: ""
+  iac:
+    pubkey: ""
+    privkey: ""
 
 # --- 'iac' automation account (created by `make deploy`) ----------------------
 # Fixed service uid/gid; project-wide automation accounts use 6000-6499.

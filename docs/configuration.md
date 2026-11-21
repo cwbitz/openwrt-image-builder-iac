@@ -13,7 +13,7 @@ own `host_vars`.
 |----------|---------|
 | `inventory/hosts.yml` | the `builders` group: one host per machine, each with its `ansible_host` |
 | `inventory/group_vars/all/main.yml` | committed project-owned baseline: `ssh_identities` + the connection-plugin interface, the `iac` account's uid/gid + docker group, the per-machine vault path |
-| `inventory/group_vars/builders/main.yml` | machine-wide operator overrides, local-only (e.g. `create_admin_account`) |
+| `inventory/group_vars/builders/main.yml` | machine-wide operator overrides, local-only (e.g. `create_admin_user`) |
 | `inventory/host_vars/<machine>/main.yml` | that machine's `build_variants` list |
 | `inventory/host_vars/<machine>/vault.yml` | that machine's connection secrets |
 | `inventory/knob_schema.yml` | committed validation expression per top-level operator knob |
@@ -297,7 +297,7 @@ root SSH, applied as a drop-in under `/etc/ssh/sshd_config.d/` — the running
 | `sshd_permit_root_login` | `"no"` | `no` disables root SSH; `prohibit-password` keeps root reachable by key |
 
 It only proceeds when a key-only login survives it: the `iac` account's
-public key (`host_iac_ssh_pubkey_file`) or, for a root-administered
+public key (`ssh_keys.iac.pubkey`) or, for a root-administered
 host, root's key with `sshd_permit_root_login: prohibit-password`. The role
 verifies the effective configuration (`sshd -T`), proves a key-only login from
 the control node and rolls the drop-in back if either check fails.
