@@ -141,7 +141,6 @@ def main(argv=None):
     if rc != 0:
         return refuse(f"encryption failed ({detail or 'no detail'})", keep=plain)
     os.unlink(plain)
-    print(f"Encryption successful! (Total keys: {len(blocks)})")
     return 0
 
 

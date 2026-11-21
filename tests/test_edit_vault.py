@@ -75,7 +75,6 @@ def test_saves_sorted_vault_and_keeps_mode(tmp_path, run_python, write_file):
     )
 
     assert result.returncode == 0, result.stderr
-    assert "Encryption successful! (Total keys: 3)" in result.stdout
     content = path.read_text()
     assert content.startswith(MARKER)
     assert content[len(MARKER):] == (
