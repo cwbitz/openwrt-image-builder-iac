@@ -47,5 +47,7 @@ administration:
 extra_firmware_name: "{{ (build_variant | default({})).extra_firmware_name | default('') }}"
 disabled_services: "{{ (build_variant | default({})).disabled_services | default('') }}"
 rootfs_partsize: "{{ (build_variant | default({})).rootfs_partsize | default('') }}"
-use_mirror: "{{ (build_variant | default({})).use_mirror | default(false) }}"
-mirror: "{{ (build_variant | default({})).mirror | default('https://mirrors.tuna.tsinghua.edu.cn/openwrt') }}"
+openwrt_mirror: >-
+  {{ ((build_variant | default({})).mirrors | default({}, true)).get('openwrt', '') | default('', true) }}
+use_mirror: "{{ openwrt_mirror | length > 0 }}"
+mirror: "{{ openwrt_mirror }}"

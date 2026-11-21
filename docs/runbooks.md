@@ -129,7 +129,7 @@ spinner, then prints the result. Builds, by contrast, stream live.
 The knob is off by default (official OpenWrt sources); see
 [configuration](configuration.md) for the exact semantics. `mirror` is a full
 base URL (default `https://mirrors.tuna.tsinghua.edu.cn/openwrt`). Enable it per
-variant with `use_mirror: true` in `build_variants[]` (`host_vars/<machine>/main.yml`)
+variant with `mirrors.openwrt` in `build_variants[]` (`host_vars/<machine>/main.yml`)
 before the build.
 
 A mirror that has not yet synced a new release can cause build failures: turn it
@@ -138,7 +138,7 @@ off and use the official source.
 ## 6. SNAPSHOT images
 
 SNAPSHOT images always use the official `downloads.openwrt.org` source: no
-mirror carries `snapshots/`, so `use_mirror` is ignored for them. Build SNAPSHOT
+mirror carries `snapshots/`, so `mirrors.openwrt` is ignored for them. Build SNAPSHOT
 variants without the mirror knob.
 
 ## 7. Secrets
@@ -214,7 +214,7 @@ host keeps its old login policy. The provider console remains the recovery path.
 | A module does not run | The block is missing or empty; list at least one of its fields (a flag module needs `true`) |
 | `statistics` packages | The module adds `luci-app-statistics` + `collectd-mod-sensors`/`collectd-mod-irq` itself; entries in `packages` are removed/deduped |
 | WAN is not configured | The image intentionally leaves WAN (DHCP/PPPoE) unset; configure it after first boot |
-| Build fails after enabling a mirror | Mirror sync lag; disable `use_mirror`. `mirror` is a full base URL ending at the mirror's OpenWrt path |
+| Build fails after enabling a mirror | Mirror sync lag; clear `mirrors.openwrt`. It is a full base URL ending at the mirror's OpenWrt path |
 | Build hangs at "Building package index..." (25.12+, APK) | The container `nofile` ulimit is unbounded and fakeroot's `faked` spins; the role pins `nofile:65536:65536`, keep it bounded |
 | Artifacts owned by root | The in-container `chown` needs `HOST_UID`/`HOST_GID` (from facts) |
 | Artifacts not in the control node's `artifacts/` | The fetch failed; the builder staging directory is only removed after a successful fetch, so re-run `make build` and check the fetch task |
@@ -252,7 +252,7 @@ reason to skip.
       reflected in the image (log in and check the declared package set).
 - [ ] `make info` returns the image/profile metadata without starting a build.
 - [ ] A mirror-enabled release build succeeds (`mirror` is a full base URL), a
-      SNAPSHOT build ignores `use_mirror`, and disabling the mirror falls back
+      SNAPSHOT build ignores `mirrors.openwrt`, and clearing `mirrors.openwrt` falls back
       cleanly.
 
 ### Secrets and security

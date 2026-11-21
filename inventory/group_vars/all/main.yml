@@ -3,6 +3,10 @@ ansible_core_min_version: "2.19.0"
 ansible_core_max_version: "2.20.0"
 ansible_core_allow_untested: false
 
+# Package-manager lock wait (seconds) for every Ansible apt task;
+# unattended-upgrades can hold the dpkg frontend lock for minutes.
+apt_lock_timeout: 900
+
 ssh_identities:
   iac:
     user: "iac"

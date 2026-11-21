@@ -53,7 +53,7 @@ falls back to the role default.
 | `extra_firmware_name` | Tag inserted into the output filename after the version; ImageBuilder adds the separators (keep it distinct per variant) |
 | `disabled_services` | Space-separated init.d service names to disable in the image |
 | `rootfs_partsize` | Root filesystem partition size in MB, 64–32768 (empty ⇒ target default) |
-| `use_mirror` / `mirror` | Use `mirror` for package repos and the setup tarball (release images) |
+| `mirrors.openwrt` | Use `mirror` for package repos and the setup tarball (release images) |
 
 `imagebuilder_image` tags follow `<target>-<subtarget>[-<version>]` or
 `<arch>[-<version>]` (see hub.docker.com/r/openwrt/imagebuilder/tags). The
@@ -260,19 +260,29 @@ administration:
 
 ## Mirrors
 
-One knob, off by default (official OpenWrt sources). `mirror` is a complete base
-URL — scheme, host and the mirror's OpenWrt path — e.g.
+One knob, off by default (official OpenWrt sources). `mirrors.openwrt` is a
+complete base URL — scheme, host and the mirror's OpenWrt path — e.g.
 `https://mirrors.tuna.tsinghua.edu.cn/openwrt`.
 
 | Knob | Effect |
 |------|--------|
-| `use_mirror: true` (+ `mirror`) | rewrites the package repositories to `mirror` and fetches the ImageBuilder tarball from it; the setup tarball falls back to the official source |
+| `mirrors.openwrt: <url>` | rewrites the package repositories to that URL and fetches the ImageBuilder tarball from it; the setup tarball falls back to the official source |
 
-`use_mirror` applies to release images only. SNAPSHOT images always use the
+`mirrors.openwrt` applies to release images only. SNAPSHOT images always use the
 official `downloads.openwrt.org` source: no mirror carries `snapshots/`, so
-`mirror` is ignored for them. A domestic mirror that has not synced a new
+`mirrors.openwrt` is ignored for them. A domestic mirror that has not synced a new
 release can make a release build fail; turn the mirror off and use the official
 source.
+
+The build **host** has two mirror knobs of its own, both empty by default:
+`mirrors.docker_registry` (Docker Hub pull-through) and `mirrors.apt`, the
+Debian suite root (e.g. `https://mirrors.tuna.tsinghua.edu.cn/debian`) used when
+the bootstrap installs host packages. With `mirrors.apt` set, every distro source
+definition on the host (`/etc/apt/sources.list` plus the Debian/Ubuntu-archive
+keyring `*.list`/`*.sources` entries in `/etc/apt/sources.list.d`, deb822
+included) is backed up once as `<file>.bak.bootstrap` and disabled, and the
+mirror is rendered to `/etc/apt/sources.list.d/openwrt-image-builder-mirror.list`.
+Third-party repositories keep their own definitions.
 
 ## Host security (SSH hardening)
 
