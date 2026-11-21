@@ -213,7 +213,11 @@ Two layers, and only one of them is executable:
 - The `Protect main` ruleset has no bypass actors. It requires a pull request and
   the status checks `lint` and `pr-title`, with a strict up-to-date branch.
 - PR titles are Conventional Commits, validated by
-  `.github/workflows/pr-title.yml`; the squash merge uses the PR title verbatim.
+  `.github/workflows/pr-title.yml`. The repository squashes with
+  `COMMIT_OR_PR_TITLE` and `COMMIT_MESSAGES`, so a single-commit pull request
+  lands **its commit message**, not the PR title: keep the branch's commit
+  subject identical to the PR title, or merge with an explicit `--subject`
+  (and `--body`) so an allowed type reaches `main` and release-please.
 - CI (`.github/workflows/ci.yml`) runs the `lint` job with
   `ANSIBLE_CONFIG=ci/ansible-ci.cfg` (placeholder inventory in
   `ci/inventory.yml`) plus a full-history `gitleaks` scan and `make test`.
