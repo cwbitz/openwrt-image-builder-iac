@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.6.1...v0.6.2) (2026-11-21)
+
+
+### Bug Fixes
+
+* **build:** pass the build wrapper its limit and tags as arguments ([2785c4c](https://github.com/cwbitz/openwrt-image-builder-iac/commit/2785c4cdd1d397ad3a302b567592fc81ea63bf38))
+
 ## [0.6.1](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.6.0...v0.6.1) (2026-11-21)
 
 
