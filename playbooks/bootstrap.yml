@@ -168,7 +168,7 @@
     - name: "Bootstrap | Resolve the service account settings"
       ansible.builtin.set_fact:
         bootstrap_service_user: "iac"
-        bootstrap_use_key: "{{ host_iac_ssh_pubkey_file | default('', true) | length > 0 }}"
+        bootstrap_use_key: "{{ ((ssh_keys | default({}, true)).iac | default({}, true)).pubkey | default('', true) | length > 0 }}"
 
     - name: "Bootstrap | Generate the service-account password (no key supplied)"
       ansible.builtin.include_role:
@@ -269,7 +269,7 @@
     - name: "Bootstrap | Resolve the admin identity settings"
       ansible.builtin.set_fact:
         bootstrap_admin: "{{ ssh_identities.admin }}"
-        bootstrap_admin_defined: "{{ create_admin_account | default(false) | bool }}"
+        bootstrap_admin_defined: "{{ create_admin_user | default(false) | bool }}"
       no_log: true
 
     - name: "Bootstrap | Check whether the admin account already exists"
@@ -296,13 +296,13 @@
         that:
           - (vault_host_admin_password | default('', true) | length) > 0
         fail_msg: |-
-          {{ inventory_hostname }}: create_admin_account is true and the
+          {{ inventory_hostname }}: create_admin_user is true and the
           '{{ bootstrap_admin.user }}' account already exists, but this project's
           vault carries no vault_host_admin_password. Generating one here would
           rotate the password away from the project that owns the account.
           Copy the same value into both vaults (make view in the owning
           project, then make edit here), or set
-          create_admin_account: false in this project.
+          create_admin_user: false in this project.
       when:
         - bootstrap_admin_defined | bool
         - bootstrap_admin.user != 'root'
@@ -409,7 +409,7 @@
           rewriting it here would lock that owner out.
           Fix: put the machine's current password (or the same value the owning
           project uses) into this project's vault and re-run, or set
-          create_admin_account: false in this project.
+          create_admin_user: false in this project.
       when:
         - bootstrap_admin_defined | bool
         - bootstrap_admin.user != 'root'

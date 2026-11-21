@@ -54,7 +54,7 @@ machine (or only `HOST=<machine>`) and uses the first identity that
 works on each; when that is not `iac`, it
 (re)creates the `iac` automation account (key-first, NOPASSWD sudo, the `docker`
 group when present) and the optional human `admin` account. It self-heals a
-rotated/deleted credential. With no `host_iac_ssh_pubkey_file`, an empty
+rotated/deleted credential. With no `ssh_keys.iac.pubkey`, an empty
 `vault_host_iac_password` is generated into the machine's vault under the same
 name. Passwords use a per-account random salt with `update_password: on_create`.
 See [architecture](architecture.md) for the full model.
@@ -183,7 +183,7 @@ rootfs after the module overlays. See [configuration](configuration.md#custom-ov
 `make build` (and therefore `make deploy`) also applies `roles/sshd` at the end
 when `sshd_hardening_enabled: true` is set in `group_vars/builders/main.yml`. It
 closes password login, so it needs a key-only login that survives it — the
-`iac` account's key (`host_iac_ssh_pubkey_file`) or root's key
+`iac` account's key (`ssh_keys.iac.pubkey`) or root's key
 with `sshd_permit_root_login: prohibit-password`. Run it alone with:
 
 ```bash
@@ -200,7 +200,7 @@ host keeps its old login policy. The provider console remains the recovery path.
 | Symptom | Cause / fix |
 |---------|-------------|
 | `make deploy`: "no working identity" | Configure the connection passwords in the machine's vault and/or the key paths in `group_vars/builders/main.yml`, or load a key into the SSH agent. If only `root` works, set the root password (or a root private key) |
-| `build`/`info` cannot connect as `iac` | Run `make deploy` once; the effective password is `vault_host_iac_password` (generated when empty), else set `host_iac_ssh_privkey_file`/pubkey |
+| `build`/`info` cannot connect as `iac` | Run `make deploy` once; the effective password is `vault_host_iac_password` (generated when empty), else set `ssh_keys.iac.privkey`/pubkey |
 | Need the auto-generated password | `make view` |
 | `build` fails: vault password file missing | Run `make prep` |
 | `make deploy` user tasks fail (sudo/become) | The probed identity needs sudo or root; the first run must reach the host as `root` or a sudo-capable `admin` |
@@ -218,7 +218,7 @@ host keeps its old login policy. The provider console remains the recovery path.
 | Build hangs at "Building package index..." (25.12+, APK) | The container `nofile` ulimit is unbounded and fakeroot's `faked` spins; the role pins `nofile:65536:65536`, keep it bounded |
 | Artifacts owned by root | The in-container `chown` needs `HOST_UID`/`HOST_GID` (from facts) |
 | Artifacts not in the control node's `artifacts/` | The fetch failed; the builder staging directory is only removed after a successful fetch, so re-run `make build` and check the fetch task |
-| `--tags sshd` fails at "Prove a key-only login" | The chosen identity has no authorized key yet: set `host_iac_ssh_pubkey_file` (or root's) and run `make deploy`, or unset `sshd_hardening_enabled` |
+| `--tags sshd` fails at "Prove a key-only login" | The chosen identity has no authorized key yet: set `ssh_keys.iac.pubkey` (or root's) and run `make deploy`, or unset `sshd_hardening_enabled` |
 | Cannot reach a builder over SSH | Fix its `ansible_host` in `hosts.yml`; the connection identity comes from the committed `group_vars/all/main.yml` |
 
 ## Manual verification on a disposable host

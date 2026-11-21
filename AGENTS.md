@@ -27,7 +27,7 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
   placeholder; re-running does not overwrite existing files.
 - `make deploy` — one-click: probe `iac → admin → root` on every selected machine,
   create/repair the `iac` automation account (key-first, NOPASSWD sudo,
-  `docker` group) plus the human `admin` account when `create_admin_account` is
+  `docker` group) plus the human `admin` account when `create_admin_user` is
   set, then build every variant. `HOST=<machine>` (or `HOST=a,b`) narrows the
   selection.
 - `make build` / `make info` — build every variant (machines in parallel) / query
@@ -114,7 +114,7 @@ Shared by the `*-iac` repos; keep this chain statically resolvable so
 - `inventory/host_vars/<machine>/vault.yml` — that machine's connection
   passwords (`vault_host_<id>_password`), operator-owned; a missing generated
   value (the `iac` password when no key is set, the `admin` password when
-  `create_admin_account`) is merged in place by `make deploy` under the
+  `create_admin_user`) is merged in place by `make deploy` under the
   same name. `make prep` scaffolds it from
   `inventory/host_vars/example/vault.yml.example` (mode 0600).
 - No per-machine firmware vault exists. No firmware secrets are baked into the

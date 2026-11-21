@@ -35,8 +35,8 @@
     fail_msg: >-
       SSH hardening closes password login, so it needs at least one key-only
       login that still works afterwards: the `iac` automation account public key
-      (host_iac_ssh_pubkey_file), or — for a root-administered host —
-      root's public key (host_root_ssh_pubkey_file) with
+      (ssh_keys.iac.pubkey), or — for a root-administered host —
+      root's public key (ssh_keys.root.pubkey) with
       sshd_permit_root_login=prohibit-password. Set one and run
       `make deploy` to authorize it, or set sshd_hardening_enabled=false
       to keep password login.
@@ -154,12 +154,12 @@
           from the control node failed (exit {{ sshd_probe.rc | default('?') }}:
           {{ sshd_probe.stderr | default('') | trim }}), so password
           authentication must not stay closed. Check that the probed account's
-          public-key path (host_iac_ssh_pubkey_file, or
-          host_root_ssh_pubkey_file when root is the chosen identity) points
+          public-key path (ssh_keys.iac.pubkey, or
+          ssh_keys.root.pubkey when root is the chosen identity) points
           at the key authorized for it, and that OpenSSH accepts the configured
           private key (under WSL a /mnt/c key needs the Keychain agent:
           `make agent-load`). The optional human `admin` account is unaffected on
-          the console, but for SSH it needs host_admin_ssh_pubkey_file set
+          the console, but for SSH it needs ssh_keys.admin.pubkey set
           as well.
   rescue:
     - name: "SSHD | Restore the previous drop-in"

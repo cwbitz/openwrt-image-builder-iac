@@ -7,7 +7,7 @@ Three committed templates are the scaffold the operators copy:
   variants (``build_variants``); each YAML key inside a variant is a knob the
   role reads as ``(variant | default({})).<key>``.
 * ``inventory/group_vars/builders/main.yml.example`` — the machine-wide overrides
-  (e.g. ``create_admin_account``).
+  (e.g. ``create_admin_user``).
 
 This audit (run by ``make lint`` / CI) keeps them complete:
 
@@ -35,7 +35,7 @@ VARIANT_ROOTS = ["roles/imagebuilder/defaults/main.yml", "roles/imagebuilder/var
 
 TOOLING = {"helper_vault_password_file", "helper_ansible_vault_bin"}
 INTERNAL = {"build_dir", "output_dir", "artifacts_dir", "artifact_id", "mirror", "use_mirror"}
-GROUP_KNOBS = {"create_admin_account", "sshd_hardening_enabled", "sshd_permit_root_login"}
+GROUP_KNOBS = {"create_admin_user", "admin_username", "ssh_keys", "sshd_hardening_enabled", "sshd_permit_root_login"}
 EXTRA = {"mirrors", "build_variants"}
 
 KEY_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):\s*(.*)$")

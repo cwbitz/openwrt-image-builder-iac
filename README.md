@@ -22,7 +22,7 @@ back to the control node.
 |-------|------|----------------|
 | Build host | **Docker** | runs the official `openwrt/imagebuilder` container |
 | Firmware image | **Ansible** (role `imagebuilder`) | module resolution, package passthrough, uci-defaults overlay, container orchestration |
-| Operator config | `host_vars/<machine>/main.yml` + `group_vars/builders/main.yml` | per-machine build variants; machine-wide operator overrides (e.g. `create_admin_account`) |
+| Operator config | `host_vars/<machine>/main.yml` + `group_vars/builders/main.yml` | per-machine build variants; machine-wide operator overrides (e.g. `create_admin_user`) |
 
 The control node (where `make` runs) and the build host (the machine running
 Docker) are separate LAN machines by default; building on the control node itself
