@@ -8,7 +8,7 @@
   gather_facts: false
   tags: [always]
   tasks:
-    - name: "[Preflight] Require at least one build machine"
+    - name: "Preflight | Require at least one build machine"
       ansible.builtin.assert:
         that:
           - groups['builders'] | default([]) | length > 0
@@ -17,7 +17,7 @@
           under builders.hosts in inventory/hosts.yml (see hosts.yml.example).
         quiet: true
 
-    - name: "[Preflight] Assert a supported ansible-core engine on the control node"
+    - name: "Preflight | Assert a supported ansible-core engine on the control node"
       ansible.builtin.assert:
         that:
           - ansible_version.full is version(ansible_core_min_version | default('2.19.0'), '>=')
@@ -43,15 +43,15 @@
   gather_facts: false
   become: false
   tasks:
-    - name: "[Probe] Try each identity over SSH"
+    - name: "Probe | Try each identity over SSH"
       block:
-        - name: "[Probe] Ensure the credential staging directory exists"
+        - name: "Probe | Ensure the credential staging directory exists"
           ansible.builtin.file:
             path: "{{ probe_credentials_dir }}"
             state: directory
             mode: "0700"
 
-        - name: "[Probe] Stage the identity credentials on the control node"
+        - name: "Probe | Stage the identity credentials on the control node"
           ansible.builtin.copy:
             content: |
               {% for id in ['iac', 'admin', 'root'] %}
@@ -63,7 +63,7 @@
             mode: "0600"
           no_log: true
 
-        - name: "[Probe] Try each identity over SSH"
+        - name: "Probe | Try each identity over SSH"
           ansible.builtin.shell: |
             set -u
             set -o pipefail
@@ -114,7 +114,7 @@
           no_log: true
           failed_when: false
 
-        - name: "[Probe] Fail if a machine has no working identity"
+        - name: "Probe | Fail if a machine has no working identity"
           ansible.builtin.assert:
             that:
               - probe.rc == 0
@@ -127,7 +127,7 @@
               (host_{iac,admin,root}_ssh_privkey_file) and the host.
             quiet: true
 
-        - name: "[Probe] Inject the chosen identity per machine"
+        - name: "Probe | Inject the chosen identity per machine"
           ansible.builtin.set_fact:
             probe_identity: "{{ probe.stdout | trim }}"
             bootstrap_conn:
@@ -140,7 +140,7 @@
               become: "{{ (probe.stdout | trim | lower) != 'root' }}"
           no_log: true
       always:
-        - name: "[Probe] Remove the staged identity credentials"
+        - name: "Probe | Remove the staged identity credentials"
           ansible.builtin.file:
             path: "{{ probe_credentials_dir }}/{{ inventory_hostname }}.env"
             state: absent
@@ -163,12 +163,12 @@
         name: docker
         state: restarted
   tasks:
-    - name: "[Bootstrap] Resolve the service account settings"
+    - name: "Bootstrap | Resolve the service account settings"
       ansible.builtin.set_fact:
         bootstrap_service_user: "iac"
         bootstrap_use_key: "{{ host_iac_ssh_pubkey_file | default('', true) | length > 0 }}"
 
-    - name: "[Bootstrap] Generate the service-account password (no key supplied)"
+    - name: "Bootstrap | Generate the service-account password (no key supplied)"
       ansible.builtin.include_role:
         name: helpers
         tasks_from: generate_shared_secrets
@@ -182,30 +182,30 @@
             length: 24
       when: not (bootstrap_use_key | bool)
 
-    - name: "[Bootstrap] Resolve the effective service-account password"
+    - name: "Bootstrap | Resolve the effective service-account password"
       ansible.builtin.set_fact:
         bootstrap_service_password: "{{ vault_host_iac_password | default('', true) }}"
       no_log: true
       when: not (bootstrap_use_key | bool)
 
-    - name: "[Bootstrap] Check whether the docker group exists"
+    - name: "Bootstrap | Check whether the docker group exists"
       ansible.builtin.command: "getent group docker"
       register: bootstrap_docker_group
       changed_when: false
       failed_when: false
 
-    - name: "[Bootstrap] Resolve the service account's supplementary groups"
+    - name: "Bootstrap | Resolve the service account's supplementary groups"
       ansible.builtin.set_fact:
         bootstrap_service_groups: >-
           {{ ['docker']
              if bootstrap_docker_group.rc == 0 else [] }}
 
-    - name: "[Bootstrap] Ensure the service account's group exists"
+    - name: "Bootstrap | Ensure the service account's group exists"
       ansible.builtin.group:
         name: "{{ bootstrap_service_user }}"
         gid: "{{ iac_gid | default(6000) }}"
 
-    - name: "[Bootstrap] Create/repair the service account"
+    - name: "Bootstrap | Create/repair the service account"
       ansible.builtin.user:
         name: "{{ bootstrap_service_user }}"
         uid: "{{ iac_uid | default(6000) }}"
@@ -222,21 +222,21 @@
       no_log: true
       when: hostvars[inventory_hostname].probe_identity | lower != 'iac'
 
-    - name: "[Bootstrap] Ensure the service account is in the docker group"
+    - name: "Bootstrap | Ensure the service account is in the docker group"
       ansible.builtin.user:
         name: "{{ bootstrap_service_user }}"
         groups: "{{ bootstrap_service_groups }}"
         append: true
       when: bootstrap_docker_group.rc == 0
 
-    - name: "[Bootstrap] Assert Docker is installed for registry mirrors"
+    - name: "Bootstrap | Assert Docker is installed for registry mirrors"
       ansible.builtin.command: docker --version
       register: bootstrap_docker_cli
       changed_when: false
       failed_when: false
       when: docker_registry_mirrors | default([]) | length > 0
 
-    - name: "[Bootstrap] Fail when registry mirrors are set without Docker"
+    - name: "Bootstrap | Fail when registry mirrors are set without Docker"
       ansible.builtin.assert:
         that:
           - bootstrap_docker_cli.rc | default(1) == 0
@@ -245,14 +245,14 @@
           {{ inventory_hostname }}; install Docker first.
       when: docker_registry_mirrors | default([]) | length > 0
 
-    - name: "[Bootstrap] Read the existing Docker daemon.json (if any)"
+    - name: "Bootstrap | Read the existing Docker daemon.json (if any)"
       ansible.builtin.slurp:
         src: /etc/docker/daemon.json
       register: bootstrap_daemon
       failed_when: false
       when: docker_registry_mirrors | default([]) | length > 0
 
-    - name: "[Bootstrap] Merge registry mirrors into daemon.json"
+    - name: "Bootstrap | Merge registry mirrors into daemon.json"
       ansible.builtin.copy:
         content: >-
           {{ (bootstrap_daemon.content | default('e30=') | b64decode | from_json)
@@ -264,13 +264,13 @@
       notify: Restart docker
       when: docker_registry_mirrors | default([]) | length > 0
 
-    - name: "[Bootstrap] Resolve the admin identity settings"
+    - name: "Bootstrap | Resolve the admin identity settings"
       ansible.builtin.set_fact:
         bootstrap_admin: "{{ ssh_identities.admin }}"
         bootstrap_admin_defined: "{{ create_admin_account | default(false) | bool }}"
       no_log: true
 
-    - name: "[Bootstrap] Check whether the admin account already exists"
+    - name: "Bootstrap | Check whether the admin account already exists"
       ansible.builtin.command:
         argv: [getent, passwd, "{{ bootstrap_admin.user }}"]
       register: bootstrap_admin_passwd
@@ -281,7 +281,7 @@
         - bootstrap_admin.user != 'root'
         - bootstrap_admin.user != bootstrap_service_user
 
-    - name: "[Bootstrap] Resolve whether the admin account already exists"
+    - name: "Bootstrap | Resolve whether the admin account already exists"
       ansible.builtin.set_fact:
         bootstrap_admin_present: "{{ (bootstrap_admin_passwd.rc | default(1)) == 0 }}"
       when:
@@ -289,7 +289,7 @@
         - bootstrap_admin.user != 'root'
         - bootstrap_admin.user != bootstrap_service_user
 
-    - name: "[Bootstrap] Refuse to generate a second admin password on a shared host"
+    - name: "Bootstrap | Refuse to generate a second admin password on a shared host"
       ansible.builtin.assert:
         that:
           - (vault_host_admin_password | default('', true) | length) > 0
@@ -307,7 +307,7 @@
         - bootstrap_admin.user != bootstrap_service_user
         - bootstrap_admin_present | bool
 
-    - name: "[Bootstrap] Provision the admin password (enabled, none supplied)"
+    - name: "Bootstrap | Provision the admin password (enabled, none supplied)"
       ansible.builtin.include_role:
         name: helpers
         tasks_from: generate_shared_secrets
@@ -321,7 +321,7 @@
             length: 24
       when: bootstrap_admin_defined | bool
 
-    - name: "[Bootstrap] Read the admin shadow entry"
+    - name: "Bootstrap | Read the admin shadow entry"
       ansible.builtin.getent:
         database: shadow
         key: "{{ bootstrap_admin.user }}"
@@ -333,7 +333,7 @@
         - bootstrap_admin.user != 'root'
         - bootstrap_admin.user != bootstrap_service_user
 
-    - name: "[Bootstrap] Resolve the admin shadow hash and salt"
+    - name: "Bootstrap | Resolve the admin shadow hash and salt"
       ansible.builtin.set_fact:
         bootstrap_admin_salt: >-
           {%- set shadow_hash = ((bootstrap_admin_shadow.ansible_facts | default({}))
@@ -355,7 +355,7 @@
         - bootstrap_admin.user != 'root'
         - bootstrap_admin.user != bootstrap_service_user
 
-    - name: "[Bootstrap] Resolve the admin password hash"
+    - name: "Bootstrap | Resolve the admin password hash"
       ansible.builtin.set_fact:
         bootstrap_admin_password_hash: >-
           {{ vault_host_admin_password
@@ -366,7 +366,7 @@
         - bootstrap_admin.user != 'root'
         - bootstrap_admin.user != bootstrap_service_user
 
-    - name: "[Bootstrap] Resolve the existing admin password hash"
+    - name: "Bootstrap | Resolve the existing admin password hash"
       ansible.builtin.set_fact:
         bootstrap_admin_existing_hash: >-
           {{ (((bootstrap_admin_shadow.ansible_facts | default({}))
@@ -379,7 +379,7 @@
         - bootstrap_admin.user != bootstrap_service_user
         - bootstrap_admin_present | bool
 
-    - name: "[Bootstrap] Compare the existing admin hash with this project's vault"
+    - name: "Bootstrap | Compare the existing admin hash with this project's vault"
       ansible.builtin.set_fact:
         bootstrap_admin_hash_matches: >-
           {{ (bootstrap_admin_existing_hash
@@ -393,7 +393,7 @@
         - bootstrap_admin.user != bootstrap_service_user
         - bootstrap_admin_present | bool
 
-    - name: "[Bootstrap] Refuse to rotate an admin password owned by another project"
+    - name: "Bootstrap | Refuse to rotate an admin password owned by another project"
       ansible.builtin.assert:
         that:
           - (bootstrap_admin_existing_hash | default('') | length) == 0
@@ -414,7 +414,7 @@
         - bootstrap_admin.user != bootstrap_service_user
         - bootstrap_admin_present | bool
 
-    - name: "[Bootstrap] Warn when the existing admin hash uses another algorithm"
+    - name: "Bootstrap | Warn when the existing admin hash uses another algorithm"
       ansible.builtin.debug:
         msg: >-
           {{ bootstrap_admin.user }}: the existing password hash is not sha512,
@@ -428,7 +428,7 @@
         - (bootstrap_admin_existing_hash | default('') | length) > 0
         - (bootstrap_admin_salt | default('') | length) == 0
 
-    - name: "[Bootstrap] Create/repair the admin account"
+    - name: "Bootstrap | Create/repair the admin account"
       ansible.builtin.user:
         name: "{{ bootstrap_admin.user }}"
         groups: "{{ bootstrap_service_groups }}"
@@ -444,7 +444,7 @@
         - bootstrap_admin.user != 'root'
         - bootstrap_admin.user != bootstrap_service_user
 
-    - name: "[Bootstrap] Resolve the explicitly supplied public keys"
+    - name: "Bootstrap | Resolve the explicitly supplied public keys"
       ansible.builtin.set_fact:
         bootstrap_pubkey_specs: >-
           {%- set ns = namespace(specs=[]) -%}
@@ -456,7 +456,7 @@
           {%- endfor -%}
           {{ ns.specs }}
 
-    - name: "[Bootstrap] Read the supplied public key files"
+    - name: "Bootstrap | Read the supplied public key files"
       ansible.builtin.slurp:
         src: "{{ pubkey_spec.path }}"
       register: bootstrap_pubkey_files
@@ -469,7 +469,7 @@
         loop_var: pubkey_spec
         label: "{{ pubkey_spec.id }}"
 
-    - name: "[Bootstrap] Check that each public-key account exists"
+    - name: "Bootstrap | Check that each public-key account exists"
       ansible.builtin.getent:
         database: passwd
         key: "{{ pubkey_spec.user }}"
@@ -480,7 +480,7 @@
         loop_var: pubkey_spec
         label: "{{ pubkey_spec.id }}"
 
-    - name: "[Bootstrap] Fail if a public key targets a missing account"
+    - name: "Bootstrap | Fail if a public key targets a missing account"
       ansible.builtin.assert:
         that:
           - bootstrap_pubkey_users.results | default([])
@@ -496,7 +496,7 @@
           account(s) first.
       when: bootstrap_pubkey_specs | length > 0
 
-    - name: "[Bootstrap] Ensure each account's .ssh directory exists"
+    - name: "Bootstrap | Ensure each account's .ssh directory exists"
       ansible.builtin.file:
         path: "{{ ('/root' if pubkey_file.pubkey_spec.user == 'root' else '/home/' ~ pubkey_file.pubkey_spec.user) }}/.ssh"
         state: directory
@@ -508,7 +508,7 @@
         loop_var: pubkey_file
         label: "{{ pubkey_file.pubkey_spec.id }}"
 
-    - name: "[Bootstrap] Authorize each supplied public key for its account"
+    - name: "Bootstrap | Authorize each supplied public key for its account"
       ansible.posix.authorized_key:
         user: "{{ pubkey_file.pubkey_spec.user }}"
         key: "{{ pubkey_file.content | b64decode | trim }}"
@@ -518,7 +518,7 @@
         loop_var: pubkey_file
         label: "{{ pubkey_file.pubkey_spec.id }}"
 
-    - name: "[Bootstrap] Resolve the sudo accounts"
+    - name: "Bootstrap | Resolve the sudo accounts"
       ansible.builtin.set_fact:
         bootstrap_sudo_nopasswd_users: "{{ [bootstrap_service_user | default('iac')] }}"
         bootstrap_sudo_password_users: >-
@@ -528,7 +528,7 @@
                  and bootstrap_admin.user | default('', true) != (bootstrap_service_user | default('iac')))
              else [] }}
 
-    - name: "[Bootstrap] Check whether sudo is installed"
+    - name: "Bootstrap | Check whether sudo is installed"
       ansible.builtin.command: sudo --version
       register: bootstrap_sudo_bin
       changed_when: false
@@ -538,7 +538,7 @@
         - (bootstrap_sudo_nopasswd_users | length
            + bootstrap_sudo_password_users | length) > 0
 
-    - name: "[Bootstrap] Ensure sudo is installed for the sudoers grants"
+    - name: "Bootstrap | Ensure sudo is installed for the sudoers grants"
       ansible.builtin.apt:
         name: sudo
         state: present
@@ -549,7 +549,7 @@
            + bootstrap_sudo_password_users | length) > 0
         - bootstrap_sudo_bin.rc | default(0) | int != 0
 
-    - name: "[Bootstrap] Grant the automation account passwordless sudo"
+    - name: "Bootstrap | Grant the automation account passwordless sudo"
       ansible.builtin.copy:
         content: "{{ item }} ALL=(ALL) NOPASSWD: ALL\n"
         dest: "/etc/sudoers.d/90-openwrt-builder-{{ item }}"
@@ -559,7 +559,7 @@
         validate: "visudo -cf %s"
       loop: "{{ bootstrap_sudo_nopasswd_users }}"
 
-    - name: "[Bootstrap] Grant the admin account password sudo"
+    - name: "Bootstrap | Grant the admin account password sudo"
       ansible.builtin.copy:
         content: "{{ item }} ALL=(ALL) ALL\n"
         dest: "/etc/sudoers.d/90-openwrt-builder-{{ item }}"
@@ -569,7 +569,7 @@
         validate: "visudo -cf %s"
       loop: "{{ bootstrap_sudo_password_users }}"
 
-    - name: "[Bootstrap] Report the outcome"
+    - name: "Bootstrap | Report the outcome"
       ansible.builtin.debug:
         msg: >-
           Probed as '{{ hostvars[inventory_hostname].probe_identity }}'. Service

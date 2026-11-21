@@ -1,5 +1,5 @@
 ---
-- name: "[ControlNode] Check openssl availability on the control node"
+- name: "ControlNode | Check openssl availability on the control node"
   tags: "{{ secrets_component | default('secrets') }}"
   ansible.builtin.command: openssl version
   register: control_node_openssl_check
@@ -11,7 +11,7 @@
     ansible_become: false
   run_once: true
 
-- name: "[ControlNode] Fail early if openssl is missing"
+- name: "ControlNode | Fail early if openssl is missing"
   tags: "{{ secrets_component | default('secrets') }}"
   ansible.builtin.assert:
     that:

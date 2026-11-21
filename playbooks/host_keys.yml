@@ -10,7 +10,7 @@
     host_keys_group: builders
     host_keys_hosts: ""
   tasks:
-    - name: "[HostKeys] Fail when a HOST entry is not a managed host"
+    - name: "HostKeys | Fail when a HOST entry is not a managed host"
       ansible.builtin.assert:
         that:
           - item in (groups[host_keys_group] | default([]))
@@ -20,7 +20,7 @@
       loop: "{{ (host_keys_hosts | replace(',', ' ')).split() }}"
       when: host_keys_hosts | length > 0
 
-    - name: "[HostKeys] Build the resolved target list"
+    - name: "HostKeys | Build the resolved target list"
       ansible.builtin.set_fact:
         host_keys_targets: >-
           {{ host_keys_targets | default([]) + [ {
@@ -32,7 +32,7 @@
            else (groups[host_keys_group] | default([])) }}
       changed_when: false
 
-    - name: "[HostKeys] Write the resolved SSH targets"
+    - name: "HostKeys | Write the resolved SSH targets"
       ansible.builtin.copy:
         content: "{{ host_keys_targets | default([]) | to_json }}"
         dest: "{{ host_keys_out }}"

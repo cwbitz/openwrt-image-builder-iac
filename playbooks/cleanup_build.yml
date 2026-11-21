@@ -11,7 +11,7 @@
          else 'label=openwrt-builder=true' }}
   tags: [always]
   tasks:
-    - name: "[Cleanup] List the build containers for this run"
+    - name: "Cleanup | List the build containers for this run"
       ansible.builtin.command:
         argv:
           - docker
@@ -23,7 +23,7 @@
       changed_when: false
       failed_when: false
 
-    - name: "[Cleanup] Remove the build containers and their anonymous volumes"
+    - name: "Cleanup | Remove the build containers and their anonymous volumes"
       ansible.builtin.command:
         argv: [docker, rm, -f, -v, "{{ item }}"]
       loop: "{{ build_containers.stdout_lines | default([]) }}"
@@ -31,7 +31,7 @@
         label: "{{ item }}"
       changed_when: true
 
-    - name: "[Cleanup] Remove the builder scratch of every variant"
+    - name: "Cleanup | Remove the builder scratch of every variant"
       become: true
       vars:
         ansible_become: true
