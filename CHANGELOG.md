@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.4.0...v0.4.1) (2026-11-21)
+
+
+### Features
+
+* **make:** add dry-run and print targets ([32ff454](https://github.com/cwbitz/openwrt-image-builder-iac/commit/32ff454c3cf2c4d1635a874c68447d676839cd86))
+
 ## [0.4.0](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.3.5...v0.4.0) (2026-11-20)
 
 
