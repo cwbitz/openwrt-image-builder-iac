@@ -95,17 +95,17 @@ help: ## Show this help
 
 install: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections ensure-passlib ## Install the pinned toolchain, collections, and control-node dependencies
 
-prep: vault-init ## Scaffold inventory + host_vars/<HOST> from the examples (comment-free); HOST=<machine> is required, IP default CHANGE_ME_HOST_IP, FORCE=1 replaces an existing entry
-	@$(HOST_SINGLE_GUARD); test -n "$(HOST)" || { echo "ERROR: HOST=<machine> is required, e.g. make prep HOST=builder-1 IP=192.0.2.10" >&2; exit 1; }
+prep: vault-init ## Scaffold a build machine: inventory entry and host_vars pair; HOST=<machine>, IP=<address>, FORCE=1 overwrites
+	@$(HOST_SINGLE_GUARD); test -n "$(EFFECTIVE_HOST)" || { echo "ERROR: HOST=<machine> is required ($(INV) does not hold exactly one machine), e.g. make prep HOST=builder-1 IP=192.0.2.10" >&2; exit 1; }
 	@[ -e $(INV) ] || { python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines $(INV).example $(INV); echo "created $(INV) (comments and blank lines stripped)"; }
 	@[ -e inventory/group_vars/builders/main.yml ] || { python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/group_vars/builders/main.yml.example inventory/group_vars/builders/main.yml; echo "created inventory/group_vars/builders/main.yml (comments and blank lines stripped)"; }
-	@install -d -m 0700 inventory/host_vars/$(HOST)
-	@[ -e inventory/host_vars/$(HOST)/main.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/host_vars/example/main.yml inventory/host_vars/$(HOST)/main.yml
-	@[ -e inventory/host_vars/$(HOST)/vault.yml ] || { \
-		python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/host_vars/example/vault.yml.example inventory/host_vars/$(HOST)/vault.yml; \
-		chmod 600 inventory/host_vars/$(HOST)/vault.yml; }
-	@python3 $(CURDIR)/scripts/ensure_inventory_host.py $(INV) "$(HOST)" --group builders --ansible-host "$(IP)" $(if $(FORCE),--force)
-	@echo "scaffolded inventory/host_vars/$(HOST)/ (machine registered under the builders group; edit build_variants[] in main.yml, then: make edit HOST=$(HOST))"
+	@install -d -m 0700 inventory/host_vars/$(EFFECTIVE_HOST)
+	@[ -e inventory/host_vars/$(EFFECTIVE_HOST)/main.yml ] || python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/host_vars/example/main.yml inventory/host_vars/$(EFFECTIVE_HOST)/main.yml
+	@[ -e inventory/host_vars/$(EFFECTIVE_HOST)/vault.yml ] || { \
+		python3 $(CURDIR)/scripts/render_clean_template.py --strip-blank-lines inventory/host_vars/example/vault.yml.example inventory/host_vars/$(EFFECTIVE_HOST)/vault.yml; \
+		chmod 600 inventory/host_vars/$(EFFECTIVE_HOST)/vault.yml; }
+	@python3 $(CURDIR)/scripts/ensure_inventory_host.py $(INV) "$(EFFECTIVE_HOST)" --group builders --ansible-host "$(IP)" $(if $(FORCE),--force)
+	@echo "scaffolded inventory/host_vars/$(EFFECTIVE_HOST)/ (machine registered under the builders group; edit build_variants[] in main.yml, then: make edit HOST=$(EFFECTIVE_HOST))"
 
 bootstrap-accounts: rebuild-reset hostkeys
 	@test -f $(INV) || { \

@@ -22,7 +22,8 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
   `group_vars/builders/main.yml` comment-free from the examples, plus
   `host_vars/<name>/` (with a `build_variants` list); add `<name>` under
   `builders.hosts` with `IP` as its `ansible_host`; encrypt the vault (dir
-  `0700`, file `0600`). HOST is required and `IP` falls back to a
+  `0700`, file `0600`). `HOST` is implied when the inventory holds exactly one
+  machine and required otherwise; `IP` falls back to a
   placeholder; re-running does not overwrite existing files.
 - `make deploy` — one-click: probe `iac → admin → root` on every selected machine,
   create/repair the `iac` automation account (key-first, NOPASSWD sudo,
@@ -39,8 +40,9 @@ the opt-in key-only SSH hardening lives in `roles/sshd/`.
 - `make edit HOST=<machine>` — edit that machine's connection vault; a
   plaintext vault is encrypted first, the top-level keys are re-sorted
   alphabetically after the editor closes, and a save is refused when the vault
-  changed while the editor was open (the edited text is kept for a merge). With a
-  `HOST` selects it; a single-machine inventory implies it.
+  changed while the editor was open (the edited text is kept for a merge). An
+  omitted `HOST` resolves to the single inventory machine; a multi-machine
+  inventory without `HOST` fails instead of guessing.
 - `make view [HOST=<machine>]` — read-only: print one machine's vault, or
   every machine's when `HOST` is omitted.
 - `make dry-run [HOST=<machine>] [TAGS=<tags>]` — validate the inventory, the
