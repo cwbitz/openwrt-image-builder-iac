@@ -5,6 +5,11 @@
 # role defaults. Machine-wide settings live in group_vars/builders/main.yml;
 # no firmware secrets are baked into the image.
 
+# --- Deployment scope ---------------------------------------------------------
+# Test-purpose host: `make deploy` without HOST skips it; an explicit
+# HOST=<name> still deploys it.
+is_test_host: false
+
 mirrors:
   apt: ""
   docker_registry: []

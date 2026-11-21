@@ -1,5 +1,6 @@
 ---
 operator_knob_schema:
+  is_test_host: "is_test_host is not defined or is_test_host is boolean"
   mirrors: >-
     mirrors is not defined
     or ((mirrors is mapping)
