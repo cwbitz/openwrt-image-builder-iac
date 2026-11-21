@@ -22,6 +22,9 @@ $(if $(word 2,$(HOST)),$(error HOST must be comma-separated literal host names (
 HOST_LIST = $(strip $(subst $(comma), ,$(HOST)))
 HOST_ARG   = $(if $(HOST),--limit '$(HOST):localhost',)
 HOST_SINGLE_GUARD = test "$$(printf '%s' '$(HOST_LIST)' | wc -w)" -le 1 || { echo "ERROR: this target needs exactly one HOST; got '$(HOST)'." >&2; exit 2; }
+DEPLOY_GROUP := builders
+DEPLOY_HOSTS  = $(if $(HOST),$(HOST),$(shell python3 $(CURDIR)/scripts/deploy_hosts.py $(INV) $(DEPLOY_GROUP) 2>/dev/null))
+DEPLOY_ARG    = $(if $(DEPLOY_HOSTS),--limit '$(DEPLOY_HOSTS):localhost',)
 TAGS_ARG   = $(if $(TAGS),--tags $(TAGS),)
 
 $(foreach v,HOST IP,$(if $(filter environment,$(origin $(v))),$(warning $(v) is inherited from the environment; pass $(v)=... explicitly if unintended)))
@@ -113,7 +116,8 @@ prep: vault-init ## Scaffold a build machine: inventory entry and host_vars pair
 bootstrap-accounts: rebuild-reset hostkeys ## Create or repair the iac automation account; HOST=<machine>, TAGS=<tags>, REBUILD=1 after a rebuild
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
-	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/bootstrap.yml
+	@hosts="$(DEPLOY_HOSTS)"; test -n "$$hosts" || { echo "ERROR: every machine is is_test_host: true; pass HOST=<machine> to target a test machine deliberately." >&2; exit 1; }; \
+	$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/bootstrap.yml HOST="$$hosts"
 
 vault-init:
 	@mkdir -p $(dir $(ANSIBLE_VAULT_PASSWORD_FILE))
@@ -206,7 +210,7 @@ hostkeys: vault-init
 	nh="$(HOME)/.ssh/known_hosts"; mkdir -p "$$(dirname "$$nh")"; tmp=$$(mktemp); targets=$$(mktemp); tsv=$$(mktemp); pub=$$(mktemp); failures=0; \
 	trap 'rm -f "$$tmp" "$$targets" "$$tsv" "$$pub"' EXIT; \
 	if [ -f "$$nh" ]; then cp "$$nh" "$$tmp"; else : > "$$tmp"; fi; \
-	$(ANS_PLAY) -i $(INV) playbooks/host_keys.yml -e host_keys_out="$$targets" -e host_keys_hosts='$(HOST)' >/dev/null; \
+	$(ANS_PLAY) -i $(INV) playbooks/host_keys.yml -e host_keys_out="$$targets" -e host_keys_hosts='$(DEPLOY_HOSTS)' >/dev/null; \
 	python3 -c 'import json,sys; [print("{}\t{}\t{}".format(t["name"],t["host"],t["port"])) for t in json.load(open(sys.argv[1]))]' "$$targets" > "$$tsv"; \
 	mv "$$tsv" "$$targets"; \
 	test -s "$$targets" || { echo "ERROR: no hosts resolved from the inventory."; exit 1; }; \
@@ -237,8 +241,9 @@ hostkeys: vault-init
 
 dry-run: validate-knobs agent-fallback ## Check the inventory, knobs and build-host reachability without building; HOST=<machine>
 	@test -f $(INV) || { echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
-	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/preflight_managed_hosts.yml
-	@$(SSH_AGENT_RUN) ansible -i $(INV) $(HOST_ARG) -m ansible.builtin.ping builders
+	@test -n "$(DEPLOY_HOSTS)" || { echo "ERROR: every machine is is_test_host: true; pass HOST=<machine> to target a test machine deliberately." >&2; exit 1; }
+	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/preflight_managed_hosts.yml HOST="$(DEPLOY_HOSTS)"
+	@$(SSH_AGENT_RUN) ansible -i $(INV) $(DEPLOY_ARG) -m ansible.builtin.ping builders
 
 print: vault-init ## Print one machine's resolved variables, including decrypted vault values; HOST=<machine>
 	@test -f $(INV) || { echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
@@ -271,9 +276,10 @@ info: ## Query ImageBuilder image and profile details without building; HOST=<ma
 build: validate-knobs ## Build the configured firmware variants; HOST=<machine>, TAGS=<tags>
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
-	@$(MAKE) --no-print-directory run-build-playbook
+	@hosts="$(DEPLOY_HOSTS)"; test -n "$$hosts" || { echo "ERROR: every machine is is_test_host: true; pass HOST=<machine> to target a test machine deliberately." >&2; exit 1; }; \
+	$(MAKE) --no-print-directory run-build-playbook HOST="$$hosts"
 
-deploy: bootstrap-accounts build ## Create the iac account, then build every variant; HOST=<machine>, TAGS=<tags>, REBUILD=1 after a rebuild
+deploy: bootstrap-accounts build ## Create the iac account, then build every variant; HOST=<machine>, TAGS=<tags>, REBUILD=1 after a rebuild; skips is_test_host: true machines unless HOST is given
 
 agent-needed: vault-init
 	@$(SSH_AGENT_PROBE)

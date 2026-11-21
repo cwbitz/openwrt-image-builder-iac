@@ -47,6 +47,9 @@ Configuration is split by scope (machine-wide vs per-machine); see
 gitignored; the committed `group_vars/all/main.yml` baseline and `*.example`
 templates are tracked.
 
+Machines marked `is_test_host: true` are skipped by `make deploy`/`dry-run`
+unless named explicitly with `HOST=<machine>`.
+
 ### Account bootstrap (`make deploy`)
 
 `make deploy` probes `iac → admin → root` on **every**
