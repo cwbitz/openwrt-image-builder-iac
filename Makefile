@@ -84,16 +84,18 @@ ANSIBLE_PYTHON ?= $(shell \
         run-build-playbook agent-needed agent-fallback agent-ensure agent-load \
         agent-check lint
 
+HELP_TARGETS := install prep edit view \
+                info deploy dry-run print \
+                help
+
 help: ## Show this help
 	@printf '\nUsage: make <target> [VAR=value ...]\n\n'
-	@awk 'BEGIN {FS = ":.*?## "} \
-		/^[a-zA-Z0-9_-]+:.*?## / { if ($$1 == "help") { hd = $$2; next } \
-			printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2 } \
-		END { printf "  \033[36m%-25s\033[0m %s\n", "help", hd }' \
+	@awk -v order="$(HELP_TARGETS)" 'BEGIN { FS = ":.*?## "; n=split(order, a, " "); for (i=1;i<=n;i++) rank[a[i]]=i } \
+		/^[a-zA-Z0-9_-]+:.*?## / { if ($$1 in rank) desc[$$1]=$$2 } \
+		END { for (i=1;i<=n;i++) { t=a[i]; if (t in desc) printf "  \033[36m%-25s\033[0m %s\n", t, desc[t] } }' \
 		$(MAKEFILE_LIST)
 	@printf '\n'
-
-install: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections ensure-passlib ## Install the pinned toolchain, collections, and control-node dependencies
+install: ensure-toolchain ensure-sshpass ensure-keychain ensure-ansible-collections ensure-passlib ## Install the pinned toolchain, Ansible collections and control-node dependencies
 
 prep: vault-init ## Scaffold a build machine: inventory entry and host_vars pair; HOST=<machine>, IP=<address>, FORCE=1 overwrites
 	@$(HOST_SINGLE_GUARD); test -n "$(EFFECTIVE_HOST)" || { echo "ERROR: HOST=<machine> is required ($(INV) does not hold exactly one machine), e.g. make prep HOST=builder-1 IP=192.0.2.10" >&2; exit 1; }
@@ -107,7 +109,7 @@ prep: vault-init ## Scaffold a build machine: inventory entry and host_vars pair
 	@python3 $(CURDIR)/scripts/ensure_inventory_host.py $(INV) "$(EFFECTIVE_HOST)" --group builders --ansible-host "$(IP)" $(if $(FORCE),--force)
 	@echo "scaffolded inventory/host_vars/$(EFFECTIVE_HOST)/ (machine registered under the builders group; edit build_variants[] in main.yml, then: make edit HOST=$(EFFECTIVE_HOST))"
 
-bootstrap-accounts: rebuild-reset hostkeys
+bootstrap-accounts: rebuild-reset hostkeys ## Create or repair the iac automation account; HOST=<machine>, TAGS=<tags>, REBUILD=1 after a rebuild
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@$(MAKE) --no-print-directory run-playbook PLAYBOOK=playbooks/bootstrap.yml
@@ -129,7 +131,7 @@ vault-init:
 			|| { printf '%s\n' "$(VAULT_PASSWORD_HINT)" >&2; exit 1; }; \
 	fi
 
-edit: vault-init ## Edit one machine's connection vault (keys re-sorted alphabetically; refuses a save when the vault changed during the edit; HOST=<machine>)
+edit: vault-init ## Edit a machine's connection vault, keys sorted; HOST=<machine>
 	@$(HOST_SINGLE_GUARD); set -e; \
 	p="$(VAULT_PATH)"; \
 	if [ -z "$$p" ]; then \
@@ -149,7 +151,7 @@ edit: vault-init ## Edit one machine's connection vault (keys re-sorted alphabet
 	fi; \
 	python3 $(CURDIR)/scripts/edit_vault.py "$$p"
 
-view: vault-init ## View machine connection vaults (read-only; HOST=<machine>; no HOST = every machine)
+view: vault-init ## Print one machine's connection vault, or every vault without HOST
 	@set -e; \
 	files="$(VAULT_PATH)"; \
 	if [ -z "$$files" ]; then \
@@ -198,7 +200,7 @@ rebuild-reset:
 	fi
 
 .PHONY: hostkeys
-hostkeys: vault-init
+hostkeys: vault-init ## Refresh the machines' SSH host keys in known_hosts; FORCE=1 accepts a changed key
 	@set -e; \
 	nh="$(HOME)/.ssh/known_hosts"; mkdir -p "$$(dirname "$$nh")"; tmp=$$(mktemp); targets=$$(mktemp); tsv=$$(mktemp); pub=$$(mktemp); failures=0; \
 	trap 'rm -f "$$tmp" "$$targets" "$$tsv" "$$pub"' EXIT; \
@@ -245,7 +247,7 @@ print: vault-init ## Print one machine's resolved variables, including decrypted
 	echo "Resolved machine: $$machine"; \
 	ansible-inventory -i $(INV) --host "$$machine" --yaml
 
-info: ## Query ImageBuilder image/profile info (no build; HOST=<name>, TAGS=<tags>)
+info: ## Query ImageBuilder image and profile details without building; HOST=<machine>, TAGS=<tags>
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@log=$$(mktemp); spin=""; \
@@ -265,12 +267,12 @@ info: ## Query ImageBuilder image/profile info (no build; HOST=<name>, TAGS=<tag
 	cat "$$log"; \
 	exit $$rc
 
-build: validate-knobs ## Build a customized OpenWrt firmware image (HOST=<name>, TAGS=<tags>)
+build: validate-knobs ## Build the configured firmware variants; HOST=<machine>, TAGS=<tags>
 	@test -f $(INV) || { \
 		echo "ERROR: $(INV) not found — copy $(INV).example and fill it in."; exit 1; }
 	@$(MAKE) --no-print-directory run-build-playbook
 
-deploy: bootstrap-accounts build ## One-click: bootstrap the build host, then build every variant (HOST=<name>, TAGS=<tags>; REBUILD=1 after a host rebuild)
+deploy: bootstrap-accounts build ## Create the iac account, then build every variant; HOST=<machine>, TAGS=<tags>, REBUILD=1 after a rebuild
 
 agent-needed: vault-init
 	@$(SSH_AGENT_PROBE)
