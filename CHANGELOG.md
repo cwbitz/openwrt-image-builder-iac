@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.4.2...v0.5.0) (2026-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* **mirrors:** `use_mirror`/`mirror` in `build_variants[]` and `docker_registry_mirrors` in `host_vars/<machine>/main.yml` are replaced by `mirrors.openwrt` and `mirrors.docker_registry`; existing inventories must move their values into the new mapping.
+
+### Features
+
+* **mirrors:** group the mirror knobs under a mirrors mapping ([40b7985](https://github.com/cwbitz/openwrt-image-builder-iac/commit/40b7985704ae4986a8d38d0f59c3767f92bd2f75))
+
 ## [0.4.2](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.4.1...v0.4.2) (2026-11-21)
 
 
