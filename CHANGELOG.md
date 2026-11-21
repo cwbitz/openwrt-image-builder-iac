@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.6.0...v0.6.1) (2026-11-21)
+
+
+### Features
+
+* **deploy:** skip is_test_host machines unless HOST is given ([d6873e7](https://github.com/cwbitz/openwrt-image-builder-iac/commit/d6873e74d2ddbcb2d806429e6d9e08bbdb91f5d9))
+
 ## [0.6.0](https://github.com/cwbitz/openwrt-image-builder-iac/compare/v0.5.0...v0.6.0) (2026-11-21)
 
 
